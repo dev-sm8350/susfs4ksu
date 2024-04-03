@@ -63,34 +63,34 @@ struct st_susfs_suspicious_kstat {
     char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
     unsigned int           hide_in_maps;
     unsigned long          spoofed_ino;
-    dev_t		           spoofed_dev;
-	dev_t		           spoofed_rdev;
-    mode_t		           spoofed_mode;
-    unsigned int	       spoofed_st_nlink;
-    unsigned int	       spoofed_st_uid;
-    unsigned int	       spoofed_st_gid;
-    long	               spoofed_atime_tv_sec;
-    long	               spoofed_mtime_tv_sec;
-    long	               spoofed_ctime_tv_sec;
+    dev_t                  spoofed_dev;
+    dev_t                  spoofed_rdev;
+    mode_t                 spoofed_mode;
+    unsigned int           spoofed_st_nlink;
+    unsigned int           spoofed_st_uid;
+    unsigned int           spoofed_st_gid;
+    long                   spoofed_atime_tv_sec;
+    long                   spoofed_mtime_tv_sec;
+    long                   spoofed_ctime_tv_sec;
 #ifdef TIME_HAVE_NANOSEC
-    long		           spoofed_atime_tv_nsec;
-    long		           spoofed_mtime_tv_nsec;
-    long		           spoofed_ctime_tv_nsec;
+    long                   spoofed_atime_tv_nsec;
+    long                   spoofed_mtime_tv_nsec;
+    long                   spoofed_ctime_tv_nsec;
 #endif
 };
 
 struct st_susfs_try_umount {
     char                   name[SUSFS_MAX_LEN_PATHNAME];
-    //bool                   check_mnt;
-    //int                    flags;
+    //bool                 check_mnt;
+    //int                  flags;
 };
 
 struct st_susfs_uname {
-    char        sysname[__NEW_UTS_LEN+1];
-    char        nodename[__NEW_UTS_LEN+1];
-    char        release[__NEW_UTS_LEN+1];
-    char        version[__NEW_UTS_LEN+1];
-    char        machine[__NEW_UTS_LEN+1];
+    char                   sysname[__NEW_UTS_LEN+1];
+    char                   nodename[__NEW_UTS_LEN+1];
+    char                   release[__NEW_UTS_LEN+1];
+    char                   version[__NEW_UTS_LEN+1];
+    char                   machine[__NEW_UTS_LEN+1];
 };
 
 /**********************
@@ -160,23 +160,31 @@ int create_file(const char* filename) {
 }
 
 static void print_help(void) {
-    log("[!] usage: ususfs <CMD> [CMD options]\n");
-    log("[!]    <CMD>:\n");
-    log("[!]        add_suspicious_path </path/of/file_or_directory>\n");
-    log("[!]        add_mount_type <mount_type_name>\n");
-    log("[!]        add_mount_path </path/of/file_or_directory>\n");
-    log("[!]        add_suspicious_kstat </path/of/file_or_directory> <hide_in_maps_or_not>\n");
-    log("[!]        update_suspicious_kstat </path/of/file_or_directory>\n");
-    log("[!]        add_try_umount </path/of/file_or_directory>\n");
-    log("[!]        add_uname <sysname> <nodename> <release> <version> <machine>\n");
+    log(" usage: %s <CMD> [CMD options]\n", TAG);
+    log("    <CMD>:\n");
+    log("        add_suspicious_path </path/of/file_or_directory>\n");
+    log("         |--> Added path will be hidden from different syscalls\n");
+    log("        add_mount_type <mount_type_name>\n");
+    log("         |--> Added mount type will be hidden from /proc/self/[mounts|mountinfo|mountstats]\n");
+    log("        add_mount_path </path/of/file_or_directory>\n");
+    log("         |--> Added mounted path will be hidden from /proc/self/[mounts|mountinfo|mountstats]\n");
+    log("        add_suspicious_kstat </path/of/file_or_directory> <hide_in_maps_or_not>\n");
+    log("         |--> Add the desired path of which stat info will be spoofed after bind mounted or overlayed\n");
+    log("         |--> Matched ino can also be hidden in /proc/self/[maps|smaps] by setting <hide_in_maps_or_not> to 1.\n");
+    log("         |--> This command must be completed with <update_suspicious_kstat> later after the added path is bind mounted or overlayed\n");
+    log("        update_suspicious_kstat </path/of/file_or_directory>\n");
+    log("         |--> Add the desired path you have added before via <add_suspicious_kstat> to complete the whole spoofing process\n");
+    log("        add_try_umount </path/of/file_or_directory>\n");
+    log("         |--> Added path will be umount from kernel for all UIDs that are NOT su allowed, and profile template configured with umount\n");
+    log("        add_uname <sysname> <nodename> <release> <version> <machine>\n");
+    log("         |--> Spoof uname for all processes, set string to 'default' imply the function to use original string\n");
+    log("         |--> e.g., add_uname 'default' 'default' '4.9.337-g3291538446b7' 'default' 'default' \n");
     log("\n");
-    log("       [CMD options]:");
-    log("[!]        mount_type_name: [overlay|you_name_it_as_I_dont_know]\n");
-    log("[!]        hide_in_maps_or_not: [0|1]\n");
-    log("[!]                              0 -> no hide, spoof ino and dev only\n");
-    log("[!]                              1 -> hide the whole entry\n");
-    log("[!]        add_uname: use 'default' to indicate that the string will not be spoofed\n");
-    log("[!]                   e.g., 'default' 'default' '4.9.337-g3291538446b7' 'default' 'default' \n");
+    log("    [CMD options]:\n");
+    log("        mount_type_name: [overlay|you_name_it_as_I_dont_know]\n");
+    log("        hide_in_maps_or_not: [0|1]\n");
+    log("                              0 -> no hide, spoof the ino and dev only\n");
+    log("                              1 -> hide the whole entry in maps\n");
 }
 
 /*******************
