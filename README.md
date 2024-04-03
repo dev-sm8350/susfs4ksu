@@ -26,6 +26,8 @@ The susfs kernel patches may differ for different kernel version. You may need t
 2. Edit `./ksu_module_susfs/post-fs-data.sh` to add your own path for hiding.
 3. Run `./build_ksu_module.sh` to build the KernelSU module.
 
+## Usage of ksu_susfs ##
+![ksu_susfs_usage](https://gitlab.com/simonpunk/susfs4ksu/-/blob/master/ksu_susfs_usage.png)
 
 ## Credits ##
 - KernelSU: https://github.com/tiann/KernelSU
