@@ -1,0 +1,191 @@
+diff --git a/kernel/Kconfig b/kernel/Kconfig
+index 67f177f..100510b 100644
+--- a/kernel/Kconfig
++++ b/kernel/Kconfig
+@@ -16,4 +16,10 @@ config KSU_DEBUG
+ 	help
+ 	  Enable KernelSU debug mode.
+ 
++config KSU_SUSFS
++    bool "KernelSU addon - SUSFS"
++    depends on KSU
++    default y
++    help
++      Patch SUSFS to kernel and KernelSU
+ endmenu
+diff --git a/kernel/Makefile b/kernel/Makefile
+index a45f6f5..bf24d83 100644
+--- a/kernel/Makefile
++++ b/kernel/Makefile
+@@ -22,7 +22,7 @@ ifeq ($(shell test -e $(srctree)/$(src)/../.git; echo $$?),0)
+ $(shell cd $(srctree)/$(src); /usr/bin/env PATH="$$PATH":/usr/bin:/usr/local/bin [ -f ../.git/shallow ] && git fetch --unshallow)
+ KSU_GIT_VERSION := $(shell cd $(srctree)/$(src); /usr/bin/env PATH="$$PATH":/usr/bin:/usr/local/bin git rev-list --count HEAD)
+ # ksu_version: major * 10000 + git version + 200 for historical reasons
+-$(eval KSU_VERSION=$(shell expr 10000 + $(KSU_GIT_VERSION) + 200))
++$(eval KSU_VERSION=$(shell expr 10000 + 1482 + 200))
+ $(info -- KernelSU version: $(KSU_VERSION))
+ ccflags-y += -DKSU_VERSION=$(KSU_VERSION)
+ else # If there is no .git file, the default version will be passed.
+@@ -67,4 +67,5 @@ endif
+ ccflags-y += -Wno-implicit-function-declaration -Wno-strict-prototypes -Wno-int-conversion -Wno-gcc-compat
+ ccflags-y += -Wno-declaration-after-statement -Wno-unused-function
+ 
++ccflags-y += -DKSU_SUSFS
+ # Keep a new line here!! Because someone may append config
+diff --git a/kernel/core_hook.c b/kernel/core_hook.c
+index 5bbac8d..2b121aa 100644
+--- a/kernel/core_hook.c
++++ b/kernel/core_hook.c
+@@ -40,6 +40,10 @@
+ #include "uid_observer.h"
+ #include "kernel_compat.h"
+ 
++#ifdef CONFIG_KSU_SUSFS
++#include "linux/susfs.h"
++#endif
++
+ static bool ksu_module_mounted = false;
+ 
+ extern int handle_sepolicy(unsigned long arg3, void __user *arg4);
+@@ -441,6 +445,105 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+ 		return 0;
+ 	}
+ 
++#ifdef CONFIG_KSU_SUSFS
++    if (current_uid().val == 0) {
++        int error = 0;
++		if (arg2 == CMD_SUSFS_ADD_SUSPICIOUS_PATH) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_path))) {
++				pr_err("susfs: CMD_SUSFS_ADD_SUSPICIOUS_PATH -> arg3 is not accessible\n");
++                return 0;
++			}
++			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_ADD_SUSPICIOUS_PATH -> arg5 is not accessible\n");
++                return 0;
++			}
++			error = susfs_add_suspicious_path((struct st_susfs_suspicious_path __user*)arg3);
++            pr_info("susfs: CMD_SUSFS_ADD_SUSPICIOUS_PATH -> ret: %d\n", error);
++            copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
++		} else if (arg2 == CMD_SUSFS_ADD_MOUNT_TYPE) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_mount_type))) {
++				pr_err("susfs: CMD_SUSFS_ADD_MOUNT_TYPE -> arg3 is not accessible\n");
++                return 0;
++			}
++			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_ADD_MOUNT_TYPE -> arg5 is not accessible\n");
++                return 0;
++			}
++			error = susfs_add_mount_type((struct st_susfs_suspicious_mount_type __user*)arg3);
++            pr_info("susfs: CMD_SUSFS_ADD_MOUNT_TYPE -> ret: %d\n", error);
++            copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
++		} else if (arg2 == CMD_SUSFS_ADD_MOUNT_PATH) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_mount_path))) {
++				pr_err("susfs: CMD_SUSFS_ADD_MOUNT_PATH -> arg3 is not accessible\n");
++                return 0;
++			}
++			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_ADD_MOUNT_PATH -> arg5 is not accessible\n");
++                return 0;
++			}
++			error = susfs_add_mount_path((struct st_susfs_suspicious_mount_path __user*)arg3);
++            pr_info("susfs: CMD_SUSFS_ADD_MOUNT_PATH -> ret: %d\n", error);
++            copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
++		} else if (arg2 == CMD_SUSFS_ADD_SUSPICIOUS_KSTAT) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_kstat))) {
++				pr_err("susfs: CMD_SUSFS_ADD_SUSPICIOUS_KSTAT -> arg3 is not accessible\n");
++                return 0;
++			}
++			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_ADD_SUSPICIOUS_KSTAT -> arg5 is not accessible\n");
++                return 0;
++			}
++			error = susfs_add_suspicious_kstat((struct st_susfs_suspicious_kstat __user*)arg3);
++            pr_info("susfs: CMD_SUSFS_ADD_SUSPICIOUS_KSTAT -> ret: %d\n", error);
++            copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
++		} else if (arg2 == CMD_SUSFS_UPDATE_SUSPICIOUS_KSTAT) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_kstat))) {
++				pr_err("susfs: CMD_SUSFS_UPDATE_SUSPICIOUS_KSTAT -> arg3 is not accessible\n");
++                return 0;
++			}
++			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_UPDATE_SUSPICIOUS_KSTAT -> arg5 is not accessible\n");
++                return 0;
++			}
++			error = susfs_update_suspicious_kstat((struct st_susfs_suspicious_kstat __user*)arg3);
++            pr_info("susfs: CMD_SUSFS_UPDATE_SUSPICIOUS_KSTAT -> ret: %d\n", error);
++            copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
++		} else if (arg2 == CMD_SUSFS_ADD_TRY_UMOUNT) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_try_umount))) {
++				pr_err("susfs: CMD_SUSFS_ADD_TRY_UMOUNT -> arg3 is not accessible\n");
++                return 0;
++			}
++			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_ADD_TRY_UMOUNT -> arg5 is not accessible\n");
++                return 0;
++			}
++			error = susfs_add_try_umount((struct st_susfs_try_umount __user*)arg3);
++            pr_info("susfs: CMD_SUSFS_ADD_TRY_UMOUNT -> ret: %d\n", error);
++            copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
++		} else if (arg2 == CMD_SUSFS_ADD_UNAME) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_uname))) {
++				pr_err("susfs: CMD_SUSFS_ADD_UNAME -> arg3 is not accessible\n");
++                return 0;
++			}
++			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_ADD_UNAME -> arg5 is not accessible\n");
++                return 0;
++			}
++			error = susfs_add_uname((struct st_susfs_uname __user*)arg3);
++            pr_info("susfs: CMD_SUSFS_ADD_UNAME -> ret: %d\n", error);
++            copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
++		}
++        return 0;
++	}
++#endif
++
+ 	// all other cmds are for 'root manager'
+ 	if (!is_manager()) {
+ 		last_failed_uid = current_uid().val;
+@@ -610,6 +713,9 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+ 	try_umount("/debug_ramdisk", false, MNT_DETACH);
+ 	try_umount("/sbin", false, MNT_DETACH);
+ 
++#ifdef CONFIG_KSU_SUSFS
++	susfs_try_umount();
++#endif
+ 	return 0;
+ }
+ 
+diff --git a/kernel/ksu.c b/kernel/ksu.c
+index 6389f24..5cfb82e 100644
+--- a/kernel/ksu.c
++++ b/kernel/ksu.c
+@@ -11,6 +11,10 @@
+ #include "ksu.h"
+ #include "uid_observer.h"
+ 
++#ifdef CONFIG_KSU_SUSFS
++#include "linux/susfs.h"
++#endif
++
+ static struct workqueue_struct *ksu_workqueue;
+ 
+ bool ksu_queue_work(struct work_struct *work)
+@@ -47,6 +51,10 @@ int __init kernelsu_init(void)
+ 	pr_alert("*************************************************************");
+ #endif
+ 
++#ifdef CONFIG_KSU_SUSFS
++    susfs_init();
++#endif
++
+ 	ksu_core_init();
+ 
+ 	ksu_workqueue = alloc_ordered_workqueue("kernelsu_work_queue", 0);
