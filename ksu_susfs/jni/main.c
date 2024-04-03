@@ -139,7 +139,7 @@ void copy_stat_to_suspicious_kstat(struct stat* sb, struct st_susfs_suspicious_k
     info->spoofed_atime_tv_sec = sb->st_atime;
     info->spoofed_mtime_tv_sec = sb->st_mtime;
     info->spoofed_ctime_tv_sec = sb->st_ctime;
-#ifdef _STRUCT_TIMESPEC
+#ifdef TIME_HAVE_NANOSEC
     info->spoofed_atime_tv_nsec = sb->st_atime_nsec;
     info->spoofed_mtime_tv_nsec = sb->st_mtime_nsec;
     info->spoofed_ctime_tv_nsec = sb->st_ctime_nsec;
