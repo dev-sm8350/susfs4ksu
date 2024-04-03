@@ -26,6 +26,7 @@ The susfs kernel patches may differ for different kernel version. You may need t
 2. Edit `./ksu_module_susfs/post-fs-data.sh` to add your own path for hiding.
 3. Run `./build_ksu_module.sh` to build the KernelSU module.
 
+
 ## Credits ##
 - KernelSU: https://github.com/tiann/KernelSU
 - Kartatz: for ideas and original commit from https://github.com/Dominium-Apum/kernel_xiaomi_chime/pull/1/commits/74f8d4ecacd343432bb8137b7e7fbe3fd9fef189
