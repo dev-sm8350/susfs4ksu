@@ -430,16 +430,11 @@ int susfs_suspicious_kstat_or_hide_in_maps(unsigned long target_ino, unsigned lo
 }
 
 
-static void umount_mnt(struct path *path, int flags)
-{
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 9, 0) || defined(KSU_UMOUNT)
+static void umount_mnt(struct path *path, int flags) {
 	int err = path_umount(path, flags);
 	if (err) {
-		pr_info("umount %s failed: %d\n", path->dentry->d_iname, err);
+		pr_info("susfs: umount %s failed: %d\n", path->dentry->d_iname, err);
 	}
-#else
-	// TODO: umount for non GKI kernel
-#endif
 }
 
 static bool should_umount(struct path *path)
@@ -449,7 +444,7 @@ static bool should_umount(struct path *path)
 	}
 
 	if (current->nsproxy->mnt_ns == init_nsproxy.mnt_ns) {
-		pr_info("ignore global mnt namespace process: %d\n",
+		pr_info("susfs: ignore global mnt namespace process: %d\n",
 			current_uid().val);
 		return false;
 	}
@@ -484,10 +479,9 @@ static void try_umount(const char *mnt, bool check_mnt, int flags) {
 
 void susfs_try_umount(void) {
     struct st_susfs_try_umount_list *cursor, *temp;
-	
-	if (!uid_matches_try_umount()) return;
 
 	list_for_each_entry_safe(cursor, temp, &LH_TRY_UMOUNT_PATH, list) {
+		pr_info("susfs: umounting '%s' for uid: %d\n", cursor->info.name, current_uid().val);
         try_umount(cursor->info.name, false, MNT_DETACH);
     }
 }

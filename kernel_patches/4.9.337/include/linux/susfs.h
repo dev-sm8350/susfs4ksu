@@ -40,8 +40,6 @@
 #define uid_matches_suspicious_path() (current_uid().val >= 10000)
 #define uid_matches_suspicious_mount() (current_uid().val >= 10000)
 #define uid_matches_suspicious_kstat() (current_uid().val >= 10000)
-#define uid_matches_try_umount() (current_uid().val >= 10000)
-//#define uid_matches_try_umount() (current_uid().val >= 10000)
 
 struct st_susfs_suspicious_path {
     char                   name[SUSFS_MAX_LEN_PATHNAME];
