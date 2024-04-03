@@ -22,6 +22,6 @@ chmod 644 ${MODPATH}/uninstall.sh
 
 
 rm -rf ${MODPATH}/tools
-rm ${MODPATH}/customize.sh ${MODPATH}/build.sh
+rm ${MODPATH}/customize.sh ${MODPATH}/build.sh ${MODPATH}/README.md
 
 
