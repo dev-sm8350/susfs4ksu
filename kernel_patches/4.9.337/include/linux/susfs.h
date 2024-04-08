@@ -12,6 +12,7 @@
 #define CMD_SUSFS_UPDATE_SUSPICIOUS_KSTAT 0x55559
 #define CMD_SUSFS_ADD_TRY_UMOUNT 0x5555a
 #define CMD_SUSFS_ADD_UNAME 0x5555b
+#define CMD_SUSFS_ADD_SUSPICIOUS_KSTAT_STATICALLY 0x5555c
 
 #define SUSFS_MAX_LEN_PATHNAME 128
 #define SUSFS_MAX_LEN_MOUNT_TYPE_NAME 32
@@ -61,11 +62,6 @@ struct st_susfs_suspicious_kstat {
     unsigned int           hide_in_maps;
     unsigned long          spoofed_ino;
     dev_t		           spoofed_dev;
-	dev_t		           spoofed_rdev;
-    umode_t		           spoofed_mode;
-    unsigned int	       spoofed_st_nlink;
-    unsigned int	       spoofed_st_uid;
-    unsigned int	       spoofed_st_gid;
     long	               spoofed_atime_tv_sec;
     long	               spoofed_mtime_tv_sec;
     long	               spoofed_ctime_tv_sec;

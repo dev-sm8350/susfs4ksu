@@ -146,9 +146,6 @@ int susfs_add_suspicious_kstat(struct st_susfs_suspicious_kstat* __user user_inf
 	}
 
 	memcpy(&new_list->info, &info, sizeof(struct st_susfs_suspicious_kstat));
-	// Always make sure info.target_ino is 0 first because users won't know about the changed ino
-	// only after it is bind mounted or overlayed.
-	new_list->info.target_ino = 0;
     INIT_LIST_HEAD(&new_list->list);
     spin_lock(&susfs_spin_lock);
     list_add_tail(&new_list->list, &LH_KSTAT_SPOOFER);
@@ -392,11 +389,6 @@ void susfs_suspicious_kstat(unsigned long ino, struct stat* out_stat) {
             pr_info("susfs: spoofing kstat for pathname '%s' for UID %i\n", cursor->info.target_pathname, current_uid().val);
 			out_stat->st_ino = cursor->info.spoofed_ino;
 			out_stat->st_dev = cursor->info.spoofed_dev;
-			out_stat->st_rdev = cursor->info.spoofed_rdev;
-			out_stat->st_mode = cursor->info.spoofed_mode;
-			out_stat->st_nlink = cursor->info.spoofed_st_nlink;
-			out_stat->st_uid = cursor->info.spoofed_st_uid;
-			out_stat->st_gid = cursor->info.spoofed_st_gid;
 			out_stat->st_atime = cursor->info.spoofed_atime_tv_sec;
 			out_stat->st_mtime = cursor->info.spoofed_mtime_tv_sec;
 			out_stat->st_ctime = cursor->info.spoofed_ctime_tv_sec;
