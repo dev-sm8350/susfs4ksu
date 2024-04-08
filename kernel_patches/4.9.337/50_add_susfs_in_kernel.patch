@@ -452,6 +452,19 @@ index 068fdbcc9e26..e7ee4ea3f661 100644
  	return copy_to_user(statbuf,&tmp,sizeof(tmp)) ? -EFAULT : 0;
  }
  
+diff --git a/include/linux/mount.h b/include/linux/mount.h
+index 5615a9eb59db..c98b6086a57e 100644
+--- a/include/linux/mount.h
++++ b/include/linux/mount.h
+@@ -102,4 +102,8 @@ extern dev_t name_to_dev_t(const char *name);
+ 
+ extern unsigned int sysctl_mount_max;
+ 
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++extern int path_umount(struct path *path, int flags);
++#endif
++
+ #endif /* _LINUX_MOUNT_H */
 diff --git a/kernel/sys.c b/kernel/sys.c
 index a7f823224546..5cc0e75723f0 100644
 --- a/kernel/sys.c
