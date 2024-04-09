@@ -415,7 +415,7 @@ int susfs_suspicious_kstat_or_hide_in_maps(unsigned long target_ino, unsigned lo
             pr_info("susfs: spoofing kstat for pathname '%s' for UID %i\n", cursor->info.target_pathname, current_uid().val);
 			*orig_ino = cursor->info.spoofed_ino;
 			*orig_dev = cursor->info.spoofed_dev;
-			return 1;
+			return 0;
         }
     }
 	return 0;
