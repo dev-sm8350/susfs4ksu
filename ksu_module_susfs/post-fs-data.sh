@@ -26,3 +26,13 @@ ${SUSFS_BIN} add_try_umount /system/etc/hosts
 
 ${SUSFS_BIN} add_uname 'default' 'default' '4.9.337-g3291538446b7' 'default' 'default'
 
+#### To spoof the stat of file/directory that is NOT bind mounted or overlayed ####
+# ${SUSFS_BIN} add_suspicious_kstat_statically '/system/framework/services.jar' '0' 'default' 'default' '1230768000' '0' '1230768000' '0' '1230768000' '0'
+
+#### To spoof the stat of file/directory that is bind mounted or overlayed ####
+## First, before bind mount your file/directory, use 'add_suspicious_kstat' to add the path 
+# ${SUSFS_BIN} add_suspicious_kstat '/system/etc/hosts' '0'
+## Now bind mount or overlay your path
+# mount --bind "$MODDIR/hosts" /system/etc/hosts
+## Finally use 'update_suspicious_kstat' to update the path again for the changed ino and device number
+# ${SUSFS_BIN} update_suspicious_kstat '/system/etc/hosts'
