@@ -2,7 +2,7 @@
 
 MODDIR=${0%/*}
 
-SUSFS_BIN=/data/adb/ksu_susfs
+SUSFS_BIN=/data/adb/ksu/bin/ksu_susfs
 
 
 ${SUSFS_BIN} add_suspicious_path /system/addon.d
