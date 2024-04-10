@@ -396,13 +396,13 @@ void susfs_suspicious_kstat(unsigned long ino, struct stat* out_stat) {
 			out_stat->st_atime_nsec = cursor->info.spoofed_atime_tv_nsec;
 			out_stat->st_mtime_nsec = cursor->info.spoofed_mtime_tv_nsec;
 			out_stat->st_ctime_nsec = cursor->info.spoofed_ctime_tv_nsec;
-#endif			
+#endif
 			return;
         }
     }
 }
 
-int susfs_suspicious_kstat_or_hide_in_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* orig_dev) {
+int susfs_suspicious_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* orig_dev) {
     struct st_susfs_suspicious_kstat_list *cursor, *temp;
 
 	if (!uid_matches_suspicious_kstat()) return 0;
@@ -412,10 +412,12 @@ int susfs_suspicious_kstat_or_hide_in_maps(unsigned long target_ino, unsigned lo
 				pr_info("susfs: hiding pathname '%s' in maps for UID %i\n", cursor->info.target_pathname, current_uid().val);
 				return 1;
 			}
-            pr_info("susfs: spoofing kstat for pathname '%s' for UID %i\n", cursor->info.target_pathname, current_uid().val);
-			*orig_ino = cursor->info.spoofed_ino;
-			*orig_dev = cursor->info.spoofed_dev;
-			return 0;
+			if (target_ino != 0) {
+				*orig_ino = cursor->info.spoofed_ino;
+				// someone tell me why the hell I need to left shift 12 bits, userspace's dev number is different in kernel ?
+				*orig_dev = cursor->info.spoofed_dev << 12;
+				return 0;
+			}
         }
     }
 	return 0;
@@ -499,6 +501,8 @@ void susfs_spoof_uname(struct new_utsname* tmp) {
 		memset(tmp->machine, 0, __NEW_UTS_LEN);
 		strncpy(tmp->machine, my_uname.machine, __NEW_UTS_LEN);
 	}
+	pr_info("susfs: spoofed uname to '%s %s %s %s %s' for uid: %d\n", 
+				tmp->sysname, tmp->nodename, tmp->release, tmp->version, tmp->machine, current_uid().val);
 }
 /* For files/directories in /sdcard/ but not in /sdcard/Android/data/, please delete it  
  * by yourself

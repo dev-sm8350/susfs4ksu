@@ -61,13 +61,13 @@ struct st_susfs_suspicious_kstat {
     char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
     unsigned int           hide_in_maps;
     unsigned long          spoofed_ino;
-    dev_t		           spoofed_dev;
-    long	               spoofed_atime_tv_sec;
-    long	               spoofed_mtime_tv_sec;
-    long	               spoofed_ctime_tv_sec;
-    long		           spoofed_atime_tv_nsec;
-    long		           spoofed_mtime_tv_nsec;
-    long		           spoofed_ctime_tv_nsec;
+    dev_t                  spoofed_dev;
+    long                   spoofed_atime_tv_sec;
+    long                   spoofed_mtime_tv_sec;
+    long                   spoofed_ctime_tv_sec;
+    long                   spoofed_atime_tv_nsec;
+    long                   spoofed_mtime_tv_nsec;
+    long                   spoofed_ctime_tv_nsec;
 };
 
 struct st_susfs_try_umount {
@@ -122,7 +122,7 @@ int susfs_suspicious_path(struct filename* name, int* errno_to_be_changed, int s
 int susfs_suspicious_ino_for_filldir64(unsigned long ino);
 int susfs_is_suspicious_mount(struct vfsmount* mnt, struct path* root);
 void susfs_suspicious_kstat(unsigned long ino, struct stat* out_stat);
-int susfs_suspicious_kstat_or_hide_in_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* orig_dev);
+int susfs_suspicious_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* orig_dev);
 void susfs_try_umount(void);
 void susfs_spoof_uname(struct new_utsname* tmp);
 

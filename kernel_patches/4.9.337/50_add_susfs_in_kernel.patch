@@ -304,7 +304,7 @@ index f2b82c462fbb..0f6fe256a41d 100644
  	error = user_path_at(AT_FDCWD, filename, lookup_flags, &path);
  	if (error)
 diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
-index f4a77817ad74..7b22049690cc 100644
+index f4a77817ad74..138d0cec089d 100644
 --- a/fs/proc/task_mmu.c
 +++ b/fs/proc/task_mmu.c
 @@ -22,6 +22,10 @@
@@ -318,14 +318,12 @@ index f4a77817ad74..7b22049690cc 100644
  void task_mem(struct seq_file *m, struct mm_struct *mm)
  {
  	unsigned long text, lib, swap, ptes, pmds, anon, file, shmem;
-@@ -369,6 +373,11 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
+@@ -369,6 +373,9 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
  	/* We don't show the stack guard page in /proc/maps */
  	start = vma->vm_start;
  	end = vma->vm_end;
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+	if (ino > 0) {
-+		if (susfs_suspicious_kstat_or_hide_in_maps(ino, &ino, &dev)) return;
-+	}
++	if (susfs_suspicious_maps(ino, &ino, &dev)) return;
 +#endif
  	show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
  
