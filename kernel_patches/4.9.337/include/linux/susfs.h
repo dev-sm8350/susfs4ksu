@@ -13,6 +13,7 @@
 #define CMD_SUSFS_ADD_TRY_UMOUNT 0x5555a
 #define CMD_SUSFS_ADD_UNAME 0x5555b
 #define CMD_SUSFS_ADD_SUSPICIOUS_KSTAT_STATICALLY 0x5555c
+#define CMD_SUSFS_ENABLE_LOG 0x5555d
 
 #define SUSFS_MAX_LEN_PATHNAME 128
 #define SUSFS_MAX_LEN_MOUNT_TYPE_NAME 32
@@ -125,6 +126,8 @@ void susfs_suspicious_kstat(unsigned long ino, struct stat* out_stat);
 int susfs_suspicious_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* orig_dev);
 void susfs_try_umount(void);
 void susfs_spoof_uname(struct new_utsname* tmp);
+
+void susfs_set_log(bool enabled);
 
 void susfs_change_error_no_by_pathname(char* pathname, int* errno_to_be_changed, int syscall_family);
 

@@ -25,6 +25,7 @@
 #define CMD_SUSFS_ADD_TRY_UMOUNT 0x5555a
 #define CMD_SUSFS_ADD_UNAME 0x5555b
 #define CMD_SUSFS_ADD_SUSPICIOUS_KSTAT_STATICALLY 0x5555c
+#define CMD_SUSFS_ENABLE_LOG 0x5555d
 
 #define SUSFS_MAX_LEN_PATHNAME 128
 #define SUSFS_MAX_LEN_MOUNT_TYPE_NAME 32
@@ -180,6 +181,8 @@ static void print_help(void) {
     log("        add_uname <sysname> <nodename> <release> <version> <machine>\n");
     log("         |--> Spoof uname for all processes, set string to 'default' imply the function to use original string\n");
     log("         |--> e.g., add_uname 'default' 'default' '4.9.337-g3291538446b7' 'default' 'default' \n");
+    log("        enable_log <0|1>\n");
+    log("         |--> 0: disable kernel log, 1: enable kernel log\n");
     log("\n");
     log("    [CMD options]:\n");
     log("        mount_type_name: [overlay|you_name_it_as_I_dont_know]\n");
@@ -366,6 +369,13 @@ int main(int argc, char *argv[]) {
         strncpy(info.version, argv[5], __NEW_UTS_LEN);
         strncpy(info.machine, argv[6], __NEW_UTS_LEN);
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_UNAME, &info, NULL, &error);
+        return error;
+    } else if (argc == 3 && !strcmp(argv[1], "enable_log")) {
+        if (strcmp(argv[2], "0") && strcmp(argv[2], "1")) {
+            print_help();
+            return 1;
+        }
+        prctl(KERNEL_SU_OPTION, CMD_SUSFS_ENABLE_LOG, atoi(argv[2]), NULL, &error);
         return error;
     } else {
         print_help();

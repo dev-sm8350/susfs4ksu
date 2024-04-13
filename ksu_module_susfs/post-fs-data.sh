@@ -4,6 +4,8 @@ MODDIR=${0%/*}
 
 SUSFS_BIN=/data/adb/ksu/bin/ksu_susfs
 
+## Enable / Disable susfs logging to kernel, 0 -> disable, 1 -> enable ##
+#${SUSFS_BIN} enable_log 0
 
 ${SUSFS_BIN} add_suspicious_path /system/addon.d
 ${SUSFS_BIN} add_suspicious_path /data/adbroot
