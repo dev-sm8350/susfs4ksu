@@ -24,7 +24,7 @@ index a45f6f5..f4d7222 100644
 +ccflags-y += -DKSU_SUSFS
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 5bbac8d..2973b78 100644
+index 5bbac8d..0f34a39 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -40,6 +40,10 @@
@@ -170,7 +170,7 @@ index 5bbac8d..2973b78 100644
  	try_umount("/sbin", false, MNT_DETACH);
  
 +#ifdef CONFIG_KSU_SUSFS
-+	susfs_try_umount();
++	susfs_try_umount(new_uid.val);
 +#endif
  	return 0;
  }

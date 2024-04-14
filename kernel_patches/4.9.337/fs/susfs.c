@@ -475,11 +475,11 @@ static void try_umount(const char *mnt, bool check_mnt, int flags) {
 	umount_mnt(&path, flags);
 }
 
-void susfs_try_umount(void) {
+void susfs_try_umount(uid_t target_uid) {
     struct st_susfs_try_umount_list *cursor, *temp;
 
 	list_for_each_entry_safe(cursor, temp, &LH_TRY_UMOUNT_PATH, list) {
-		SUSFS_LOGI("umounting '%s' for uid: %d\n", cursor->info.name, current_uid().val);
+		SUSFS_LOGI("umounting '%s' for uid: %d\n", cursor->info.name, target_uid);
         try_umount(cursor->info.name, false, MNT_DETACH);
     }
 }

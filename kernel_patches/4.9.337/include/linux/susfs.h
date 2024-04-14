@@ -124,7 +124,7 @@ int susfs_suspicious_ino_for_filldir64(unsigned long ino);
 int susfs_is_suspicious_mount(struct vfsmount* mnt, struct path* root);
 void susfs_suspicious_kstat(unsigned long ino, struct stat* out_stat);
 int susfs_suspicious_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* orig_dev);
-void susfs_try_umount(void);
+void susfs_try_umount(uid_t target_uid);
 void susfs_spoof_uname(struct new_utsname* tmp);
 
 void susfs_set_log(bool enabled);
