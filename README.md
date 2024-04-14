@@ -1,14 +1,12 @@
 ## Introduction ##
+An addon root hiding kernel patches and userspace module for KernelSU.
 
-An addon root hiding kernel patches and userspace module for KernelSU
-
-This ksu module requires a susfs patched kernel to work
+The ksu_susfs userspace tool and ksu module requires a susfs patched kernel to work.
 
 # Warning #
-This is only experimental code, that said it can harm your system or cause performance hit, **YOU ARE !! W A R N E D !! already**
+This is only experimental code, that said it can harm your system or cause performance hit, **YOU ARE !! W A R N E D !!** already
 
 ## Compatibility ##
-
 The susfs kernel patches may differ for different kernel version. You may need to create your own patches for your kernel.
 
 ## Patch Instruction ##
@@ -21,10 +19,16 @@ The susfs kernel patches may differ for different kernel version. You may need t
 7. Make sure again to have `CONFIG_KSU` and `CONFIG_KSU_SUSFS` enabled before building the kernel.
 8. Build and flash the kernel.
 
-## Build userspace tool and ksu module ##
-1. Run `./build_ksu_susfs_tool.sh` to build the userspace tool `ksu_susfs`, and the arm64 and arm binary will be copied to `ksu_module_susfs/tools/`
-2. Edit `./ksu_module_susfs/post-fs-data.sh` to add your own path for hiding.
-3. Run `./build_ksu_module.sh` to build the KernelSU module.
+## Build ksu_susfs userspace tool ##
+1. Run `./build_ksu_susfs_tool.sh` to build the userspace tool `ksu_susfs`, and the arm64 and arm binary will be copied to `ksu_module_susfs/tools/` as well.
+2. Now you can also push the compiled `ksu_susfs` tool to `/data/adb/ksu/bin/` so that you can run it directly in adb root shell or termux root shell, as well as in your own ksu modules.
+
+## Build ksu module ##
+The ksu module here is just a demo to show how to use it.
+It will also copy the ksu_susfs tool to `/data/adb/ksu/bin/` as well when installing the module.
+
+1. Edit `./ksu_module_susfs/post-fs-data.sh` according to your own need, see the `ksu_susfs_usage` screencap for the usage.
+2. Then run `./build_ksu_module.sh` to build the KernelSU module.
 
 ## Usage of ksu_susfs ##
 ![ksu_susfs_usage](https://gitlab.com/simonpunk/susfs4ksu/-/blob/master/ksu_susfs_usage.png)
