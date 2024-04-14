@@ -201,3 +201,19 @@ index 6389f24..5cfb82e 100644
  	ksu_core_init();
  
  	ksu_workqueue = alloc_ordered_workqueue("kernelsu_work_queue", 0);
+diff --git a/kernel/selinux/rules.c b/kernel/selinux/rules.c
+index eb72f20..00ccd71 100644
+--- a/kernel/selinux/rules.c
++++ b/kernel/selinux/rules.c
+@@ -135,6 +135,11 @@ void apply_kernelsu_rules()
+     ksu_allow(db, "system_server", KERNEL_SU_DOMAIN, "process", "getpgid");
+     ksu_allow(db, "system_server", KERNEL_SU_DOMAIN, "process", "sigkill");
+ 
++#ifdef CONFIG_KSU_SUSFS
++	// Allow umount in zygote process without installing zygisk
++    ksu_allow(db, "zygote", "labeledfs", "filesystem", "unmount");
++#endif
++
+ 	rcu_read_unlock();
+ }
+ 
