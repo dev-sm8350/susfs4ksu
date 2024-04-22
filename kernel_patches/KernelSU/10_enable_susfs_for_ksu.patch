@@ -24,7 +24,7 @@ index a45f6f5..f4d7222 100644
 +ccflags-y += -DKSU_SUSFS
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 5bbac8d..0f34a39 100644
+index 5bbac8d..72cf300 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -40,6 +40,10 @@
@@ -38,7 +38,7 @@ index 5bbac8d..0f34a39 100644
  static bool ksu_module_mounted = false;
  
  extern int handle_sepolicy(unsigned long arg3, void __user *arg4);
-@@ -441,6 +445,126 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -441,6 +445,139 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		return 0;
  	}
  
@@ -110,6 +110,32 @@ index 5bbac8d..0f34a39 100644
 +            pr_info("susfs: CMD_SUSFS_UPDATE_SUSPICIOUS_KSTAT -> ret: %d\n", error);
 +            copy_to_user((void __user*)arg5, &error, sizeof(error));
 +			return 0;
++		} else if (arg2 == CMD_SUSFS_ADD_SUSPICIOUS_KSTAT_STATICALLY) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_kstat))) {
++				pr_err("susfs: CMD_SUSFS_ADD_SUSPICIOUS_KSTAT_STATICALLY -> arg3 is not accessible\n");
++                return 0;
++			}
++			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_ADD_SUSPICIOUS_KSTAT_STATICALLY -> arg5 is not accessible\n");
++                return 0;
++			}
++			error = susfs_add_suspicious_kstat((struct st_susfs_suspicious_kstat __user*)arg3);
++            pr_info("susfs: CMD_SUSFS_ADD_SUSPICIOUS_KSTAT_STATICALLY -> ret: %d\n", error);
++            copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
++        } else if (arg2 == CMD_SUSFS_ADD_MAPS_STATICALLY) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_kstat))) {
++				pr_err("susfs: CMD_SUSFS_ADD_MAPS_STATICALLY -> arg3 is not accessible\n");
++                return 0;
++			}
++			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_ADD_MAPS_STATICALLY -> arg5 is not accessible\n");
++                return 0;
++			}
++			error = susfs_add_suspicious_kstat((struct st_susfs_suspicious_kstat __user*)arg3);
++            pr_info("susfs: CMD_SUSFS_ADD_MAPS_STATICALLY -> ret: %d\n", error);
++            copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
 +		} else if (arg2 == CMD_SUSFS_ADD_TRY_UMOUNT) {
 +			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_try_umount))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_TRY_UMOUNT -> arg3 is not accessible\n");
@@ -136,19 +162,6 @@ index 5bbac8d..0f34a39 100644
 +            pr_info("susfs: CMD_SUSFS_ADD_UNAME -> ret: %d\n", error);
 +            copy_to_user((void __user*)arg5, &error, sizeof(error));
 +			return 0;
-+		} else if (arg2 == CMD_SUSFS_ADD_SUSPICIOUS_KSTAT_STATICALLY) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_kstat))) {
-+				pr_err("susfs: CMD_SUSFS_ADD_SUSPICIOUS_KSTAT_STATICALLY -> arg3 is not accessible\n");
-+                return 0;
-+			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
-+				pr_err("susfs: CMD_SUSFS_ADD_SUSPICIOUS_KSTAT_STATICALLY -> arg5 is not accessible\n");
-+                return 0;
-+			}
-+			error = susfs_add_suspicious_kstat((struct st_susfs_suspicious_kstat __user*)arg3);
-+            pr_info("susfs: CMD_SUSFS_ADD_SUSPICIOUS_KSTAT_STATICALLY -> ret: %d\n", error);
-+            copy_to_user((void __user*)arg5, &error, sizeof(error));
-+			return 0;
 +		} else if (arg2 == CMD_SUSFS_ENABLE_LOG) {
 +			if (arg3 != 0 && arg3 != 1) {
 +				pr_err("susfs: CMD_SUSFS_ENABLE_LOG -> arg3 can only be 0 or 1\n");
@@ -165,7 +178,7 @@ index 5bbac8d..0f34a39 100644
  	// all other cmds are for 'root manager'
  	if (!is_manager()) {
  		last_failed_uid = current_uid().val;
-@@ -610,6 +734,9 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -610,6 +747,9 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  	try_umount("/debug_ramdisk", false, MNT_DETACH);
  	try_umount("/sbin", false, MNT_DETACH);
  

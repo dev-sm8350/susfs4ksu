@@ -12,7 +12,7 @@ index 0e97f4b85bee..5ef37c17ee91 100644
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
  else
 diff --git a/fs/namei.c b/fs/namei.c
-index 3bd8276c014d..ba12072a383d 100644
+index 0cbf8f5a92f4..d49b895ffd75 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -42,6 +42,10 @@
@@ -304,7 +304,7 @@ index f2b82c462fbb..0f6fe256a41d 100644
  	error = user_path_at(AT_FDCWD, filename, lookup_flags, &path);
  	if (error)
 diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
-index f4a77817ad74..138d0cec089d 100644
+index f4a77817ad74..50b4f1e85145 100644
 --- a/fs/proc/task_mmu.c
 +++ b/fs/proc/task_mmu.c
 @@ -22,6 +22,10 @@
@@ -318,16 +318,39 @@ index f4a77817ad74..138d0cec089d 100644
  void task_mem(struct seq_file *m, struct mm_struct *mm)
  {
  	unsigned long text, lib, swap, ptes, pmds, anon, file, shmem;
-@@ -369,6 +373,9 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
+@@ -358,6 +362,10 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
+ 	unsigned long start, end;
+ 	dev_t dev = 0;
+ 	const char *name = NULL;
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++	char tmpname[SUSFS_MAX_LEN_PATHNAME];
++	int ret = 0;
++#endif
+ 
+ 	if (file) {
+ 		struct inode *inode = file_inode(vma->vm_file);
+@@ -369,8 +377,21 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
  	/* We don't show the stack guard page in /proc/maps */
  	start = vma->vm_start;
  	end = vma->vm_end;
++
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+	if (susfs_suspicious_maps(ino, &ino, &dev)) return;
++    ret = susfs_suspicious_maps(ino, &ino, &dev, tmpname);
 +#endif
++
  	show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
  
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++	if (ret) {
++		seq_pad(m, ' ');
++		seq_puts(m, tmpname);
++		seq_putc(m, '\n');
++		return;
++	}
++#endif
  	/*
+ 	 * Print the dentry name for named mappings, and a
+ 	 * special [heap] marker for the heap:
 diff --git a/fs/proc_namespace.c b/fs/proc_namespace.c
 index 6863773aff25..578264431a4f 100644
 --- a/fs/proc_namespace.c

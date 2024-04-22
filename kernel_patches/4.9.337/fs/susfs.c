@@ -137,8 +137,12 @@ int susfs_add_suspicious_kstat(struct st_susfs_suspicious_kstat* __user user_inf
 	}
 
     list_for_each_entry_safe(cursor, temp, &LH_KSTAT_SPOOFER, list) {
-        if (!strcmp(info.target_pathname, cursor->info.target_pathname)) {
-            SUSFS_LOGE("target_pathname: '%s' is already created in LH_KSTAT_SPOOFER.\n", info.target_pathname);
+        if (cursor->info.target_ino == info.target_ino) {
+            if (strlen(info.target_pathname) > 0) {
+                SUSFS_LOGE("target_pathname: '%s' is already created in LH_KSTAT_SPOOFER.\n", info.target_pathname);
+            } else {
+                SUSFS_LOGE("target_ino: '%lu' is already created in LH_KSTAT_SPOOFER.\n", info.target_ino);
+            }
             return 1;
         }
     }
@@ -154,7 +158,11 @@ int susfs_add_suspicious_kstat(struct st_susfs_suspicious_kstat* __user user_inf
     spin_lock(&susfs_spin_lock);
     list_add_tail(&new_list->list, &LH_KSTAT_SPOOFER);
     spin_unlock(&susfs_spin_lock);
-    SUSFS_LOGI("target_pathname: '%s' is successfully added to LH_KSTAT_SPOOFER.\n", new_list->info.target_pathname);
+    if (strlen(new_list->info.target_pathname) > 0) {
+        SUSFS_LOGI("target_pathname: '%s' is successfully added to LH_KSTAT_SPOOFER, original dev: %lu\n", new_list->info.target_pathname, new_list->info.spoofed_dev);
+    } else {
+        SUSFS_LOGI("ino: '%lu' is successfully added to LH_KSTAT_SPOOFER, original dev: %lu\n", new_list->info.target_ino, new_list->info.spoofed_dev);
+    }
     return 0;
 }
 
@@ -389,7 +397,7 @@ void susfs_suspicious_kstat(unsigned long ino, struct stat* out_stat) {
 
 	if (!uid_matches_suspicious_kstat()) return;
 	list_for_each_entry_safe(cursor, temp, &LH_KSTAT_SPOOFER, list) {
-        if (cursor->info.target_ino == ino) {
+        if (cursor->info.target_ino == ino && !cursor->info.spoof_in_maps_only) {
             SUSFS_LOGI("spoofing kstat for pathname '%s' for UID %i\n", cursor->info.target_pathname, current_uid().val);
 			out_stat->st_ino = cursor->info.spoofed_ino;
 			out_stat->st_dev = cursor->info.spoofed_dev;
@@ -406,22 +414,31 @@ void susfs_suspicious_kstat(unsigned long ino, struct stat* out_stat) {
     }
 }
 
-int susfs_suspicious_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* orig_dev) {
+int susfs_suspicious_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* orig_dev, char *tmpname) {
     struct st_susfs_suspicious_kstat_list *cursor, *temp;
 
 	if (!uid_matches_suspicious_kstat()) return 0;
 	list_for_each_entry_safe(cursor, temp, &LH_KSTAT_SPOOFER, list) {
         if (cursor->info.target_ino == target_ino) {
-			if (cursor->info.hide_in_maps == HIDE_IN_MAPS_HIDE_ENTRYS) {
-				SUSFS_LOGI("hiding pathname '%s' in maps for UID %i\n", cursor->info.target_pathname, current_uid().val);
-				return 1;
-			}
-			if (target_ino != 0) {
-				*orig_ino = cursor->info.spoofed_ino;
-				// someone tell me why the hell I need to left shift 12 bits, userspace's dev number is different in kernel ?
-				*orig_dev = cursor->info.spoofed_dev << 12;
-				return 0;
-			}
+            if (!cursor->info.spoof_in_maps_only) {
+                if (target_ino != 0) {
+                    // Seems the dev number issue is finally solved, the userspace stat we see is already a encoded dev
+                    // which is by new_encode_dev() function, that's why we need to decode it in kernel as well
+                    // different kernel may have different function to encode the dev number, be cautious!
+                    *orig_ino = cursor->info.spoofed_ino;
+                    *orig_dev = new_decode_dev(cursor->info.spoofed_dev);
+                    SUSFS_LOGI("[uid:%u] spoofing ino: '%lu' -> ino: %lu, dev: %lu, MAJOR(dev): 0x%x, MINOR(dev): 0x%x, target_pathname: %s\n", current_uid().val, target_ino, *orig_ino, *orig_dev, MAJOR(*orig_dev), MINOR(*orig_dev), cursor->info.target_pathname);
+                    return 0;
+                }
+            } else {
+                if (target_ino != 0) {
+                    *orig_ino = cursor->info.spoofed_ino;
+                    *orig_dev = new_decode_dev(cursor->info.spoofed_dev);
+					strncpy(tmpname, cursor->info.spoofed_pathname, SUSFS_MAX_LEN_PATHNAME);
+					SUSFS_LOGI("[uid:%u] spoofing ino: '%lu' -> ino: %lu, dev: %lu, MAJOR(dev): 0x%x, MINOR(dev): 0x%x, pathname: %s\n", current_uid().val, target_ino, *orig_ino, *orig_dev, MAJOR(*orig_dev), MINOR(*orig_dev), cursor->info.spoofed_pathname);
+                    return 1;
+                }
+            }
         }
     }
 	return 0;
