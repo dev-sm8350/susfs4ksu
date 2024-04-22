@@ -154,6 +154,21 @@ int susfs_add_sus_kstat(struct st_susfs_suspicious_kstat* __user user_info) {
 	}
 
 	memcpy(&new_list->info, &info, sizeof(struct st_susfs_suspicious_kstat));
+	/* Seems the dev number issue is finally solved, the userspace stat we see is already a encoded dev
+	 * which is set by new_encode_dev() / huge_encode_dev() function for 64bit system and 
+	 * old_encode_dev() for 32bit only system, that's why we need to decode it in kernel as well,
+	 * and different kernel may have different function to encode the dev number, be cautious!
+	 * Also check your encode_dev() macro in fs/stat.c to determine which one to use 
+	 */
+#if defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64)
+#ifdef CONFIG_MIPS
+	new_list->info.spoofed_dev = new_decode_dev(new_list->info.spoofed_dev);
+#else
+	new_list->info.spoofed_dev = huge_encode_dev(new_list->info.spoofed_dev);
+#endif /* CONFIG_MIPS */
+#else
+	new_list->info.spoofed_dev = old_decode_dev(new_list->info.spoofed_dev);
+#endif /* defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64) */
     INIT_LIST_HEAD(&new_list->list);
     spin_lock(&susfs_spin_lock);
     list_add_tail(&new_list->list, &LH_KSTAT_SPOOFER);
@@ -422,20 +437,17 @@ int susfs_suspicious_maps(unsigned long target_ino, unsigned long* orig_ino, dev
         if (cursor->info.target_ino == target_ino) {
             if (!cursor->info.spoof_in_maps_only) {
                 if (target_ino != 0) {
-                    // Seems the dev number issue is finally solved, the userspace stat we see is already a encoded dev
-                    // which is by new_encode_dev() function, that's why we need to decode it in kernel as well
-                    // different kernel may have different function to encode the dev number, be cautious!
                     *orig_ino = cursor->info.spoofed_ino;
-                    *orig_dev = new_decode_dev(cursor->info.spoofed_dev);
-                    SUSFS_LOGI("[uid:%u] spoofing ino: '%lu' -> ino: %lu, dev: %lu, MAJOR(dev): 0x%x, MINOR(dev): 0x%x, target_pathname: %s\n", current_uid().val, target_ino, *orig_ino, *orig_dev, MAJOR(*orig_dev), MINOR(*orig_dev), cursor->info.target_pathname);
+                    *orig_dev = cursor->info.spoofed_dev;
+                    SUSFS_LOGI("[uid:%u] spoofing ino: '%lu' -> ino: %lu, dev: 0x%x, MAJOR(dev): 0x%x, MINOR(dev): 0x%x, target_pathname: %s\n", current_uid().val, target_ino, *orig_ino, *orig_dev, MAJOR(*orig_dev), MINOR(*orig_dev), cursor->info.target_pathname);
                     return 0;
                 }
             } else {
                 if (target_ino != 0) {
                     *orig_ino = cursor->info.spoofed_ino;
-                    *orig_dev = new_decode_dev(cursor->info.spoofed_dev);
+                    *orig_dev = cursor->info.spoofed_dev;
 					strncpy(tmpname, cursor->info.spoofed_pathname, SUSFS_MAX_LEN_PATHNAME);
-					SUSFS_LOGI("[uid:%u] spoofing ino: '%lu' -> ino: %lu, dev: %lu, MAJOR(dev): 0x%x, MINOR(dev): 0x%x, pathname: %s\n", current_uid().val, target_ino, *orig_ino, *orig_dev, MAJOR(*orig_dev), MINOR(*orig_dev), cursor->info.spoofed_pathname);
+					SUSFS_LOGI("[uid:%u] spoofing ino: '%lu' -> ino: %lu, dev: 0x%x, MAJOR(dev): 0x%x, MINOR(dev): 0x%x, pathname: %s\n", current_uid().val, target_ino, *orig_ino, *orig_dev, MAJOR(*orig_dev), MINOR(*orig_dev), cursor->info.spoofed_pathname);
                     return 1;
                 }
             }
