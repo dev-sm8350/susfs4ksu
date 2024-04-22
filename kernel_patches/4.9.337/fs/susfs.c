@@ -424,7 +424,6 @@ void susfs_suspicious_kstat(unsigned long ino, struct stat* out_stat) {
 #else
 			out_stat->st_dev = old_encode_dev(cursor->info.spoofed_dev);
 #endif /* defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64) */
-			out_stat->st_dev = cursor->info.spoofed_dev;
 			out_stat->st_atime = cursor->info.spoofed_atime_tv_sec;
 			out_stat->st_mtime = cursor->info.spoofed_mtime_tv_sec;
 			out_stat->st_ctime = cursor->info.spoofed_ctime_tv_sec;
