@@ -5,16 +5,16 @@
 #include <linux/utsname.h>
 
 /* shared with userspace ksu_susfs tool */
-#define CMD_SUSFS_ADD_SUSPICIOUS_PATH 0x55555
-#define CMD_SUSFS_ADD_MOUNT_TYPE 0x55556
-#define CMD_SUSFS_ADD_MOUNT_PATH 0x55557
-#define CMD_SUSFS_ADD_SUSPICIOUS_KSTAT 0x55558
-#define CMD_SUSFS_UPDATE_SUSPICIOUS_KSTAT 0x55559
+#define CMD_SUSFS_ADD_SUS_PATH 0x55555
+#define CMD_SUSFS_ADD_SUS_MOUNT_TYPE 0x55556
+#define CMD_SUSFS_ADD_SUS_MOUNT_PATH 0x55557
+#define CMD_SUSFS_ADD_SUS_KSTAT 0x55558
+#define CMD_SUSFS_UPDATE_SUS_KSTAT 0x55559
 #define CMD_SUSFS_ADD_TRY_UMOUNT 0x5555a
-#define CMD_SUSFS_ADD_UNAME 0x5555b
-#define CMD_SUSFS_ADD_SUSPICIOUS_KSTAT_STATICALLY 0x5555c
+#define CMD_SUSFS_SET_UNAME 0x5555b
+#define CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY 0x5555c
 #define CMD_SUSFS_ENABLE_LOG 0x5555d
-#define CMD_SUSFS_ADD_MAPS_STATICALLY 0x5555e
+#define CMD_SUSFS_ADD_SUS_MAPS_STATICALLY 0x5555e
 
 #define SUSFS_MAX_LEN_PATHNAME 128
 #define SUSFS_MAX_LEN_MOUNT_TYPE_NAME 32
@@ -110,13 +110,13 @@ struct st_susfs_uname {
     char        machine[__NEW_UTS_LEN+1];
 };
 
-int susfs_add_suspicious_path(struct st_susfs_suspicious_path* __user user_info);
-int susfs_add_mount_type(struct st_susfs_suspicious_mount_type* __user user_info);
-int susfs_add_mount_path(struct st_susfs_suspicious_mount_path* __user user_info);
-int susfs_add_suspicious_kstat(struct st_susfs_suspicious_kstat* __user user_info);
-int susfs_update_suspicious_kstat(struct st_susfs_suspicious_kstat* __user user_info);
+int susfs_add_sus_path(struct st_susfs_suspicious_path* __user user_info);
+int susfs_add_sus_mount_type(struct st_susfs_suspicious_mount_type* __user user_info);
+int susfs_add_sus_mount_path(struct st_susfs_suspicious_mount_path* __user user_info);
+int susfs_add_sus_kstat(struct st_susfs_suspicious_kstat* __user user_info);
+int susfs_update_sus_kstat(struct st_susfs_suspicious_kstat* __user user_info);
 int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info);
-int susfs_add_uname(struct st_susfs_uname* __user user_info);
+int susfs_set_uname(struct st_susfs_uname* __user user_info);
 
 int susfs_is_suspicious_path(struct path* file, int* errno_to_be_changed, int syscall_family);
 int susfs_is_suspicious_mount(struct vfsmount* mnt, struct path* root);

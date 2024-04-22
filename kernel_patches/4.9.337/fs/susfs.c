@@ -27,7 +27,7 @@ bool is_log_enable = true;
 #define SUSFS_LOGE(fmt, ...) if (!is_log_enable) pr_err("susfs: " fmt, ##__VA_ARGS__)
 
 
-int susfs_add_suspicious_path(struct st_susfs_suspicious_path* __user user_info) {
+int susfs_add_sus_path(struct st_susfs_suspicious_path* __user user_info) {
     struct st_susfs_suspicious_path_list *cursor, *temp;
     struct st_susfs_suspicious_path_list *new_list = NULL;
 	struct st_susfs_suspicious_path info;
@@ -60,7 +60,7 @@ int susfs_add_suspicious_path(struct st_susfs_suspicious_path* __user user_info)
     return 0;
 }
 
-int susfs_add_mount_type(struct st_susfs_suspicious_mount_type* __user user_info) {
+int susfs_add_sus_mount_type(struct st_susfs_suspicious_mount_type* __user user_info) {
     struct st_susfs_suspicious_mount_type_list *cursor, *temp;
     struct st_susfs_suspicious_mount_type_list *new_list = NULL;
 	struct st_susfs_suspicious_mount_type info;
@@ -93,7 +93,7 @@ int susfs_add_mount_type(struct st_susfs_suspicious_mount_type* __user user_info
     return 0;
 }
 
-int susfs_add_mount_path(struct st_susfs_suspicious_mount_path* __user user_info) {
+int susfs_add_sus_mount_path(struct st_susfs_suspicious_mount_path* __user user_info) {
     struct st_susfs_suspicious_mount_path_list *cursor, *temp;
     struct st_susfs_suspicious_mount_path_list *new_list = NULL;
 	struct st_susfs_suspicious_mount_path info;
@@ -126,7 +126,7 @@ int susfs_add_mount_path(struct st_susfs_suspicious_mount_path* __user user_info
     return 0;
 }
 
-int susfs_add_suspicious_kstat(struct st_susfs_suspicious_kstat* __user user_info) {
+int susfs_add_sus_kstat(struct st_susfs_suspicious_kstat* __user user_info) {
     struct st_susfs_suspicious_kstat_list *cursor, *temp;
     struct st_susfs_suspicious_kstat_list *new_list = NULL;
 	struct st_susfs_suspicious_kstat info;
@@ -166,7 +166,7 @@ int susfs_add_suspicious_kstat(struct st_susfs_suspicious_kstat* __user user_inf
     return 0;
 }
 
-int susfs_update_suspicious_kstat(struct st_susfs_suspicious_kstat* __user user_info) {
+int susfs_update_sus_kstat(struct st_susfs_suspicious_kstat* __user user_info) {
     struct st_susfs_suspicious_kstat_list *cursor, *temp;
 	struct st_susfs_suspicious_kstat info;
 
@@ -220,7 +220,7 @@ int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info) {
     return 0;
 }
 
-int susfs_add_uname(struct st_susfs_uname* __user user_info) {
+int susfs_set_uname(struct st_susfs_uname* __user user_info) {
 	struct st_susfs_uname info;
 
 	if (copy_from_user(&info, user_info, sizeof(struct st_susfs_uname))) {
