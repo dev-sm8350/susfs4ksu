@@ -247,7 +247,7 @@ int main(int argc, char *argv[]) {
         }
 
         if (strcmp(argv[3], "default")) {
-            ino = strtoul(argv[4], &endptr, 10);
+            ino = strtoul(argv[3], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
@@ -258,7 +258,7 @@ int main(int argc, char *argv[]) {
             info.target_ino = sb.st_ino;
         }
         if (strcmp(argv[4], "default")) {
-            dev = strtoul(argv[5], &endptr, 10);
+            dev = strtoul(argv[4], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
@@ -266,7 +266,7 @@ int main(int argc, char *argv[]) {
             sb.st_dev = dev;
         }
         if (strcmp(argv[5], "default")) {
-            atime = strtol(argv[6], &endptr, 10);
+            atime = strtol(argv[5], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
@@ -274,7 +274,7 @@ int main(int argc, char *argv[]) {
             sb.st_atime = atime;
         }
         if (strcmp(argv[6], "default")) {
-            atime_nsec = strtoul(argv[7], &endptr, 10);
+            atime_nsec = strtoul(argv[6], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
@@ -282,7 +282,7 @@ int main(int argc, char *argv[]) {
             sb.st_atimensec = atime_nsec;
         }
         if (strcmp(argv[7], "default")) {
-            mtime = strtol(argv[8], &endptr, 10);
+            mtime = strtol(argv[7], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
@@ -290,7 +290,7 @@ int main(int argc, char *argv[]) {
             sb.st_mtime = mtime;
         }
         if (strcmp(argv[8], "default")) {
-            mtime_nsec = strtoul(argv[9], &endptr, 10);
+            mtime_nsec = strtoul(argv[8], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
@@ -298,7 +298,7 @@ int main(int argc, char *argv[]) {
             sb.st_mtimensec = mtime_nsec;
         }
         if (strcmp(argv[9], "default")) {
-            ctime = strtol(argv[10], &endptr, 10);
+            ctime = strtol(argv[9], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
@@ -306,7 +306,7 @@ int main(int argc, char *argv[]) {
             sb.st_ctime = ctime;
         }
         if (strcmp(argv[10], "default")) {
-            ctime_nsec = strtoul(argv[11], &endptr, 10);
+            ctime_nsec = strtoul(argv[10], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
