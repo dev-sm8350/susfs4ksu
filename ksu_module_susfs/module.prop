@@ -1,7 +1,7 @@
 id=susfs4ksu
 name=SUSFS-FOR-KERNELSU
-version=v1.2.2
-versionCode=102002
+version=v1.2.3
+versionCode=102003
 author=simonpunk@gitlab.com
 description=An addon root hiding service for KernelSU compiled with patched kernel source.
 
