@@ -542,8 +542,6 @@ void susfs_spoof_uname(struct new_utsname* tmp) {
 		memset(tmp->machine, 0, __NEW_UTS_LEN);
 		strncpy(tmp->machine, my_uname.machine, __NEW_UTS_LEN);
 	}
-	SUSFS_LOGI("spoofed uname to '%s %s %s %s %s' for uid: %d\n", 
-				tmp->sysname, tmp->nodename, tmp->release, tmp->version, tmp->machine, current_uid().val);
 }
 
 void susfs_set_log(bool enabled) {
