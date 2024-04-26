@@ -327,7 +327,7 @@ int main(int argc, char *argv[]) {
         }
         strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
         info.spoof_in_maps_only = false;
-        info.target_ino = 0;
+        info.target_ino = sb.st_ino;
         copy_stat_to_suspicious_kstat(&info, &sb);
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_KSTAT, &info, NULL, &error);
         return error;

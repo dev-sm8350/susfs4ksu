@@ -24,7 +24,7 @@ struct st_susfs_uname my_uname;
 spinlock_t susfs_spin_lock;
 bool is_log_enable = true;
 #define SUSFS_LOGI(fmt, ...) if (is_log_enable) pr_info("susfs: " fmt, ##__VA_ARGS__)
-#define SUSFS_LOGE(fmt, ...) if (!is_log_enable) pr_err("susfs: " fmt, ##__VA_ARGS__)
+#define SUSFS_LOGE(fmt, ...) if (is_log_enable) pr_err("susfs: " fmt, ##__VA_ARGS__)
 
 
 int susfs_add_sus_path(struct st_susfs_suspicious_path* __user user_info) {
@@ -138,7 +138,7 @@ int susfs_add_sus_kstat(struct st_susfs_suspicious_kstat* __user user_info) {
 
     list_for_each_entry_safe(cursor, temp, &LH_KSTAT_SPOOFER, list) {
         if (cursor->info.target_ino == info.target_ino) {
-            if (strlen(info.target_pathname) > 0) {
+            if (info.target_pathname[0] != '\0') {
                 SUSFS_LOGE("target_pathname: '%s' is already created in LH_KSTAT_SPOOFER.\n", info.target_pathname);
             } else {
                 SUSFS_LOGE("target_ino: '%lu' is already created in LH_KSTAT_SPOOFER.\n", info.target_ino);
@@ -173,7 +173,7 @@ int susfs_add_sus_kstat(struct st_susfs_suspicious_kstat* __user user_info) {
     spin_lock(&susfs_spin_lock);
     list_add_tail(&new_list->list, &LH_KSTAT_SPOOFER);
     spin_unlock(&susfs_spin_lock);
-    if (strlen(new_list->info.target_pathname) > 0) {
+    if (new_list->info.target_pathname[0] != '\0') {
         SUSFS_LOGI("target_pathname: '%s' is successfully added to LH_KSTAT_SPOOFER, original dev: %lu\n", new_list->info.target_pathname, new_list->info.spoofed_dev);
     } else {
         SUSFS_LOGI("ino: '%lu' is successfully added to LH_KSTAT_SPOOFER, original dev: %lu\n", new_list->info.target_ino, new_list->info.spoofed_dev);
