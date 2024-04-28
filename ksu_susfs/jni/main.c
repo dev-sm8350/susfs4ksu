@@ -27,6 +27,7 @@
 #define CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY 0x5555c
 #define CMD_SUSFS_ENABLE_LOG 0x5555d
 #define CMD_SUSFS_ADD_SUS_MAPS_STATICALLY 0x5555e
+#define CMD_SUSFS_ADD_SUS_PROC_FD_LINK 0x5555f
 
 #define SUSFS_MAX_LEN_PATHNAME 128
 #define SUSFS_MAX_LEN_MOUNT_TYPE_NAME 32
@@ -79,6 +80,11 @@ struct st_susfs_try_umount {
     char                   name[SUSFS_MAX_LEN_PATHNAME];
     //bool                 check_mnt;
     //int                  flags;
+};
+
+struct st_susfs_suspicious_proc_fd_link {
+    char                   target_link_name[SUSFS_MAX_LEN_PATHNAME];
+    char                   spoofed_link_name[SUSFS_MAX_LEN_PATHNAME];
 };
 
 struct st_susfs_uname {
@@ -185,6 +191,11 @@ static void print_help(void) {
     log("\n");
     log("        add_try_umount </path/of/file_or_directory>\n");
     log("         |--> Added path will be umount from kernel for all UIDs that are NOT su allowed, and profile template configured with umount\n");
+    log("\n");
+    log("        add_sus_proc_fd_link </original/symlinked/path/in/proc/fd/xxx> </spoofed/symlinked/path>\n");
+    log("         |--> Added symlinked path will be spoofed in /proc/self/fd/[xx] only\n");
+    log("         |--> e.g., add_sus_proc_fd_link /dev/binder /dev/null\n");
+    log("         |-->       So if /proc/self/fd/10 is a symlink to /dev/binder, then it will be shown as /dev/null instead\n");
     log("\n");
     log("        set_uname <sysname> <nodename> <release> <version> <machine>\n");
     log("         |--> Spoof uname for all processes, set string to 'default' imply the function to use original string\n");
@@ -377,6 +388,12 @@ int main(int argc, char *argv[]) {
         struct st_susfs_try_umount info;
         strncpy(info.name, argv[2], SUSFS_MAX_LEN_PATHNAME);
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_TRY_UMOUNT, &info, NULL, &error);
+        return error;
+    } else if (argc == 4 && !strcmp(argv[1], "add_sus_proc_fd_link")) {
+        struct st_susfs_suspicious_proc_fd_link info;
+        strncpy(info.target_link_name, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        strncpy(info.spoofed_link_name, argv[3], SUSFS_MAX_LEN_PATHNAME);
+        prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_PROC_FD_LINK, &info, NULL, &error);
         return error;
     } else if (argc == 7 && !strcmp(argv[1], "set_uname")) {
         struct st_susfs_uname info;

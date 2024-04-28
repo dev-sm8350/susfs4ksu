@@ -24,7 +24,7 @@ index 6692975..bb6b4ea 100644
 +ccflags-y += -DKSU_SUSFS
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index fef98df..c1320f2 100644
+index fef98df..e8de968 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -41,6 +41,10 @@
@@ -136,6 +136,19 @@ index fef98df..c1320f2 100644
 +            pr_info("susfs: CMD_SUSFS_ADD_SUS_MAPS_STATICALLY -> ret: %d\n", error);
 +            copy_to_user((void __user*)arg5, &error, sizeof(error));
 +			return 0;
++		} else if (arg2 == CMD_SUSFS_ADD_SUS_PROC_FD_LINK) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_proc_fd_link))) {
++				pr_err("susfs: CMD_SUSFS_ADD_SUS_PROC_FD_LINK -> arg3 is not accessible\n");
++                return 0;
++			}
++			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_ADD_SUS_PROC_FD_LINK -> arg5 is not accessible\n");
++                return 0;
++			}
++			error = susfs_add_suspicious_proc_fd_link((struct st_susfs_suspicious_proc_fd_link __user*)arg3);
++            pr_info("susfs: CMD_SUSFS_ADD_SUS_PROC_FD_LINK -> ret: %d\n", error);
++            copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
 +		} else if (arg2 == CMD_SUSFS_ADD_TRY_UMOUNT) {
 +			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_try_umount))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_TRY_UMOUNT -> arg3 is not accessible\n");
@@ -147,19 +160,6 @@ index fef98df..c1320f2 100644
 +			}
 +			error = susfs_add_try_umount((struct st_susfs_try_umount __user*)arg3);
 +            pr_info("susfs: CMD_SUSFS_ADD_TRY_UMOUNT -> ret: %d\n", error);
-+            copy_to_user((void __user*)arg5, &error, sizeof(error));
-+			return 0;
-+		} else if (arg2 == CMD_SUSFS_SET_UNAME) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_uname))) {
-+				pr_err("susfs: CMD_SUSFS_SET_UNAME -> arg3 is not accessible\n");
-+                return 0;
-+			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
-+				pr_err("susfs: CMD_SUSFS_SET_UNAME -> arg5 is not accessible\n");
-+                return 0;
-+			}
-+			error = susfs_set_uname((struct st_susfs_uname __user*)arg3);
-+            pr_info("susfs: CMD_SUSFS_SET_UNAME -> ret: %d\n", error);
 +            copy_to_user((void __user*)arg5, &error, sizeof(error));
 +			return 0;
 +		} else if (arg2 == CMD_SUSFS_ENABLE_LOG) {

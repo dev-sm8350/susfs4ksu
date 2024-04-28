@@ -15,6 +15,7 @@
 #define CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY 0x5555c
 #define CMD_SUSFS_ENABLE_LOG 0x5555d
 #define CMD_SUSFS_ADD_SUS_MAPS_STATICALLY 0x5555e
+#define CMD_SUSFS_ADD_SUS_PROC_FD_LINK 0x5555f
 
 #define SUSFS_MAX_LEN_PATHNAME 128
 #define SUSFS_MAX_LEN_MOUNT_TYPE_NAME 32
@@ -41,6 +42,7 @@
 #define uid_matches_suspicious_path() (current_uid().val >= 2000)
 #define uid_matches_suspicious_mount() (current_uid().val >= 2000)
 #define uid_matches_suspicious_kstat() (current_uid().val >= 2000)
+#define uid_matches_suspicious_proc_fd_link() (current_uid().val >= 2000)
 
 struct st_susfs_suspicious_path {
     char                   name[SUSFS_MAX_LEN_PATHNAME];
@@ -77,6 +79,11 @@ struct st_susfs_try_umount {
     //int                    flags;
 };
 
+struct st_susfs_suspicious_proc_fd_link {
+    char                   target_link_name[SUSFS_MAX_LEN_PATHNAME];
+    char                   spoofed_link_name[SUSFS_MAX_LEN_PATHNAME];
+};
+
 struct st_susfs_suspicious_path_list {
     struct list_head                        list;
     struct st_susfs_suspicious_path         info;
@@ -102,6 +109,11 @@ struct st_susfs_try_umount_list {
     struct st_susfs_try_umount              info;
 };
 
+struct st_susfs_suspicious_proc_fd_link_list {
+    struct list_head                        list;
+    struct st_susfs_suspicious_proc_fd_link info;
+};
+
 struct st_susfs_uname {
     char        sysname[__NEW_UTS_LEN+1];
     char        nodename[__NEW_UTS_LEN+1];
@@ -115,6 +127,7 @@ int susfs_add_sus_mount_type(struct st_susfs_suspicious_mount_type* __user user_
 int susfs_add_sus_mount_path(struct st_susfs_suspicious_mount_path* __user user_info);
 int susfs_add_sus_kstat(struct st_susfs_suspicious_kstat* __user user_info);
 int susfs_update_sus_kstat(struct st_susfs_suspicious_kstat* __user user_info);
+int susfs_add_suspicious_proc_fd_link(struct st_susfs_suspicious_proc_fd_link* __user user_info);
 int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info);
 int susfs_set_uname(struct st_susfs_uname* __user user_info);
 
@@ -124,6 +137,7 @@ int susfs_suspicious_path(struct filename* name, int* errno_to_be_changed, int s
 int susfs_suspicious_ino_for_filldir64(unsigned long ino);
 void susfs_suspicious_kstat(unsigned long ino, struct stat* out_stat);
 int susfs_suspicious_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* orig_dev, char *tmpname);
+void susfs_suspicious_proc_fd_link(char *pathname, int len);
 void susfs_try_umount(uid_t target_uid);
 void susfs_spoof_uname(struct new_utsname* tmp);
 

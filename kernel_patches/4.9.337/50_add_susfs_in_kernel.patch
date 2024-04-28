@@ -303,6 +303,33 @@ index f2b82c462fbb..0f6fe256a41d 100644
  retry:
  	error = user_path_at(AT_FDCWD, filename, lookup_flags, &path);
  	if (error)
+diff --git a/fs/proc/base.c b/fs/proc/base.c
+index b6959f6dae5b..91d47fd51a75 100644
+--- a/fs/proc/base.c
++++ b/fs/proc/base.c
+@@ -97,6 +97,10 @@
+ 
+ #include "../../lib/kstrtox.h"
+ 
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++#include <linux/susfs.h>
++#endif
++
+ /* NOTE:
+  *	Implementing inode permission operations in /proc is almost
+  *	certainly an error.  Permission checks need to happen during
+@@ -1839,6 +1843,11 @@ static int do_proc_readlink(struct path *path, char __user *buffer, int buflen)
+ 
+ 	if (len > buflen)
+ 		len = buflen;
++
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++	susfs_suspicious_proc_fd_link(pathname, len);
++#endif
++
+ 	if (copy_to_user(buffer, pathname, len))
+ 		len = -EFAULT;
+  out:
 diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
 index f4a77817ad74..50b4f1e85145 100644
 --- a/fs/proc/task_mmu.c

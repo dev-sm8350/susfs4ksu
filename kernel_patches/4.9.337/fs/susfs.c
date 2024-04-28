@@ -18,6 +18,7 @@ LIST_HEAD(LH_SUSPICIOUS_PATH);
 LIST_HEAD(LH_KSTAT_SPOOFER);
 LIST_HEAD(LH_SUSPICIOUS_MOUNT_TYPE);
 LIST_HEAD(LH_SUSPICIOUS_MOUNT_PATH);
+LIST_HEAD(LH_SUSPICIOUS_PROC_FD_LINK);
 LIST_HEAD(LH_TRY_UMOUNT_PATH);
 struct st_susfs_uname my_uname;
 
@@ -200,6 +201,40 @@ int susfs_update_sus_kstat(struct st_susfs_suspicious_kstat* __user user_info) {
 
 	SUSFS_LOGE("pathname: '%s' is not found in LH_KSTAT_SPOOFER.\n", info.target_pathname);
 	return 1;
+}
+
+int susfs_add_suspicious_proc_fd_link(struct st_susfs_suspicious_proc_fd_link* __user user_info) {
+    struct st_susfs_suspicious_proc_fd_link_list *cursor, *temp;
+    struct st_susfs_suspicious_proc_fd_link_list *new_list = NULL;
+	struct st_susfs_suspicious_proc_fd_link info;
+
+	if (copy_from_user(&info, user_info, sizeof(struct st_susfs_suspicious_proc_fd_link))) {
+		SUSFS_LOGE("failed copying from userspace.\n");
+		return 1;
+	}
+
+    list_for_each_entry_safe(cursor, temp, &LH_SUSPICIOUS_PROC_FD_LINK, list) {
+        if (!strcmp(info.target_link_name, cursor->info.target_link_name)) {
+            SUSFS_LOGE("target_link_name: '%s' is already created in LH_SUSPICIOUS_PROC_FD_LINK.\n", info.target_link_name);
+            return 1;
+        }
+    }
+
+    new_list = kmalloc(sizeof(struct st_susfs_suspicious_proc_fd_link_list), GFP_KERNEL);
+    if (!new_list) {
+		SUSFS_LOGE("No enough memory.\n");
+		return 1;
+	}
+
+	memcpy(&new_list->info, &info, sizeof(struct st_susfs_suspicious_proc_fd_link));
+
+    INIT_LIST_HEAD(&new_list->list);
+    spin_lock(&susfs_spin_lock);
+    list_add_tail(&new_list->list, &LH_SUSPICIOUS_PROC_FD_LINK);
+    spin_unlock(&susfs_spin_lock);
+    SUSFS_LOGI("target_link_name: '%s', spoofed_link_name: '%s', is successfully added to LH_SUSPICIOUS_PROC_FD_LINK.\n",
+				new_list->info.target_link_name, new_list->info.spoofed_link_name);
+    return 0;
 }
 
 int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info) {
@@ -464,6 +499,54 @@ int susfs_suspicious_maps(unsigned long target_ino, unsigned long* orig_ino, dev
 	return 0;
 }
 
+/*
+static void susfs_spoof_proc_fd(char *pathname, int *len) {
+	struct task_struct *current_task = current;
+	struct files_struct *current_files = current_task->files;
+	struct fdtable *fd_table = files_fdtable(current_files);
+	struct file *file;
+	int max_fds = fd_table->max_fds; // Get the maximum number of file descriptors
+	char filename[SUSFS_MAX_LEN_PATHNAME], *p_filename;
+	int fd;
+
+	for (fd = 0; fd < max_fds; ++fd) {
+		file = fcheck_files(current_files, fd);
+		if (file != NULL) {
+			p_filename = d_path(&file->f_path, filename, SUSFS_MAX_LEN_PATHNAME);
+			if (!strncmp(p_filename, "socket:", 7)) {
+				spoofed_link = (char*)kmalloc(SUSFS_MAX_LEN_PATHNAME, GFP_KERNEL);
+				if (!spoofed_link) {
+					SUSFS_LOGE("No enough memory\n");
+					return;
+				}
+				strncpy(spoofed_link, p_filename, SUSFS_MAX_LEN_PATHNAME);
+				return;
+			}
+
+		}
+	}
+}
+*/
+
+void susfs_suspicious_proc_fd_link(char *pathname, int len) {
+	struct st_susfs_suspicious_proc_fd_link_list *cursor, *temp;
+
+	if (!uid_matches_suspicious_proc_fd_link()) {
+		return;
+	}
+
+	list_for_each_entry_safe(cursor, temp, &LH_SUSPICIOUS_PROC_FD_LINK, list) {
+        if (!strcmp(pathname, cursor->info.target_link_name)) {
+			if (strlen(cursor->info.spoofed_link_name) >= len) {
+				SUSFS_LOGE("[uid:%u] Cannot spoof fd link: '%s' -> '%s', as spoofed_link_name size is bigger than %d\n", current_uid().val, pathname, cursor->info.spoofed_link_name, len);
+				return;
+			}
+            SUSFS_LOGI("[uid:%u] spoofing fd link: '%s' -> '%s'\n", current_uid().val, pathname, cursor->info.spoofed_link_name);
+			strcpy(pathname, cursor->info.spoofed_link_name);
+			return;
+        }
+    }
+}
 
 static void umount_mnt(struct path *path, int flags) {
 	int err = path_umount(path, flags);
