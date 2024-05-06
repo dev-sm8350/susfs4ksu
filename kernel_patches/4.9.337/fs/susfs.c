@@ -544,7 +544,7 @@ void susfs_sus_kstat(unsigned long ino, struct stat* out_stat) {
  * compare mode:
  *  1 -> target_ino is non-zero, all entries match with target_ino will be spoofed with user defined entry
  *  2 -> target_ino is non-zero, all entries match with "target_ino,target_prot,target_pgoff,is_isolated_entry" will be spoofed with user defined entry
- *  3 -> target_ino is zero, which is not file
+ *  3 -> (NOT yet implemented) target_ino is zero, which is not file
  *       all entries match with "target_ino,entry_offset_to_compare,entry_offset_ino_to_compare"
  * compared_pos:
     -> Value cannot be zero, as it cannot compare with current entry's ino which is zero

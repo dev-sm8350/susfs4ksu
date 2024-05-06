@@ -71,21 +71,6 @@ struct st_susfs_sus_kstat {
     long                   spoofed_ctime_tv_nsec;
 };
 
-/* for non statically, it only compare with target_ino, and spoof only the ino, dev to the matched entry
- * for staticially, it compares depending on the mode user chooses
- * compare mode:
- *  0 -> target_ino is non-zero, all entries match with target_ino will be spoofed with user defined entry
- *  1 -> target_ino is non-zero, all entries match with "target_ino,target_prot,target_pgoff,is_isolated_entry" will be spoofed with user defined entry
- *  2 -> target_ino is zero, entry_offset_to_compare is non-zero,
- *       all entries match with "target_ino,entry_offset_to_compare,entry_offset_ino_to_compare"
- * compared_pos:
- * -1 -> compare the previous entry inode
- *  0  -> not available, cannot compare with current entry's ino which is zero
- *  1  -> compare the next entry inode, -1 -> compare the previous entry inode
- *  2  -> compare the next next entry inode and so on
- *  ...
- *  ...
- */
 struct st_susfs_sus_maps {
     bool                   is_statically;
     int                    compare_mode;
