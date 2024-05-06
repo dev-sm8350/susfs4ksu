@@ -12,7 +12,7 @@ index 0e97f4b85bee..5ef37c17ee91 100644
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
  else
 diff --git a/fs/namei.c b/fs/namei.c
-index 0cbf8f5a92f4..d49b895ffd75 100644
+index 0cbf8f5a92f4..b95561ecacec 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -42,6 +42,10 @@
@@ -32,7 +32,7 @@ index 0cbf8f5a92f4..d49b895ffd75 100644
  
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
 +	int error;
-+	if (susfs_suspicious_path(pathname, &error, SYSCALL_FAMILY_ALL_ENOENT)) {
++	if (susfs_sus_path_by_filename(pathname, &error, SYSCALL_FAMILY_ALL_ENOENT)) {
 +		return ERR_PTR(error);
 +	}
 +#endif
@@ -49,7 +49,7 @@ index 0cbf8f5a92f4..d49b895ffd75 100644
 +	int status;
 +
 +	fname = getname_safe(filename);
-+	status = susfs_suspicious_path(fname, &error, SYSCALL_FAMILY_MKNOD);
++	status = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_MKNOD);
 +	putname_safe(fname);
 +
 +	if (status) {
@@ -69,7 +69,7 @@ index 0cbf8f5a92f4..d49b895ffd75 100644
 +	int status;
 +
 +	fname = getname_safe(pathname);
-+	status = susfs_suspicious_path(fname, &error, SYSCALL_FAMILY_MKDIRAT);
++	status = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_MKDIRAT);
 +	putname_safe(fname);
 +
 +	if (status) {
@@ -90,7 +90,7 @@ index 0cbf8f5a92f4..d49b895ffd75 100644
 +	int status;
 +
 +	fname = getname_safe(pathname);
-+	status = susfs_suspicious_path(fname, &error, SYSCALL_FAMILY_RMDIR);
++	status = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_RMDIR);
 +	putname_safe(fname);
 +
 +	if (status) {
@@ -112,7 +112,7 @@ index 0cbf8f5a92f4..d49b895ffd75 100644
 +	int status;
 +
 +	fname = getname_safe(pathname);
-+	status = susfs_suspicious_path(fname, &error, SYSCALL_FAMILY_UNLINKAT);
++	status = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_UNLINKAT);
 +	putname_safe(fname);
 +
 +	if (status) {
@@ -132,7 +132,7 @@ index 0cbf8f5a92f4..d49b895ffd75 100644
 +	int status;
 +
 +	fname = getname_safe(newname);
-+	status = susfs_suspicious_path(fname, &error, SYSCALL_FAMILY_SYMLINKAT_NEWNAME);
++	status = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_SYMLINKAT_NEWNAME);
 +	putname_safe(fname);
 +
 +	if (status) {
@@ -152,7 +152,7 @@ index 0cbf8f5a92f4..d49b895ffd75 100644
 +	int status;
 +
 +	fname = getname_safe(oldname);
-+	status = susfs_suspicious_path(fname, &error, SYSCALL_FAMILY_LINKAT_OLDNAME);
++	status = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_LINKAT_OLDNAME);
 +	putname_safe(fname);
 +
 +	if (status) {
@@ -160,7 +160,7 @@ index 0cbf8f5a92f4..d49b895ffd75 100644
 +	}
 +
 +	fname = getname_safe(newname);
-+	status = susfs_suspicious_path(fname, &error, SYSCALL_FAMILY_LINKAT_NEWNAME);
++	status = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_LINKAT_NEWNAME);
 +	putname_safe(fname);
 +
 +	if (status) {
@@ -180,7 +180,7 @@ index 0cbf8f5a92f4..d49b895ffd75 100644
 +	int status;
 +
 +	fname = getname_safe(oldname);
-+	status = susfs_suspicious_path(fname, &error, SYSCALL_FAMILY_RENAMEAT2_OLDNAME);
++	status = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_RENAMEAT2_OLDNAME);
 +	putname_safe(fname);
 +
 +	if (status) {
@@ -188,7 +188,7 @@ index 0cbf8f5a92f4..d49b895ffd75 100644
 +	}
 +
 +	fname = getname_safe(newname);
-+	status = susfs_suspicious_path(fname, &error, SYSCALL_FAMILY_RENAMEAT2_NEWNAME);
++	status = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_RENAMEAT2_NEWNAME);
 +	putname_safe(fname);
 +
 +	if (status) {
@@ -204,7 +204,7 @@ index 0cbf8f5a92f4..d49b895ffd75 100644
  	}
  
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+	status = susfs_suspicious_path(from, &error, SYSCALL_FAMILY_RENAMEAT2_OLDNAME);
++	status = susfs_sus_path_by_filename(from, &error, SYSCALL_FAMILY_RENAMEAT2_OLDNAME);
 +	if (status) {
 +		goto exit;
 +	}
@@ -218,7 +218,7 @@ index 0cbf8f5a92f4..d49b895ffd75 100644
  	}
  
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+	status = susfs_suspicious_path(to, &error, SYSCALL_FAMILY_RENAMEAT2_NEWNAME);
++	status = susfs_sus_path_by_filename(to, &error, SYSCALL_FAMILY_RENAMEAT2_NEWNAME);
 +	if (status) {
 +		goto exit;
 +	}
@@ -228,7 +228,7 @@ index 0cbf8f5a92f4..d49b895ffd75 100644
  	if (old_path.mnt != new_path.mnt)
  		goto exit2;
 diff --git a/fs/open.c b/fs/open.c
-index f2b82c462fbb..0f6fe256a41d 100644
+index f2b82c462fbb..dd34e148ff1b 100644
 --- a/fs/open.c
 +++ b/fs/open.c
 @@ -34,6 +34,10 @@
@@ -251,7 +251,7 @@ index f2b82c462fbb..0f6fe256a41d 100644
 +	int status;
 +
 +	fname = getname_safe(pathname);
-+	status = susfs_suspicious_path(fname, &error, SYSCALL_FAMILY_ALL_ENOENT);
++	status = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_ALL_ENOENT);
 +	putname_safe(fname);
 +
 +	if (status) {
@@ -271,7 +271,7 @@ index f2b82c462fbb..0f6fe256a41d 100644
 +	int error;
 +
 +	fname = getname_safe(filename);
-+	status = susfs_suspicious_path(fname, &error, SYSCALL_FAMILY_ALL_ENOENT);
++	status = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_ALL_ENOENT);
 +	putname_safe(fname);
 +
 +	if (status) {
@@ -292,7 +292,7 @@ index f2b82c462fbb..0f6fe256a41d 100644
 +	int status;
 +
 +	fname = getname_safe(filename);
-+	status = susfs_suspicious_path(fname, &error, SYSCALL_FAMILY_ALL_ENOENT);
++	status = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_ALL_ENOENT);
 +	putname_safe(fname);
 +
 +	if (status) {
@@ -304,7 +304,7 @@ index f2b82c462fbb..0f6fe256a41d 100644
  	error = user_path_at(AT_FDCWD, filename, lookup_flags, &path);
  	if (error)
 diff --git a/fs/proc/base.c b/fs/proc/base.c
-index b6959f6dae5b..91d47fd51a75 100644
+index b6959f6dae5b..5e221d472a7c 100644
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
 @@ -97,6 +97,10 @@
@@ -324,14 +324,14 @@ index b6959f6dae5b..91d47fd51a75 100644
  		len = buflen;
 +
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+	susfs_suspicious_proc_fd_link(pathname, len);
++	susfs_sus_proc_fd_link(pathname, len);
 +#endif
 +
  	if (copy_to_user(buffer, pathname, len))
  		len = -EFAULT;
   out:
 diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
-index f4a77817ad74..50b4f1e85145 100644
+index f4a77817ad74..51958e6faf50 100644
 --- a/fs/proc/task_mmu.c
 +++ b/fs/proc/task_mmu.c
 @@ -22,6 +22,10 @@
@@ -362,13 +362,13 @@ index f4a77817ad74..50b4f1e85145 100644
  	end = vma->vm_end;
 +
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+    ret = susfs_suspicious_maps(ino, &ino, &dev, tmpname);
++    ret = susfs_sus_maps(ino, &ino, &dev, &flags, &pgoff, vma, tmpname);
 +#endif
 +
  	show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
  
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+	if (ret) {
++	if (ret == 2) {
 +		seq_pad(m, ' ');
 +		seq_puts(m, tmpname);
 +		seq_putc(m, '\n');
@@ -379,7 +379,7 @@ index f4a77817ad74..50b4f1e85145 100644
  	 * Print the dentry name for named mappings, and a
  	 * special [heap] marker for the heap:
 diff --git a/fs/proc_namespace.c b/fs/proc_namespace.c
-index 6863773aff25..578264431a4f 100644
+index 6863773aff25..2d9eb952682b 100644
 --- a/fs/proc_namespace.c
 +++ b/fs/proc_namespace.c
 @@ -15,6 +15,10 @@
@@ -393,50 +393,41 @@ index 6863773aff25..578264431a4f 100644
  static unsigned mounts_poll(struct file *file, poll_table *wait)
  {
  	struct seq_file *m = file->private_data;
-@@ -99,6 +103,13 @@ static int show_vfsmnt(struct seq_file *m, struct vfsmount *mnt)
+@@ -99,6 +103,10 @@ static int show_vfsmnt(struct seq_file *m, struct vfsmount *mnt)
  	struct super_block *sb = mnt_path.dentry->d_sb;
  	int err;
  
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+	if (susfs_is_suspicious_mount(mnt, &p->root)) {
-+		err = SEQ_SKIP;
-+		goto out;
-+	}
++	if (susfs_sus_mount(mnt, &p->root)) return 0;
 +#endif
 +
  	if (sb->s_op->show_devname) {
  		err = sb->s_op->show_devname(m, mnt_path.dentry);
  		if (err)
-@@ -135,6 +146,13 @@ static int show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
+@@ -135,6 +143,10 @@ static int show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
  	struct path mnt_path = { .dentry = mnt->mnt_root, .mnt = mnt };
  	int err;
  
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+	if (susfs_is_suspicious_mount(mnt, &p->root)) {
-+		err = SEQ_SKIP;
-+		goto out;
-+	}
++	if (susfs_sus_mount(mnt, &p->root)) return 0;
 +#endif
 +
  	seq_printf(m, "%i %i %u:%u ", r->mnt_id, r->mnt_parent->mnt_id,
  		   MAJOR(sb->s_dev), MINOR(sb->s_dev));
  	if (sb->s_op->show_path) {
-@@ -199,6 +217,13 @@ static int show_vfsstat(struct seq_file *m, struct vfsmount *mnt)
+@@ -199,6 +211,10 @@ static int show_vfsstat(struct seq_file *m, struct vfsmount *mnt)
  	struct super_block *sb = mnt_path.dentry->d_sb;
  	int err;
  
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+	if (susfs_is_suspicious_mount(mnt, &p->root)) {
-+		err = SEQ_SKIP;
-+		goto out;
-+	}
++	if (susfs_sus_mount(mnt, &p->root)) return 0;
 +#endif
 +
  	/* device */
  	if (sb->s_op->show_devname) {
  		seq_puts(m, "device ");
 diff --git a/fs/readdir.c b/fs/readdir.c
-index 1059f2a9be0b..b4fabc9807a4 100644
+index 1059f2a9be0b..0b83bdabdf3c 100644
 --- a/fs/readdir.c
 +++ b/fs/readdir.c
 @@ -21,6 +21,10 @@
@@ -455,7 +446,7 @@ index 1059f2a9be0b..b4fabc9807a4 100644
  		if (signal_pending(current))
  			return -EINTR;
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+		if (susfs_suspicious_ino_for_filldir64(ino)) {
++		if (susfs_sus_ino_for_filldir64(ino)) {
 +			return 0;
 +		}
 +#endif
@@ -463,7 +454,7 @@ index 1059f2a9be0b..b4fabc9807a4 100644
  			goto efault;
  	}
 diff --git a/fs/stat.c b/fs/stat.c
-index 068fdbcc9e26..e7ee4ea3f661 100644
+index 068fdbcc9e26..e20efd073899 100644
 --- a/fs/stat.c
 +++ b/fs/stat.c
 @@ -18,6 +18,10 @@
@@ -482,7 +473,7 @@ index 068fdbcc9e26..e7ee4ea3f661 100644
  	int retval;
  
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+	if (susfs_is_suspicious_path(path, &retval, SYSCALL_FAMILY_ALL_ENOENT)) {
++	if (susfs_sus_path_by_path(path, &retval, SYSCALL_FAMILY_ALL_ENOENT)) {
 +		return retval;
 +	}
 +#endif
@@ -495,7 +486,7 @@ index 068fdbcc9e26..e7ee4ea3f661 100644
  	tmp.st_blocks = stat->blocks;
  	tmp.st_blksize = stat->blksize;
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+	susfs_suspicious_kstat(tmp.st_ino, &tmp);
++	susfs_sus_kstat(tmp.st_ino, &tmp);
 +#endif
  	return copy_to_user(statbuf,&tmp,sizeof(tmp)) ? -EFAULT : 0;
  }

@@ -17,9 +17,9 @@
  ******************/
 #define TAG "ksu_susfs"
 #define KERNEL_SU_OPTION 0xDEADBEEF
+
 #define CMD_SUSFS_ADD_SUS_PATH 0x55555
-#define CMD_SUSFS_ADD_SUS_MOUNT_TYPE 0x55556
-#define CMD_SUSFS_ADD_SUS_MOUNT_PATH 0x55557
+#define CMD_SUSFS_ADD_SUS_MOUNT 0x55556
 #define CMD_SUSFS_ADD_SUS_KSTAT 0x55558
 #define CMD_SUSFS_UPDATE_SUS_KSTAT 0x55559
 #define CMD_SUSFS_ADD_TRY_UMOUNT 0x5555a
@@ -28,6 +28,8 @@
 #define CMD_SUSFS_ENABLE_LOG 0x5555d
 #define CMD_SUSFS_ADD_SUS_MAPS_STATICALLY 0x5555e
 #define CMD_SUSFS_ADD_SUS_PROC_FD_LINK 0x5555f
+#define CMD_SUSFS_ADD_SUS_MAPS 0x55560
+#define CMD_SUSFS_UPDATE_SUS_MAPS 0x55561
 
 #define SUSFS_MAX_LEN_PATHNAME 128
 #define SUSFS_MAX_LEN_MOUNT_TYPE_NAME 32
@@ -40,32 +42,40 @@
 #define __NEW_UTS_LEN 64
 #endif
 
+/* VM flags from linux kernel */
+#define VM_NONE		0x00000000
+#define VM_READ		0x00000001	/* currently active flags */
+#define VM_WRITE	0x00000002
+#define VM_EXEC		0x00000004
+#define VM_SHARED	0x00000008
+/* mprotect() hardcodes VM_MAYREAD >> 4 == VM_READ, and so for r/w/x bits. */
+#define VM_MAYREAD	0x00000010	/* limits for mprotect() etc */
+#define VM_MAYWRITE	0x00000020
+#define VM_MAYEXEC	0x00000040
+#define VM_MAYSHARE	0x00000080
+
 #define log(fmt, msg...) printf(TAG ":" fmt, ##msg);
 
 /*******************
  ** Define Struct **
  *******************/
-struct st_susfs_suspicious_path {
-    char                   name[SUSFS_MAX_LEN_PATHNAME];
+struct st_susfs_sus_path {
+    char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
     unsigned long          ino;
 };
 
-struct st_susfs_suspicious_mount_type {
-    char                   name[SUSFS_MAX_LEN_MOUNT_TYPE_NAME];
+struct st_susfs_sus_mount {
+    unsigned long          target_dev;
+    char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
 };
 
-struct st_susfs_suspicious_mount_path {
-    char                   name[SUSFS_MAX_LEN_PATHNAME];
-    unsigned long          ino;
-};
-
-struct st_susfs_suspicious_kstat {
+struct st_susfs_sus_kstat {
     unsigned long          target_ino; // the ino after bind mounted or overlayed
     char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
-    bool                   spoof_in_maps_only;
     char                   spoofed_pathname[SUSFS_MAX_LEN_PATHNAME];
     unsigned long          spoofed_ino;
-    dev_t                  spoofed_dev;
+    unsigned long          spoofed_dev;
+    unsigned int           spoofed_nlink;
     long                   spoofed_atime_tv_sec;
     long                   spoofed_mtime_tv_sec;
     long                   spoofed_ctime_tv_sec;
@@ -76,13 +86,34 @@ struct st_susfs_suspicious_kstat {
 #endif
 };
 
-struct st_susfs_try_umount {
-    char                   name[SUSFS_MAX_LEN_PATHNAME];
-    //bool                 check_mnt;
-    //int                  flags;
+struct st_susfs_sus_maps {
+    bool                   is_statically;
+    int                    compare_mode;
+    bool                   is_isolated_entry;
+    int                    entry_offset_to_compare;
+    unsigned long          entry_offset_ino_to_compare;
+    char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
+    unsigned long          target_ino;
+    unsigned long long     target_pgoff;
+    unsigned long          target_prot;
+    char                   spoofed_pathname[SUSFS_MAX_LEN_PATHNAME];
+    unsigned long          spoofed_ino;
+    unsigned long          spoofed_dev;
+    unsigned long long     spoofed_pgoff;
+    unsigned long          spoofed_prot;
+    bool                   need_to_spoof_pathname;
+    bool                   need_to_spoof_ino;
+    bool                   need_to_spoof_dev;
+    bool                   need_to_spoof_pgoff;
+    bool                   need_to_spoof_prot;
 };
 
-struct st_susfs_suspicious_proc_fd_link {
+struct st_susfs_try_umount {
+    char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
+    int                    mnt_mode;
+};
+
+struct st_susfs_sus_proc_fd_link {
     char                   target_link_name[SUSFS_MAX_LEN_PATHNAME];
     char                   spoofed_link_name[SUSFS_MAX_LEN_PATHNAME];
 };
@@ -130,17 +161,21 @@ int get_file_stat(char *pathname, struct stat* sb) {
     return 0;
 }
 
-void copy_stat_to_suspicious_kstat(struct st_susfs_suspicious_kstat* info, struct stat* sb) {
+void copy_stat_to_sus_kstat(struct st_susfs_sus_kstat* info, struct stat* sb) {
     info->spoofed_ino = sb->st_ino;
     info->spoofed_dev = sb->st_dev;
+    info->spoofed_nlink = sb->st_nlink;
     info->spoofed_atime_tv_sec = sb->st_atime;
     info->spoofed_mtime_tv_sec = sb->st_mtime;
     info->spoofed_ctime_tv_sec = sb->st_ctime;
-#ifdef TIME_HAVE_NANOSEC
     info->spoofed_atime_tv_nsec = sb->st_atime_nsec;
     info->spoofed_mtime_tv_nsec = sb->st_mtime_nsec;
     info->spoofed_ctime_tv_nsec = sb->st_ctime_nsec;
-#endif
+}
+
+void copy_stat_to_sus_maps(struct st_susfs_sus_maps* info, struct stat* sb) {
+    info->spoofed_ino = sb->st_ino;
+    info->spoofed_dev = sb->st_dev;
 }
 
 int create_file(const char* filename) {
@@ -160,22 +195,19 @@ static void print_help(void) {
     log(" usage: %s <CMD> [CMD options]\n", TAG);
     log("    <CMD>:\n");
     log("        add_sus_path </path/of/file_or_directory>\n");
-    log("         |--> Added path will be hidden from different syscalls\n");
+    log("         |--> Added path will be hidden from several syscalls\n");
     log("\n");
-    log("        add_sus_mount_type <mount_type_name>\n");
-    log("         |--> Added mount type will be hidden from /proc/self/[mounts|mountinfo|mountstats]\n");
-    log("\n");
-    log("        add_sus_mount_path </path/of/file_or_directory>\n");
+    log("        add_sus_mount <mounted_path>\n");
     log("         |--> Added mounted path will be hidden from /proc/self/[mounts|mountinfo|mountstats]\n");
     log("\n");
-    log("        add_sus_kstat_statically </path/of/file_or_directory> <ino> <dev> \\\n");
-    log("                                      <atime> <atime_nsec> <mtime> <mtime_nsec> <ctime> <ctime_nsec>\n");
-    log("         |--> Add the desired path for spoofing a custom ino, dev, atime, atime_nsec, mtime, mtime_nsec, ctime, ctime_nsec\n");
-    log("         |--> Use 'stat' tool to find the format of ino -> %%i, dev -> %%d, atime -> %%X, mtime -> %%Y, ctime -> %%Z\n");
-    log("         |--> e.g., %s add_sus_kstat_statically '/system/addon.d' '1234' '1234' \\\n", TAG);
+    log("        add_sus_kstat_statically </path/of/file_or_directory> <ino> <dev> <nlink>\\\n");
+    log("                                 <atime> <atime_nsec> <mtime> <mtime_nsec> <ctime> <ctime_nsec>\n");
+    log("         |--> Add the desired path for spoofing user defined [ino,dev,atime,atime_nsec,mtime,mtime_nsec,ctime,ctime_nsec]\n");
+    log("         |--> Use 'stat' tool to find the format of ino -> %%i, dev -> %%d, nlink -> %%h atime -> %%X, mtime -> %%Y, ctime -> %%Z\n");
+    log("         |--> e.g., %s add_sus_kstat_statically '/system/addon.d' '1234' '1234' '2'\\\n", TAG);
     log("                       '1712592355' '0' '1712592355' '0' '1712592355' '0' '1712592355' '0'\n");
     log("         |--> Or pass 'default' to use its original value:\n");
-    log("         |--> e.g., %s add_sus_kstat_statically '/system/addon.d' 'default' 'default' \\\n", TAG);
+    log("         |--> e.g., %s add_sus_kstat_statically '/system/addon.d' 'default' 'default' 'default'\\\n", TAG);
     log("                       '1712592355' 'default' '1712592355' 'default' '1712592355' 'default'\n");
     log("\n");
     log("        add_sus_kstat </path/of/file_or_directory>\n");
@@ -185,12 +217,37 @@ static void print_help(void) {
     log("        update_sus_kstat </path/of/file_or_directory>\n");
     log("         |--> Add the desired path you have added before via <add_sus_kstat> to complete the kstat spoofing procedure\n");
     log("\n");
-    log("        add_sus_maps_statically <target_ino> <spoofed_ino> <spoofed_dev> <spoofed_pathname>\n");
-    log("         |--> Matched ino in /proc/self/[maps|smaps] will be spoofed for the user defined ino, dev and pathname\n");
-    log("         |--> Useful when it is not a file in maps, like /memfd: \n");
+    log("        add_sus_maps </path/of/file_or_directory>\n");
+    log("         |--> Matched ino in /proc/self/[maps|smaps] will be spoofed for the user defined [ino] and [dev] ONLY!\n");
     log("\n");
-    log("        add_try_umount </path/of/file_or_directory>\n");
-    log("         |--> Added path will be umount from kernel for all UIDs that are NOT su allowed, and profile template configured with umount\n");
+    log("        update_sus_maps </path/of/file_or_directory>\n");
+    log("         |--> Add the desired path you have added before via <add_sus_maps> to complete the [ino] and [dev] spoofing in maps\n");
+    log("\n");
+    log("        add_sus_maps_statically <compare_mode> <args_for_mode>\n");
+    log("         |--> comapre_mode: 1 => target_ino is non-zero, all entries match target_ino will be spoofed with user defined entry\n");
+    log("               |--> <target_ino>\n");
+    log("               |--> <spoofed_pathname>\n");
+    log("               |--> <spoofed_ino>\n");
+    log("               |--> <spoofed_dev>\n");
+    log("               |--> <spoofed_pgoff>\n");
+    log("               |--> <spoofed_prot>\n");
+    log("         |--> comapre_mode: 2 => target_ino is non-zero, all entries match [target_ino,target_pgoff,target_prot,is_isolated_entry] will be spoofed with user defined entry\n");
+    log("               |--> <target_ino>: in decimal\n");
+    log("               |--> <target_pgoff>: in decimal\n");
+    log("               |--> <target_prot>: in string, must be length of 4, and include only characters 'rwxps-', e.g.: 'r--s'\n");
+    log("               |--> <spoofed_pathname>: in string, can be passed as 'default' or 'empty'\n");
+    log("               |--> <spoofed_ino>: in decimal, can be passed as 'default'\n");
+    log("               |--> <spoofed_dev>: in decimal, can be passed as 'default'\n");
+    log("               |--> <spoofed_pgoff>: in decimal, can be passed as 'default'\n");
+    log("               |--> <spoofed_prot>: in string, must be length of 4, and include only characters 'rwxps-', e.g.: 'r--s', can be passed as 'default'\n");
+    log("               |--> <is_isolated_entry>: 0 -> not isolated entry, 1 -> isolated entry\n");
+    log("         |--> 'default' args will be spoofed with the original value\n");
+    log("         |--> 'empty' for <spoofed_pathname> will be spoofed with the empty pathname\n");
+    log("\n");
+    log("        add_try_umount </path/of/file_or_directory> <mode>\n");
+    log("         |--> Added path will be umounted from KSU for all UIDs that are NOT su allowed, and profile template configured with umount\n");
+    log("         |--> <mode>: 0 -> umount with no flags, 1 -> umount with MNT_DETACH\n");
+    log("         |--> NOTE: susfs umount takes precedence of ksu umount\n");
     log("\n");
     log("        add_sus_proc_fd_link </original/symlinked/path/in/proc/fd/xxx> </spoofed/symlinked/path>\n");
     log("         |--> Added symlinked path will be spoofed in /proc/self/fd/[xx] only\n");
@@ -198,14 +255,12 @@ static void print_help(void) {
     log("         |-->       So if /proc/self/fd/10 is a symlink to /dev/binder, then it will be shown as /dev/null instead\n");
     log("\n");
     log("        set_uname <sysname> <nodename> <release> <version> <machine>\n");
-    log("         |--> Spoof uname for all processes, set string to 'default' imply the function to use original string\n");
+    log("         |--> Spoof uname for all processes, set string to 'default' to imply the function to use original string\n");
     log("         |--> e.g., set_uname 'default' 'default' '4.9.337-g3291538446b7' 'default' 'default' \n");
     log("\n");
     log("        enable_log <0|1>\n");
-    log("         |--> 0: disable kernel log, 1: enable kernel log\n");
+    log("         |--> 0: disable susfs log in kernel, 1: enable susfs log in kernel\n");
     log("\n");
-    log("    [CMD options]:\n");
-    log("        mount_type_name: [overlay|you_name_it_as_I_dont_know]\n");
 }
 
 /*******************
@@ -215,41 +270,40 @@ int main(int argc, char *argv[]) {
     int error;
 
     pre_check();
-
+    // add_sus_path
     if (argc == 3 && !strcmp(argv[1], "add_sus_path")) {
-        struct st_susfs_suspicious_path info;
+        struct st_susfs_sus_path info;
         struct stat sb;
-        strncpy(info.name, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
         if (!get_file_stat(argv[2], &sb)) {
-            log("%s not found, skip adding its ino\n", info.name);
+            log("%s not found, skip adding its ino\n", info.target_pathname);
             info.ino = sb.st_ino;
         } else {
             info.ino = 0;
         }
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_PATH, &info, NULL, &error);
         return error;
-    } else if (argc == 3 && !strcmp(argv[1], "add_sus_mount_type")) {
-        struct st_susfs_suspicious_mount_type info;
-        strncpy(info.name, argv[2], SUSFS_MAX_LEN_MOUNT_TYPE_NAME);
-        prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_MOUNT_TYPE, &info, NULL, &error);
-        return error;
-    } else if (argc == 3 && !strcmp(argv[1], "add_sus_mount_path")) {
-        struct st_susfs_suspicious_mount_path info;
+    // add_sus_mount
+    } else if (argc == 3 && !strcmp(argv[1], "add_sus_mount")) {
+        struct st_susfs_sus_mount info;
         struct stat sb;
-        strncpy(info.name, argv[2], SUSFS_MAX_LEN_PATHNAME);
-        if (!get_file_stat(argv[2], &sb)) {
-            info.ino = sb.st_ino;
-        } else {
-            info.ino = 0;
+
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        if (get_file_stat(argv[2], &sb)) {
+            log("[-] Failed to get stat from path: '%s'\n", argv[2]);
+            return 1;
         }
-        prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_MOUNT_PATH, &info, NULL, &error);
+        info.target_dev = sb.st_dev;
+        prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_MOUNT, &info, NULL, &error);
         return error;
-    } else if (argc == 11 && !strcmp(argv[1], "add_sus_kstat_statically")) {
-        struct st_susfs_suspicious_kstat info;
+    // add_sus_kstat_statically
+    } else if (argc == 12 && !strcmp(argv[1], "add_sus_kstat_statically")) {
+        struct st_susfs_sus_kstat info;
         struct stat sb;
         char* endptr;
 
         unsigned long ino, dev, atime_nsec, mtime_nsec, ctime_nsec;
+        unsigned int nlink;
         long atime, mtime, ctime;
 
         if (get_file_stat(argv[2], &sb)) {
@@ -268,6 +322,7 @@ int main(int argc, char *argv[]) {
         } else {
             info.target_ino = sb.st_ino;
         }
+
         if (strcmp(argv[4], "default")) {
             dev = strtoul(argv[4], &endptr, 10);
             if (*endptr != '\0') {
@@ -277,47 +332,55 @@ int main(int argc, char *argv[]) {
             sb.st_dev = dev;
         }
         if (strcmp(argv[5], "default")) {
-            atime = strtol(argv[5], &endptr, 10);
+            nlink = strtoul(argv[5], &endptr, 10);
+            if (*endptr != '\0') {
+                print_help();
+                return 1;
+            }
+            sb.st_nlink = nlink;
+        }
+        if (strcmp(argv[6], "default")) {
+            atime = strtol(argv[6], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
             }
             sb.st_atime = atime;
         }
-        if (strcmp(argv[6], "default")) {
-            atime_nsec = strtoul(argv[6], &endptr, 10);
+        if (strcmp(argv[7], "default")) {
+            atime_nsec = strtoul(argv[7], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
             }
             sb.st_atimensec = atime_nsec;
         }
-        if (strcmp(argv[7], "default")) {
-            mtime = strtol(argv[7], &endptr, 10);
+        if (strcmp(argv[8], "default")) {
+            mtime = strtol(argv[8], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
             }
             sb.st_mtime = mtime;
         }
-        if (strcmp(argv[8], "default")) {
-            mtime_nsec = strtoul(argv[8], &endptr, 10);
+        if (strcmp(argv[9], "default")) {
+            mtime_nsec = strtoul(argv[9], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
             }
             sb.st_mtimensec = mtime_nsec;
         }
-        if (strcmp(argv[9], "default")) {
-            ctime = strtol(argv[9], &endptr, 10);
+        if (strcmp(argv[10], "default")) {
+            ctime = strtol(argv[10], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
             }
             sb.st_ctime = ctime;
         }
-        if (strcmp(argv[10], "default")) {
-            ctime_nsec = strtoul(argv[10], &endptr, 10);
+        if (strcmp(argv[11], "default")) {
+            ctime_nsec = strtoul(argv[11], &endptr, 10);
             if (*endptr != '\0') {
                 print_help();
                 return 1;
@@ -325,25 +388,25 @@ int main(int argc, char *argv[]) {
             sb.st_ctimensec = ctime_nsec;
         }
         strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
-        info.spoof_in_maps_only = false;
-        copy_stat_to_suspicious_kstat(&info, &sb);
+        copy_stat_to_sus_kstat(&info, &sb);
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY, &info, NULL, &error);
         return error;
+    // add_sus_kstat
     } else if (argc == 3 && !strcmp(argv[1], "add_sus_kstat")) {
-        struct st_susfs_suspicious_kstat info;
+        struct st_susfs_sus_kstat info;
         struct stat sb;
         if (get_file_stat(argv[2], &sb)) {
             log("[-] Failed to get stat from path: '%s'\n", argv[2]);
             return 1;
         }
         strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
-        info.spoof_in_maps_only = false;
         info.target_ino = sb.st_ino;
-        copy_stat_to_suspicious_kstat(&info, &sb);
+        copy_stat_to_sus_kstat(&info, &sb);
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_KSTAT, &info, NULL, &error);
         return error;
+    // update_sus_kstat
     } else if (argc == 3 && !strcmp(argv[1], "update_sus_kstat")) {
-        struct st_susfs_suspicious_kstat info;
+        struct st_susfs_sus_kstat info;
         struct stat sb;
         if (get_file_stat(argv[2], &sb)) {
             log("[-] Failed to get stat from path: '%s'\n", argv[2]);
@@ -353,48 +416,240 @@ int main(int argc, char *argv[]) {
         info.target_ino = sb.st_ino;
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_UPDATE_SUS_KSTAT, &info, NULL, &error);
         return error;
-    } else if (argc == 6 && !strcmp(argv[1], "add_sus_maps_statically")) {
-        struct st_susfs_suspicious_kstat info;
-        unsigned long target_ino, spoofed_ino, spoofed_dev;
+    // add_sus_maps
+    } else if (argc == 3 && !strcmp(argv[1], "add_sus_maps")) {
+        struct st_susfs_sus_maps info;
+        struct stat sb;
+
+        memset(&info, 0, sizeof(struct st_susfs_sus_maps));
+        info.is_statically = false;
+        if (get_file_stat(argv[2], &sb)) {
+            log("[-] Failed to get stat from path: '%s'\n", argv[2]);
+            return 1;
+        }
+        info.target_ino = sb.st_ino;
+        copy_stat_to_sus_maps(&info, &sb);
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_MAPS, &info, NULL, &error);
+        return error;
+    // update_sus_maps
+    } else if (argc == 3 && !strcmp(argv[1], "update_sus_maps")) {
+        struct st_susfs_sus_maps info;
+        struct stat sb = {0};
+        if (get_file_stat(argv[2], &sb)) {
+            log("[-] Failed to get stat from path: '%s'\n", argv[2]);
+            return 1;
+        }
+        info.target_ino = sb.st_ino;
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        prctl(KERNEL_SU_OPTION, CMD_SUSFS_UPDATE_SUS_MAPS, &info, NULL, &error);
+        return error;
+    // add_sus_maps_statically
+    } else if (argc > 3 && !strcmp(argv[1], "add_sus_maps_statically")) {
+        struct st_susfs_sus_maps info;
         char* endptr;
 
-        target_ino = strtoul(argv[2], &endptr, 10);
-        if (*endptr != '\0') {
+        memset(&info, 0, sizeof(struct st_susfs_sus_maps));
+        info.is_statically = true;
+        info.compare_mode = strtoul(argv[2], &endptr, 10);
+        if (*endptr != '\0' || info.compare_mode > 2 || info.compare_mode < 1) {
+            log("[-] compare_mode must be [0|1|2]\n");
+            return 1;
+        }
+        // compare_mode == 1
+        if (info.compare_mode == 1 && argc == 9) {
+            // target_ino
+            info.target_ino = strtoul(argv[3], &endptr, 10);
+            if (*endptr != '\0') {
+                log("[-] target_ino must be a digit\n");
+                return 1;
+            }
+            // spoofed_pathname
+            if (strcmp(argv[4], "default")) {
+                if (strcmp(argv[4], "empty")) {
+                    strncpy(info.spoofed_pathname, argv[4], SUSFS_MAX_LEN_PATHNAME);
+                }
+                info.need_to_spoof_pathname = true;
+            }
+            // spoofed_ino
+            if (strcmp(argv[5], "default")) {
+                info.spoofed_ino = strtoul(argv[5], &endptr, 10);
+                if (*endptr != '\0') {
+                    log("[-] spoofed_ino must be a digit or 'default'\n");
+                    return 1;
+                }
+                info.need_to_spoof_ino = true;
+            }
+            // spoofed_dev
+            if (strcmp(argv[6], "default")) {
+                info.spoofed_dev = strtoul(argv[6], &endptr, 10);
+                if (*endptr != '\0') {
+                    log("[-] spoofed_dev must be a digit or 'default'\n");
+                    return 1;
+                }
+                info.need_to_spoof_dev = true;
+            }
+            // spoofed_pgoff
+            if (strcmp(argv[7], "default")) {
+                info.spoofed_pgoff = strtoul(argv[7], &endptr, 10);
+                if (*endptr != '\0') {
+                    log("[-] spoofed_pgoff must be a digit or 'default'\n");
+                    return 1;
+                }
+                info.need_to_spoof_pgoff = true;
+            }
+            // spoofed_prot
+            if (strcmp(argv[8], "default")) {
+                if (strlen(argv[8]) != 4 ||
+                    ((argv[8][0] != 'r' && argv[8][0] != '-') ||
+                    (argv[8][1] != 'w' && argv[8][1] != '-') ||
+                    (argv[8][2] != 'x' && argv[8][2] != '-') ||
+                    (argv[8][3] != 'p' && argv[8][3] != 's'))) 
+                {
+                    log("[-] spoofed_prot must match length of 'rwxp', and include only 'rwxps-' charaters\n");
+                    return 1;
+                }
+                if (argv[8][0] == 'r') info.spoofed_prot |= VM_READ; 
+                if (argv[8][1] == 'w') info.spoofed_prot |= VM_WRITE; 
+                if (argv[8][2] == 'x') info.spoofed_prot |= VM_EXEC; 
+                if (argv[8][3] == 's') info.spoofed_prot |= VM_MAYSHARE; 
+                info.need_to_spoof_prot = true;
+            }
+        // compare_mode == 2
+        } else if (info.compare_mode == 2 && argc == 12) {
+            // target_ino
+            info.target_ino = strtoul(argv[3], &endptr, 10);
+            if (*endptr != '\0') {
+                print_help();
+                return 1;
+            }
+            // target_pgoff
+            info.target_pgoff = strtoul(argv[4], &endptr, 10);
+            if (*endptr != '\0') {
+                print_help();
+                return 1;
+            }
+            // target_prot
+            if (strlen(argv[5]) != 4 ||
+                ((argv[5][0] != 'r' && argv[5][0] != '-') ||
+                (argv[5][1] != 'w' && argv[5][1] != '-') ||
+                (argv[5][2] != 'x' && argv[5][2] != '-') ||
+                (argv[5][3] != 'p' && argv[5][3] != 's'))) 
+            {
+                print_help();
+                return 1;
+            }
+            if (argv[5][0] == 'r') info.target_prot |= VM_READ; 
+            if (argv[5][1] == 'w') info.target_prot |= VM_WRITE; 
+            if (argv[5][2] == 'x') info.target_prot |= VM_EXEC; 
+            if (argv[5][3] == 's') info.target_prot |= VM_MAYSHARE; 
+            // spoofed_pathname
+            if (strcmp(argv[6], "default")) { 
+                if (strcmp(argv[6], "empty")) {
+                    strncpy(info.spoofed_pathname, argv[6], SUSFS_MAX_LEN_PATHNAME);
+                }
+                info.need_to_spoof_pathname = true;
+            }
+            // spoofed_ino
+            if (strcmp(argv[7], "default")) {
+                info.spoofed_ino = strtoul(argv[7], &endptr, 10);
+                if (*endptr != '\0') {
+                    print_help();
+                    return 1;
+                }
+                info.need_to_spoof_ino = true;
+            }
+            // spoofed_dev
+            if (strcmp(argv[8], "default")) {
+                info.spoofed_dev = strtoul(argv[8], &endptr, 10);
+                if (*endptr != '\0') {
+                    print_help();
+                    return 1;
+                }
+                info.need_to_spoof_dev = true;
+            }
+            // spoofed_pgoff
+            if (strcmp(argv[9], "default")) {
+                info.spoofed_pgoff = strtoul(argv[9], &endptr, 10);
+                if (*endptr != '\0') {
+                    print_help();
+                    return 1;
+                }
+                info.need_to_spoof_pgoff = true;
+            }
+            // spoofed_prot
+            if (strcmp(argv[10], "default")) {
+                if (strlen(argv[10]) != 4 ||
+                    ((argv[10][0] != 'r' && argv[10][0] != '-') ||
+                    (argv[10][1] != 'w' && argv[10][1] != '-') ||
+                    (argv[10][2] != 'x' && argv[10][2] != '-') ||
+                    (argv[10][3] != 'p' && argv[10][3] != 's'))) 
+                {
+                    print_help();
+                    return 1;
+                }
+                if (argv[10][0] == 'r') info.spoofed_prot |= VM_READ; 
+                if (argv[10][1] == 'w') info.spoofed_prot |= VM_WRITE; 
+                if (argv[10][2] == 'x') info.spoofed_prot |= VM_EXEC; 
+                if (argv[10][3] == 's') info.spoofed_prot |= VM_MAYSHARE; 
+                info.need_to_spoof_prot = true;
+            }
+            // is_isolated_entry
+            if (strcmp(argv[11], "0") && strcmp(argv[11], "1")) {
+                print_help();
+                return 1;
+            }
+            if (!strcmp(argv[11], "0")) {
+                info.is_isolated_entry = false;
+            } else {
+                info.is_isolated_entry = true;
+            }
+        } else {
             print_help();
             return 1;
         }
-
-        spoofed_ino = strtoul(argv[3], &endptr, 10);
-        if (*endptr != '\0') {
-            print_help();
-            return 1;
-        }
-
-        spoofed_dev = strtoul(argv[4], &endptr, 10);
-        if (*endptr != '\0') {
-            print_help();
-            return 1;
-        }
-        
-        memset(&info, 0, sizeof(struct st_susfs_suspicious_kstat));
-        info.target_ino = target_ino;
-        info.spoof_in_maps_only = true;
-        info.spoofed_ino = spoofed_ino;
-        info.spoofed_dev = spoofed_dev;
-        strncpy(info.spoofed_pathname, argv[5], SUSFS_MAX_LEN_PATHNAME);
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_MAPS_STATICALLY, &info, NULL, &error);
         return error;
-    } else if (argc == 3 && !strcmp(argv[1], "add_try_umount")) {
+    // add_try_umount
+    } else if (argc == 4 && !strcmp(argv[1], "add_try_umount")) {
         struct st_susfs_try_umount info;
-        strncpy(info.name, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        char* endptr;
+        char abs_path[PATH_MAX], *p_abs_path;
+
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        p_abs_path = realpath(info.target_pathname, abs_path);
+        if (p_abs_path == NULL) {
+            perror("realpath");
+            return 1;
+        }
+        if (!strcmp(p_abs_path, "/system") ||
+            !strcmp(p_abs_path, "/vendor") ||
+            !strcmp(p_abs_path, "/product") ||
+            !strcmp(p_abs_path, "/data/adb/modules") ||
+            !strcmp(p_abs_path, "/debug_ramdisk") ||
+            !strcmp(p_abs_path, "/sbin")) {
+            printf("[-] %s cannot be added to try_umount, because it will be umounted by ksu lastly\n", p_abs_path);
+            return 1;
+        }
+        if (strcmp(argv[3], "0") && strcmp(argv[3], "1")) {
+            print_help();
+            return 1;
+        }
+        info.mnt_mode = strtol(argv[3], &endptr, 10);
+        if (*endptr != '\0') {
+            print_help();
+            return 1;
+        }
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_TRY_UMOUNT, &info, NULL, &error);
         return error;
+    // add_sus_proc_fd_link
     } else if (argc == 4 && !strcmp(argv[1], "add_sus_proc_fd_link")) {
-        struct st_susfs_suspicious_proc_fd_link info;
+        struct st_susfs_sus_proc_fd_link info;
         strncpy(info.target_link_name, argv[2], SUSFS_MAX_LEN_PATHNAME);
         strncpy(info.spoofed_link_name, argv[3], SUSFS_MAX_LEN_PATHNAME);
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_PROC_FD_LINK, &info, NULL, &error);
         return error;
+    // set_uname
     } else if (argc == 7 && !strcmp(argv[1], "set_uname")) {
         struct st_susfs_uname info;
         strncpy(info.sysname, argv[2], __NEW_UTS_LEN);
@@ -404,6 +659,7 @@ int main(int argc, char *argv[]) {
         strncpy(info.machine, argv[6], __NEW_UTS_LEN);
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_SET_UNAME, &info, NULL, &error);
         return error;
+    // enable_log
     } else if (argc == 3 && !strcmp(argv[1], "enable_log")) {
         if (strcmp(argv[2], "0") && strcmp(argv[2], "1")) {
             print_help();

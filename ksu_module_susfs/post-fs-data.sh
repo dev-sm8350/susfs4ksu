@@ -8,43 +8,45 @@ SUSFS_BIN=/data/adb/ksu/bin/ksu_susfs
 ## - The following command can be run at other stages like service.sh, boot-completed.sh etc..,
 ## - This module is just an demo showing how to use ksu_susfs tool to commuicate with kernel
 
-${SUSFS_BIN} enable_log 1
-
 #### For some custom ROM ####
-${SUSFS_BIN} add_suspicious_path /system/addon.d
-${SUSFS_BIN} add_suspicious_path /data/adbroot
-${SUSFS_BIN} add_suspicious_path /vendor/bin/install-recovery.sh
-${SUSFS_BIN} add_suspicious_path /system/bin/install-recovery.sh
+cat <<EOF >/dev/null
+${SUSFS_BIN} add_sus_path /system/addon.d
+${SUSFS_BIN} add_sus_path /data/adbroot
+${SUSFS_BIN} add_sus_path /vendor/bin/install-recovery.sh
+${SUSFS_BIN} add_sus_path /system/bin/install-recovery.sh
+EOF
 
-#### Hide all overlayfs type in /proc/mounts ####
-${SUSFS_BIN} add_mount_type overlay
-
-#### Hide some other mount path in /proc/mounts if they are not umounted ####
-${SUSFS_BIN} add_mount_path /data/adb
-${SUSFS_BIN} add_mount_path /data/app
-${SUSFS_BIN} add_mount_path /system/apex/com.android.art/bin/dex2oat
-${SUSFS_BIN} add_mount_path /apex/com.android.art/bin/dex2oat
-${SUSFS_BIN} add_mount_path /apex/com.android.art/bin/dex2oat32
-${SUSFS_BIN} add_mount_path /apex/com.android.art/bin/dex2oat64
+#### Trying to hide some other mount path in /proc/self/[mounts|mountstat|mountinfo] ####
+cat <<EOF >/dev/null
+${SUSFS_BIN} add_sus_mount /system/apex/com.android.art/bin/dex2oat
+${SUSFS_BIN} add_sus_mount /apex/com.android.art/bin/dex2oat
+${SUSFS_BIN} add_sus_mount /apex/com.android.art/bin/dex2oat32
+${SUSFS_BIN} add_sus_mount /apex/com.android.art/bin/dex2oat64
+EOF
 
 #### Always umount /system/etc/hosts if hosts module is used ####
-${SUSFS_BIN} add_try_umount /system/etc/hosts
+## Note that susfs's try_umount takes precedence of ksu's try_umount ##
+## Also, umount can be detected in ksu, or try using add_sus_mount instead ##
+cat <<EOF >/dev/null
+${SUSFS_BIN} add_try_umount /system/etc/hosts '1'
+EOF
 
 #### Spoof the uname ####
-${SUSFS_BIN} add_uname 'default' 'default' '4.9.337-g3291538446b7' 'default' 'default'
-
+cat <<EOF >/dev/null
+${SUSFS_BIN} set_uname 'default' 'default' '4.9.337-g3291538446b7' 'default' 'default'
+EOF
 
 #### Enable / Disable susfs logging to kernel, 0 -> disable, 1 -> enable ####
 cat <<EOF >/dev/null
 ${SUSFS_BIN} enable_log 0
 EOF
 
-#### To spoof the stat of file/directory that is NOT bind mounted or overlayed ####
+#### To spoof the stat of file/directory statically ####
 cat <<EOF >/dev/null
-${SUSFS_BIN} add_sus_kstat_statically '/system/framework/services.jar' 'default' 'default' '1230768000' '0' '1230768000' '0' '1230768000' '0'
+${SUSFS_BIN} add_sus_kstat_statically '/system/framework/services.jar' 'default' 'default' 'default' '1230768000' '0' '1230768000' '0' '1230768000' '0'
 EOF
 
-#### To spoof the stat of file/directory that is bind mounted or overlayed ####
+#### To spoof the stat of file/directory dynamically ####
 cat <<EOF >/dev/null
 ## First, before bind mount your file/directory, use 'add_sus_kstat' to add the path
 ${SUSFS_BIN} add_sus_kstat '/system/etc/hosts'
@@ -56,13 +58,46 @@ mount --bind "$MODDIR/hosts" /system/etc/hosts
 ${SUSFS_BIN} update_sus_kstat '/system/etc/hosts'
 EOF
 
-#### To spoof the kstat in /proc/self/[maps|smaps] ####
+#### To spoof only the ino and dev in /proc/self/[maps|smaps] dynamically ####
 cat <<EOF >/dev/null
-TARGET_PID=$(ps -ef | grep "<TARGET_PROCESS_NAME>" | head -n1 | awk '{print $2}')
-TARGET_INO=$(cat /proc/${TARGET_PID}/maps | grep -E "/memfd:/some/suspicious/path" | head -n1 | awk '{print $5}')
-SPOOFED_INO=$(stat -c "%i" /some/suspicious/path)
-SPOOFED_DEV=$(stat -c "%d" /some/suspicious/path)
-SPOOFED_PATHNAME="/some/suspicious/path"
-${SUSFS_BIN} add_sus_maps_statically ${TARGET_INO} ${SPOOFED_INO} ${SPOOFED_DEV} ${SPOOFED_PATHNAME}
+${SUSFS_BIN} add_sus_maps ${SPOOFED_PATHNAME}
+mount --bind "$MODDIR/hosts" /system/etc/hosts
+${SUSFS_BIN} update_sus_maps ${SPOOFED_PATHNAME}
 EOF
+
+#### To spoof whole entry in /proc/self/[maps|smaps] statically ####
+## Mode 1 ##
+cat <<EOF >/dev/null
+TARGET_PID=$(/system/bin/ps -ef | grep "PROCESS_NAME" | head -n1 | awk '{print $2}')
+PATHNAME_TO_SEARCH="/system/etc/hosts"
+TARGET_INO=$(cat /proc/${TARGET_PID}/maps | grep -E "${PATHNAME_TO_SEARCH}" | head -n1 | awk '{print $5}')
+if [ ! -z ${TARGET_INO} ]; then
+    MODE=1
+    SPOOFED_PATHNAME="empty"
+    SPOOFED_INO=0
+    SPOOFED_DEV=0
+    SPOOFED_PGOFF=0
+    SPOOFED_PROT="---p"
+    ${SUSFS_BIN} add_sus_maps_statically ${MODE} ${TARGET_INO} ${SPOOFED_PATHNAME} ${SPOOFED_INO} ${SPOOFED_DEV} ${SPOOFED_PGOFF} ${SPOOFED_PROT}
+fi
+
+## Mode 2, entry is isolated, not consecutive ##
+TARGET_PID=$(/system/bin/ps -ef | grep "PROCESS_NAME" | head -n1 | awk '{print $2}')
+PATHNAME_TO_SEARCH="/system/etc/hosts"
+TARGET_INO=$(cat /proc/${TARGET_PID}/maps | grep -E "${PATHNAME_TO_SEARCH}" | head -n1 | awk '{print $5}')
+if [ ! -z ${TARGET_INO} ]; then
+    MODE=2
+    TARGET_PGOFF=0
+    TARGET_PROT="r--p"
+    SPOOFED_PATHNAME=${UseABetterPathName}
+    SPOOFED_INO=$(stat -c "%i" ${UseABetterPathName})
+    SPOOFED_DEV=$(stat -c "%d" ${UseABetterPathName})
+    SPOOFED_PGOFF="default"
+    SPOOFED_PROT="default"
+    IS_ISOLATED_ENTRY=0
+    ${SUSFS_BIN} add_sus_maps_statically ${MODE} ${TARGET_INO} ${TARGET_PGOFF} ${TARGET_PROT} ${SPOOFED_PATHNAME} ${SPOOFED_INO} ${SPOOFED_DEV} ${SPOOFED_PGOFF} ${SPOOFED_PROT} ${IS_ISOLATED_ENTRY}
+EOF
+
+#### To spoof the link path in /proc/self/fd/ ####
+${SUSFS_BIN} add_sus_proc_fd_link "/dev/binder" "/dev/null"
 

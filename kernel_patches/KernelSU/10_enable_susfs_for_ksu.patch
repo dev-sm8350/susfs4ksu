@@ -1,5 +1,5 @@
 diff --git a/kernel/Kconfig b/kernel/Kconfig
-index 67f177f..100510b 100644
+index 67f177f4..100510bb 100644
 --- a/kernel/Kconfig
 +++ b/kernel/Kconfig
 @@ -16,4 +16,10 @@ config KSU_DEBUG
@@ -14,7 +14,7 @@ index 67f177f..100510b 100644
 +      Patch SUSFS to kernel and KernelSU
  endmenu
 diff --git a/kernel/Makefile b/kernel/Makefile
-index 6692975..bb6b4ea 100644
+index 66929756..bb6b4eac 100644
 --- a/kernel/Makefile
 +++ b/kernel/Makefile
 @@ -66,4 +66,5 @@ endif
@@ -24,7 +24,7 @@ index 6692975..bb6b4ea 100644
 +ccflags-y += -DKSU_SUSFS
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index fef98df..0f759d0 100644
+index fef98df1..d8c9dee3 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -41,6 +41,10 @@
@@ -38,7 +38,7 @@ index fef98df..0f759d0 100644
  static bool ksu_module_mounted = false;
  
  extern int handle_sepolicy(unsigned long arg3, void __user *arg4);
-@@ -364,6 +368,152 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -364,6 +368,165 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		return 0;
  	}
  
@@ -46,7 +46,7 @@ index fef98df..0f759d0 100644
 +    if (current_uid().val == 0) {
 +        int error = 0;
 +		if (arg2 == CMD_SUSFS_ADD_SUS_PATH) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_path))) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_path))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_PATH -> arg3 is not accessible\n");
 +                return 0;
 +			}
@@ -54,38 +54,25 @@ index fef98df..0f759d0 100644
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_PATH -> arg5 is not accessible\n");
 +                return 0;
 +			}
-+			error = susfs_add_sus_path((struct st_susfs_suspicious_path __user*)arg3);
++			error = susfs_add_sus_path((struct st_susfs_sus_path __user*)arg3);
 +            pr_info("susfs: CMD_SUSFS_ADD_SUS_PATH -> ret: %d\n", error);
 +            copy_to_user((void __user*)arg5, &error, sizeof(error));
 +			return 0;
-+		} else if (arg2 == CMD_SUSFS_ADD_SUS_MOUNT_TYPE) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_mount_type))) {
-+				pr_err("susfs: CMD_SUSFS_ADD_SUS_MOUNT_TYPE -> arg3 is not accessible\n");
++		} else if (arg2 == CMD_SUSFS_ADD_SUS_MOUNT) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_mount))) {
++				pr_err("susfs: CMD_SUSFS_ADD_SUS_MOUNT -> arg3 is not accessible\n");
 +                return 0;
 +			}
 +			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
-+				pr_err("susfs: CMD_SUSFS_ADD_SUS_MOUNT_TYPE -> arg5 is not accessible\n");
++				pr_err("susfs: CMD_SUSFS_ADD_SUS_MOUNT -> arg5 is not accessible\n");
 +                return 0;
 +			}
-+			error = susfs_add_sus_mount_type((struct st_susfs_suspicious_mount_type __user*)arg3);
-+            pr_info("susfs: CMD_SUSFS_ADD_SUS_MOUNT_TYPE -> ret: %d\n", error);
-+            copy_to_user((void __user*)arg5, &error, sizeof(error));
-+			return 0;
-+		} else if (arg2 == CMD_SUSFS_ADD_SUS_MOUNT_PATH) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_mount_path))) {
-+				pr_err("susfs: CMD_SUSFS_ADD_SUS_MOUNT_PATH -> arg3 is not accessible\n");
-+                return 0;
-+			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
-+				pr_err("susfs: CMD_SUSFS_ADD_SUS_MOUNT_PATH -> arg5 is not accessible\n");
-+                return 0;
-+			}
-+			error = susfs_add_sus_mount_path((struct st_susfs_suspicious_mount_path __user*)arg3);
-+            pr_info("susfs: CMD_SUSFS_ADD_SUS_MOUNT_PATH -> ret: %d\n", error);
++			error = susfs_add_sus_mount((struct st_susfs_sus_mount __user*)arg3);
++            pr_info("susfs: CMD_SUSFS_ADD_SUS_MOUNT -> ret: %d\n", error);
 +            copy_to_user((void __user*)arg5, &error, sizeof(error));
 +			return 0;
 +		} else if (arg2 == CMD_SUSFS_ADD_SUS_KSTAT) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_kstat))) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT -> arg3 is not accessible\n");
 +                return 0;
 +			}
@@ -93,12 +80,12 @@ index fef98df..0f759d0 100644
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT -> arg5 is not accessible\n");
 +                return 0;
 +			}
-+			error = susfs_add_sus_kstat((struct st_susfs_suspicious_kstat __user*)arg3);
++			error = susfs_add_sus_kstat((struct st_susfs_sus_kstat __user*)arg3);
 +            pr_info("susfs: CMD_SUSFS_ADD_SUS_KSTAT -> ret: %d\n", error);
 +            copy_to_user((void __user*)arg5, &error, sizeof(error));
 +			return 0;
 +		} else if (arg2 == CMD_SUSFS_UPDATE_SUS_KSTAT) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_kstat))) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
 +				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_KSTAT -> arg3 is not accessible\n");
 +                return 0;
 +			}
@@ -106,12 +93,12 @@ index fef98df..0f759d0 100644
 +				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_KSTAT -> arg5 is not accessible\n");
 +                return 0;
 +			}
-+			error = susfs_update_sus_kstat((struct st_susfs_suspicious_kstat __user*)arg3);
++			error = susfs_update_sus_kstat((struct st_susfs_sus_kstat __user*)arg3);
 +            pr_info("susfs: CMD_SUSFS_UPDATE_SUS_KSTAT -> ret: %d\n", error);
 +            copy_to_user((void __user*)arg5, &error, sizeof(error));
 +			return 0;
 +		} else if (arg2 == CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_kstat))) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY -> arg3 is not accessible\n");
 +                return 0;
 +			}
@@ -119,12 +106,38 @@ index fef98df..0f759d0 100644
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY -> arg5 is not accessible\n");
 +                return 0;
 +			}
-+			error = susfs_add_sus_kstat((struct st_susfs_suspicious_kstat __user*)arg3);
++			error = susfs_add_sus_kstat((struct st_susfs_sus_kstat __user*)arg3);
 +            pr_info("susfs: CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY -> ret: %d\n", error);
 +            copy_to_user((void __user*)arg5, &error, sizeof(error));
 +			return 0;
++        } else if (arg2 == CMD_SUSFS_ADD_SUS_MAPS) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
++				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS -> arg3 is not accessible\n");
++                return 0;
++			}
++			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS -> arg5 is not accessible\n");
++                return 0;
++			}
++			error = susfs_add_sus_maps((struct st_susfs_sus_maps __user*)arg3);
++            pr_info("susfs: CMD_SUSFS_ADD_SUS_MAPS -> ret: %d\n", error);
++            copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
++		} else if (arg2 == CMD_SUSFS_UPDATE_SUS_MAPS) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
++				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_MAPS -> arg3 is not accessible\n");
++                return 0;
++			}
++			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_MAPS -> arg5 is not accessible\n");
++                return 0;
++			}
++			error = susfs_update_sus_maps((struct st_susfs_sus_maps __user*)arg3);
++            pr_info("susfs: CMD_SUSFS_UPDATE_SUS_MAPS -> ret: %d\n", error);
++            copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
 +        } else if (arg2 == CMD_SUSFS_ADD_SUS_MAPS_STATICALLY) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_kstat))) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS_STATICALLY -> arg3 is not accessible\n");
 +                return 0;
 +			}
@@ -132,12 +145,12 @@ index fef98df..0f759d0 100644
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS_STATICALLY -> arg5 is not accessible\n");
 +                return 0;
 +			}
-+			error = susfs_add_sus_kstat((struct st_susfs_suspicious_kstat __user*)arg3);
++			error = susfs_add_sus_maps((struct st_susfs_sus_maps __user*)arg3);
 +            pr_info("susfs: CMD_SUSFS_ADD_SUS_MAPS_STATICALLY -> ret: %d\n", error);
 +            copy_to_user((void __user*)arg5, &error, sizeof(error));
 +			return 0;
 +		} else if (arg2 == CMD_SUSFS_ADD_SUS_PROC_FD_LINK) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_suspicious_proc_fd_link))) {
++			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_proc_fd_link))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_PROC_FD_LINK -> arg3 is not accessible\n");
 +                return 0;
 +			}
@@ -145,7 +158,7 @@ index fef98df..0f759d0 100644
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_PROC_FD_LINK -> arg5 is not accessible\n");
 +                return 0;
 +			}
-+			error = susfs_add_suspicious_proc_fd_link((struct st_susfs_suspicious_proc_fd_link __user*)arg3);
++			error = susfs_add_sus_proc_fd_link((struct st_susfs_sus_proc_fd_link __user*)arg3);
 +            pr_info("susfs: CMD_SUSFS_ADD_SUS_PROC_FD_LINK -> ret: %d\n", error);
 +            copy_to_user((void __user*)arg5, &error, sizeof(error));
 +			return 0;
@@ -191,18 +204,20 @@ index fef98df..0f759d0 100644
  	// all other cmds are for 'root manager'
  	if (!from_manager) {
  		return 0;
-@@ -535,6 +685,9 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
- 	try_umount("/debug_ramdisk", false, MNT_DETACH);
- 	try_umount("/sbin", false, MNT_DETACH);
+@@ -524,6 +687,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+ 		current->pid);
+ #endif
  
 +#ifdef CONFIG_KSU_SUSFS
++	// susfs come first, and lastly umount by ksu, make sure umount in reversed order
 +	susfs_try_umount(new_uid.val);
 +#endif
- 	return 0;
- }
- 
++
+ 	// fixme: use `collect_mounts` and `iterate_mount` to iterate all mountpoint and
+ 	// filter the mountpoint whose target is `/data/adb`
+ 	try_umount("/system", true, 0);
 diff --git a/kernel/ksu.c b/kernel/ksu.c
-index 22d0672..95dfa96 100644
+index 22d0672e..95dfa969 100644
 --- a/kernel/ksu.c
 +++ b/kernel/ksu.c
 @@ -11,6 +11,10 @@
@@ -228,7 +243,7 @@ index 22d0672..95dfa96 100644
  
  	ksu_workqueue = alloc_ordered_workqueue("kernelsu_work_queue", 0);
 diff --git a/kernel/selinux/rules.c b/kernel/selinux/rules.c
-index 2ae960a..c0dd493 100644
+index 2ae960af..c0dd493d 100644
 --- a/kernel/selinux/rules.c
 +++ b/kernel/selinux/rules.c
 @@ -140,6 +140,11 @@ void apply_kernelsu_rules()
