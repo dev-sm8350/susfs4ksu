@@ -41,9 +41,9 @@
 #define putname_safe(name) (IS_ERR(name) ? NULL : putname(name))
 
 #define uid_matches_suspicious_path() (current_uid().val >= 2000)
-#define uid_matches_suspicious_mount() (current_uid().val >= 0)
+//#define uid_matches_suspicious_mount() (current_uid().val >= 0)
 #define uid_matches_suspicious_kstat() (current_uid().val >= 2000)
-#define uid_matches_suspicious_maps() (current_uid().val >= 2000)
+//#define uid_matches_suspicious_maps() (current_uid().val >= 0)
 #define uid_matches_suspicious_proc_fd_link() (current_uid().val >= 2000)
 
 struct st_susfs_sus_path {
@@ -75,8 +75,8 @@ struct st_susfs_sus_maps {
     bool                   is_statically;
     int                    compare_mode;
     bool                   is_isolated_entry;
-    int                    entry_offset_to_compare;
-    unsigned long          entry_offset_ino_to_compare;
+    unsigned long          prev_target_ino;
+    unsigned long          next_target_ino;
     char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
     unsigned long          target_ino;
     unsigned long long     target_pgoff;

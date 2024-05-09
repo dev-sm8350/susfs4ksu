@@ -196,28 +196,34 @@ int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info) {
     list_for_each_entry_safe(cursor, temp, &LH_MAPS_SPOOFER, list) {
 		if (cursor->info.is_statically == info.is_statically && !info.is_statically) {
 			if (cursor->info.target_ino == info.target_ino) {
-				SUSFS_LOGE("target_ino: '%lu' is already created in LH_MAPS_SPOOFER\n", info.target_ino);
+				SUSFS_LOGE("target_ino: '%lu', is_statically: '%d', is already created in LH_MAPS_SPOOFER\n",
+				info.target_ino, info.is_statically);
 				return 1;
 			}
 		} else if (cursor->info.is_statically == info.is_statically && info.is_statically) {
-			if (cursor->info.compare_mode == info.compare_mode && info.compare_mode == 0) {
+			if (cursor->info.compare_mode == info.compare_mode && info.compare_mode == 1) {
 				if (cursor->info.target_ino == info.target_ino) {
-					SUSFS_LOGE("target_ino: '%lu', mode: %u, is already created in LH_MAPS_SPOOFER\n", info.target_ino, info.compare_mode);
+					SUSFS_LOGE("target_ino: '%lu', is_statically: '%d', compare_mode: '%d', is already created in LH_MAPS_SPOOFER\n",
+					info.target_ino, info.is_statically, info.compare_mode);
 					return 1;
 				}
-			} else if (cursor->info.compare_mode == info.compare_mode && info.compare_mode == 1) {
+			} else if (cursor->info.compare_mode == info.compare_mode && info.compare_mode == 2) {
 				if (cursor->info.target_ino == info.target_ino &&
 					cursor->info.is_isolated_entry == info.is_isolated_entry &&
 				    cursor->info.target_pgoff == info.target_pgoff &&
 					cursor->info.target_prot == info.target_prot) {
-					SUSFS_LOGE("target_ino: '%lu', mode: %u, is already created in LH_MAPS_SPOOFER\n", info.target_ino, info.compare_mode);
+					SUSFS_LOGE("target_ino: '%lu', is_statically: '%d', compare_mode: '%d', is_isolated_entry: '%d', target_pgoff: '%lu', target_prot: '%lu', is already created in LH_MAPS_SPOOFER\n",
+					info.target_ino, info.is_statically, info.compare_mode,
+					info.is_isolated_entry, info.target_pgoff, info.target_prot);
 					return 1;
 				}
-			} else if (cursor->info.compare_mode == info.compare_mode && info.compare_mode == 2) {
-				if (cursor->info.target_ino == info.target_ino && info.target_ino == 0 &&
-				    cursor->info.entry_offset_to_compare == info.entry_offset_to_compare && info.entry_offset_to_compare != 0 &&
-					cursor->info.entry_offset_ino_to_compare == info.entry_offset_ino_to_compare) {
-					SUSFS_LOGE("target_ino: '%lu', , mode: %u, is already created in LH_MAPS_SPOOFER\n", info.target_ino, info.compare_mode);
+			} else if (cursor->info.compare_mode == info.compare_mode && info.compare_mode == 3) {
+				if (info.target_ino == 0 &&
+					cursor->info.prev_target_ino == info.prev_target_ino &&
+				    cursor->info.next_target_ino == info.next_target_ino) {
+					SUSFS_LOGE("target_ino: '%lu', is_statically: '%d', compare_mode: '%d', prev_target_ino: '%lu', next_target_ino: '%lu', is already created in LH_MAPS_SPOOFER\n",
+					info.target_ino, info.is_statically, info.compare_mode,
+					info.prev_target_ino, info.next_target_ino);
 					return 1;
 				}
 			}
@@ -245,9 +251,9 @@ int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info) {
     list_add_tail(&new_list->list, &LH_MAPS_SPOOFER);
     spin_unlock(&susfs_spin_lock);
 
-	SUSFS_LOGI("target_ino: '%lu', is_statically: '%d', compare_mode: '%d', is_isolated_entry: '%d', entry_offset_to_compare: '%d', entry_offset_ino_to_compare: '%lu', target_pgoff: '%lu', target_prot: '%lu', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_pgoff: '%lu', spoofed_prot: '%lu', is successfully added to LH_MAPS_SPOOFER\n",
+	SUSFS_LOGI("target_ino: '%lu', is_statically: '%d', compare_mode: '%d', is_isolated_entry: '%d', prev_target_ino: '%lu', next_target_ino: '%lu', target_pgoff: '%lu', target_prot: '%lu', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_pgoff: '%lu', spoofed_prot: '%lu', is successfully added to LH_MAPS_SPOOFER\n",
 	new_list->info.target_ino, new_list->info.is_statically, new_list->info.compare_mode,
-	new_list->info.is_isolated_entry, new_list->info.entry_offset_to_compare, new_list->info.entry_offset_ino_to_compare, 
+	new_list->info.is_isolated_entry, new_list->info.prev_target_ino, new_list->info.next_target_ino,
 	new_list->info.target_pgoff, new_list->info.target_prot, new_list->info.spoofed_pathname,
 	new_list->info.spoofed_ino, new_list->info.spoofed_dev, new_list->info.spoofed_pgoff,
 	new_list->info.spoofed_prot);
@@ -468,7 +474,7 @@ int susfs_sus_mount(struct vfsmount* mnt, struct path* root) {
 	};
 	struct st_susfs_sus_mount_list *cursor, *temp;
 
-	if (!uid_matches_suspicious_mount()) return status;
+	//if (!uid_matches_suspicious_mount()) return status;
 
 	path = kmalloc(size, GFP_KERNEL);
 
@@ -543,34 +549,29 @@ void susfs_sus_kstat(unsigned long ino, struct stat* out_stat) {
  * for staticially, it compares depending on the mode user chooses
  * compare mode:
  *  1 -> target_ino is non-zero, all entries match with target_ino will be spoofed with user defined entry
- *  2 -> target_ino is non-zero, all entries match with "target_ino,target_prot,target_pgoff,is_isolated_entry" will be spoofed with user defined entry
- *  3 -> (NOT yet implemented) target_ino is zero, which is not file
- *       all entries match with "target_ino,entry_offset_to_compare,entry_offset_ino_to_compare"
- * compared_pos:
-    -> Value cannot be zero, as it cannot compare with current entry's ino which is zero
-    -> If value is set to 5, then it will compare the inode of the coming 5th entry
-    -> If value is set to -5, then it will compare the inode of the previous 5th entry
+ *  2 -> target_ino is non-zero, all entries match with [target_ino,target_prot,target_pgoff,is_isolated_entry] will be spoofed with user defined entry
+ *  3 -> target_ino is zero, which is not file, all entries match with [prev_target_ino,next_target_ino] will be spoofed with user defined entry
  */
 int susfs_sus_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags, unsigned long long* pgoff, struct vm_area_struct* vma, char* tmpname) {
     struct st_susfs_sus_maps_list *cursor, *temp;
-	struct inode *tmp_inode;
-	//struct vm_area_struct *tmp_vma, *tmp_vma_next, *tmp_vma_prev;
-	//int tmp_offset;
+	struct inode *tmp_inode, *tmp_inode_prev, *tmp_inode_next;
 
-	if (!uid_matches_suspicious_maps()) return 0;
+	//if (!uid_matches_suspicious_maps()) return 0;
 	list_for_each_entry_safe(cursor, temp, &LH_MAPS_SPOOFER, list) {
+		// if it is NOT statically
 		if (!cursor->info.is_statically) {
 			if (target_ino != 0 && cursor->info.target_ino == target_ino) {
 				*orig_ino = cursor->info.spoofed_ino;
 				*orig_dev = cursor->info.spoofed_dev;
-				SUSFS_LOGI("Spoofing target_ino: '%lu', is_statically: '%d', compare_mode: '%d', is_isolated_entry: '%d', entry_offset_to_compare: '%d', entry_offset_ino_to_compare: '%lu', target_pgoff: '%lu', target_prot: '%lu', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_pgoff: '%lu', spoofed_prot: '%lu', is successfully added to LH_MAPS_SPOOFER\n",
+				SUSFS_LOGI("spoofing target_ino: '%lu', is_statically: '%d', compare_mode: '%d', is_isolated_entry: '%d', prev_target_ino: '%lu', next_target_ino: '%lu', target_pgoff: '%lu', target_prot: '%lu', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_pgoff: '%lu', spoofed_prot: '%lu'\n",
 				cursor->info.target_ino, cursor->info.is_statically, cursor->info.compare_mode,
-				cursor->info.is_isolated_entry, cursor->info.entry_offset_to_compare, cursor->info.entry_offset_ino_to_compare, 
+				cursor->info.is_isolated_entry, cursor->info.prev_target_ino, cursor->info.next_target_ino, 
 				cursor->info.target_pgoff, cursor->info.target_prot, cursor->info.spoofed_pathname,
 				cursor->info.spoofed_ino, cursor->info.spoofed_dev, cursor->info.spoofed_pgoff,
 				cursor->info.spoofed_prot);
 				return 1;
 			}
+		// if it is statically, then compare with compare_mode
 		} else if (cursor->info.compare_mode > 0) {
 			switch(cursor->info.compare_mode) {
 				case 1:
@@ -589,13 +590,17 @@ int susfs_sus_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* ori
 						if (!cursor->info.is_isolated_entry) {
 							if (vma && vma->vm_next && vma->vm_next->vm_file) {
 								tmp_inode = file_inode(vma->vm_next->vm_file);
-								if (tmp_inode->i_ino == cursor->info.target_ino) {
+								if (tmp_inode->i_ino == cursor->info.target_ino ||
+								    tmp_inode->i_ino == (cursor->info.target_ino+1) ||
+									tmp_inode->i_ino == (cursor->info.target_ino-1)) {
 									goto do_spoof;
 								}
 							}
 							if (vma && vma->vm_prev && vma->vm_prev->vm_file) {
 								tmp_inode = file_inode(vma->vm_prev->vm_file);
-								if (tmp_inode->i_ino == cursor->info.target_ino) {
+								if (tmp_inode->i_ino == cursor->info.target_ino ||
+								    tmp_inode->i_ino == (cursor->info.target_ino+1) ||
+									tmp_inode->i_ino == (cursor->info.target_ino-1)) {
 									goto do_spoof;
 								}
 							}
@@ -619,7 +624,36 @@ int susfs_sus_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* ori
 					}
 					break;
 				case 3:
-					// not implemented yet
+					// if current vma is a file, it is not our target
+					if (vma->vm_file) continue;
+					// compare next target ino only
+					if (cursor->info.prev_target_ino == 0 && cursor->info.next_target_ino > 0) {
+						if (vma->vm_next && vma->vm_next->vm_file) {
+							tmp_inode_next = file_inode(vma->vm_next->vm_file);
+							if (tmp_inode_next->i_ino == cursor->info.next_target_ino) {
+								goto do_spoof;
+							}
+						}
+					// compare prev target ino only
+					} else if (cursor->info.prev_target_ino > 0 && cursor->info.next_target_ino == 0) {
+						if (vma->vm_prev && vma->vm_prev->vm_file) {
+							tmp_inode_prev = file_inode(vma->vm_prev->vm_file);
+							if (tmp_inode_prev->i_ino == cursor->info.prev_target_ino) {
+								goto do_spoof;
+							}
+						}
+					// compare both prev ino and next ino
+					} else if (cursor->info.prev_target_ino > 0 && cursor->info.next_target_ino > 0) {
+						if (vma->vm_prev && vma->vm_prev->vm_file &&
+							vma->vm_next && vma->vm_next->vm_file) {
+							tmp_inode_prev = file_inode(vma->vm_prev->vm_file);
+							tmp_inode_next = file_inode(vma->vm_next->vm_file);
+							if (tmp_inode_prev->i_ino == cursor->info.prev_target_ino &&
+							    tmp_inode_next->i_ino == cursor->info.next_target_ino) {
+								goto do_spoof;
+							}
+						}
+					}
 					break;
 				default:
 					break;
@@ -649,9 +683,9 @@ do_spoof:
 		if (cursor->info.need_to_spoof_pgoff) {
 			*pgoff = cursor->info.spoofed_pgoff;
 		}
-		SUSFS_LOGI("Spoofing target_ino: '%lu', is_statically: '%d', compare_mode: '%d', is_isolated_entry: '%d', entry_offset_to_compare: '%d', entry_offset_ino_to_compare: '%lu', target_pgoff: '%lu', target_prot: '%lu', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_pgoff: '%lu', spoofed_prot: '%lu', is successfully added to LH_MAPS_SPOOFER\n",
+		SUSFS_LOGI("spoofing target_ino: '%lu', is_statically: '%d', compare_mode: '%d', is_isolated_entry: '%d', prev_target_ino: '%lu', next_target_ino: '%lu', target_pgoff: '%lu', target_prot: '%lu', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_pgoff: '%lu', spoofed_prot: '%lu'\n",
 		cursor->info.target_ino, cursor->info.is_statically, cursor->info.compare_mode,
-		cursor->info.is_isolated_entry, cursor->info.entry_offset_to_compare, cursor->info.entry_offset_ino_to_compare, 
+		cursor->info.is_isolated_entry, cursor->info.prev_target_ino, cursor->info.next_target_ino, 
 		cursor->info.target_pgoff, cursor->info.target_prot, cursor->info.spoofed_pathname,
 		cursor->info.spoofed_ino, cursor->info.spoofed_dev, cursor->info.spoofed_pgoff,
 		cursor->info.spoofed_prot);

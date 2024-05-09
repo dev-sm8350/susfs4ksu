@@ -90,8 +90,8 @@ struct st_susfs_sus_maps {
     bool                   is_statically;
     int                    compare_mode;
     bool                   is_isolated_entry;
-    int                    entry_offset_to_compare;
-    unsigned long          entry_offset_ino_to_compare;
+    unsigned long          prev_target_ino;
+    unsigned long          next_target_ino;
     char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
     unsigned long          target_ino;
     unsigned long long     target_pgoff;
@@ -224,14 +224,14 @@ static void print_help(void) {
     log("         |--> Add the desired path you have added before via <add_sus_maps> to complete the [ino] and [dev] spoofing in maps\n");
     log("\n");
     log("        add_sus_maps_statically <compare_mode> <args_for_mode>\n");
-    log("         |--> comapre_mode: 1 => target_ino is non-zero, all entries match target_ino will be spoofed with user defined entry\n");
+    log("         |--> comapre_mode: 1 => target_ino is 'non-zero', all entries match target_ino will be spoofed with user defined entry\n");
     log("               |--> <target_ino>\n");
     log("               |--> <spoofed_pathname>\n");
     log("               |--> <spoofed_ino>\n");
     log("               |--> <spoofed_dev>\n");
     log("               |--> <spoofed_pgoff>\n");
     log("               |--> <spoofed_prot>\n");
-    log("         |--> comapre_mode: 2 => target_ino is non-zero, all entries match [target_ino,target_pgoff,target_prot,is_isolated_entry] will be spoofed with user defined entry\n");
+    log("         |--> comapre_mode: 2 => target_ino is 'non-zero', all entries match [target_ino,target_pgoff,target_prot,is_isolated_entry] will be spoofed with user defined entry\n");
     log("               |--> <target_ino>: in decimal\n");
     log("               |--> <target_pgoff>: in decimal\n");
     log("               |--> <target_prot>: in string, must be length of 4, and include only characters 'rwxps-', e.g.: 'r--s'\n");
@@ -241,6 +241,15 @@ static void print_help(void) {
     log("               |--> <spoofed_pgoff>: in decimal, can be passed as 'default'\n");
     log("               |--> <spoofed_prot>: in string, must be length of 4, and include only characters 'rwxps-', e.g.: 'r--s', can be passed as 'default'\n");
     log("               |--> <is_isolated_entry>: 0 -> not isolated entry, 1 -> isolated entry\n");
+    log("         |--> comapre_mode: 3 => target_ino is 'zero', all entries match [prev_target_ino,next_target_ino] will be spoofed with user defined entry\n");
+    log("               |--> Note: one of <prev_target_ino> and <next_target_ino> must be > 0, if both are > 0, then both will be compared\n");
+    log("               |--> <prev_target_ino>: in decimal, must be >= 0, if 0, then it will not be compared\n");
+    log("               |--> <next_target_ino>: in decimal, must be >= 0, if 0, then it will not be compared\n");
+    log("               |--> <spoofed_pathname>: in string, can be passed as 'default' or 'empty'\n");
+    log("               |--> <spoofed_ino>: in decimal, can be passed as 'default'\n");
+    log("               |--> <spoofed_dev>: in decimal, can be passed as 'default'\n");
+    log("               |--> <spoofed_pgoff>: in decimal, can be passed as 'default'\n");
+    log("               |--> <spoofed_prot>: in string, must be length of 4, and include only characters 'rwxps-', e.g.: 'r--s', can be passed as 'default'\n");
     log("         |--> 'default' args will be spoofed with the original value\n");
     log("         |--> 'empty' for <spoofed_pathname> will be spoofed with the empty pathname\n");
     log("\n");
@@ -452,8 +461,8 @@ int main(int argc, char *argv[]) {
         memset(&info, 0, sizeof(struct st_susfs_sus_maps));
         info.is_statically = true;
         info.compare_mode = strtoul(argv[2], &endptr, 10);
-        if (*endptr != '\0' || info.compare_mode > 2 || info.compare_mode < 1) {
-            log("[-] compare_mode must be [0|1|2]\n");
+        if (*endptr != '\0' || info.compare_mode > 3 || info.compare_mode < 1) {
+            log("[-] compare_mode must be [0|1|2|3]\n");
             return 1;
         }
         // compare_mode == 1
@@ -603,6 +612,75 @@ int main(int argc, char *argv[]) {
                 info.is_isolated_entry = false;
             } else {
                 info.is_isolated_entry = true;
+            }
+        // compare_mode == 3
+        } else if (info.compare_mode == 3 && argc == 10) {
+            // prev_target_ino
+            info.prev_target_ino = strtoul(argv[3], &endptr, 10);
+            if (*endptr != '\0') {
+                print_help();
+                return 1;
+            }
+            // next_target_ino
+            info.next_target_ino = strtoul(argv[4], &endptr, 10);
+            if (*endptr != '\0') {
+                print_help();
+                return 1;
+            }
+            if (info.prev_target_ino == 0 && info.next_target_ino == 0) {
+                log("[-] prev_target_ino and next_target_ino cannot be 0 at the same time, one of them must be > 0\n");
+                return 1;
+            }
+            // spoofed_pathname
+            if (strcmp(argv[5], "default")) { 
+                if (strcmp(argv[5], "empty")) {
+                    strncpy(info.spoofed_pathname, argv[5], SUSFS_MAX_LEN_PATHNAME);
+                }
+                info.need_to_spoof_pathname = true;
+            }
+            // spoofed_ino
+            if (strcmp(argv[6], "default")) {
+                info.spoofed_ino = strtoul(argv[6], &endptr, 10);
+                if (*endptr != '\0') {
+                    print_help();
+                    return 1;
+                }
+                info.need_to_spoof_ino = true;
+            }
+            // spoofed_dev
+            if (strcmp(argv[7], "default")) {
+                info.spoofed_dev = strtoul(argv[7], &endptr, 10);
+                if (*endptr != '\0') {
+                    print_help();
+                    return 1;
+                }
+                info.need_to_spoof_dev = true;
+            }
+            // spoofed_pgoff
+            if (strcmp(argv[8], "default")) {
+                info.spoofed_pgoff = strtoul(argv[8], &endptr, 10);
+                if (*endptr != '\0') {
+                    print_help();
+                    return 1;
+                }
+                info.need_to_spoof_pgoff = true;
+            }
+            // spoofed_prot
+            if (strcmp(argv[9], "default")) {
+                if (strlen(argv[9]) != 4 ||
+                    ((argv[9][0] != 'r' && argv[9][0] != '-') ||
+                    (argv[9][1] != 'w' && argv[9][1] != '-') ||
+                    (argv[9][2] != 'x' && argv[9][2] != '-') ||
+                    (argv[9][3] != 'p' && argv[9][3] != 's'))) 
+                {
+                    print_help();
+                    return 1;
+                }
+                if (argv[9][0] == 'r') info.spoofed_prot |= VM_READ; 
+                if (argv[9][1] == 'w') info.spoofed_prot |= VM_WRITE; 
+                if (argv[9][2] == 'x') info.spoofed_prot |= VM_EXEC; 
+                if (argv[9][3] == 's') info.spoofed_prot |= VM_MAYSHARE; 
+                info.need_to_spoof_prot = true;
             }
         } else {
             print_help();
