@@ -16,7 +16,7 @@ ${SUSFS_BIN} add_sus_path /vendor/bin/install-recovery.sh
 ${SUSFS_BIN} add_sus_path /system/bin/install-recovery.sh
 EOF
 
-#### Trying to hide some other mount path in /proc/self/[mounts|mountstat|mountinfo] ####
+#### Trying to hide the mounted path in /proc/self/[mounts|mountstat|mountinfo] for all processes ####
 cat <<EOF >/dev/null
 ${SUSFS_BIN} add_sus_mount /system/apex/com.android.art/bin/dex2oat
 ${SUSFS_BIN} add_sus_mount /apex/com.android.art/bin/dex2oat
@@ -66,8 +66,8 @@ ${SUSFS_BIN} update_sus_maps ${SPOOFED_PATHNAME}
 EOF
 
 #### To spoof whole entry in /proc/self/[maps|smaps] statically ####
-## Mode 1 ##
 cat <<EOF >/dev/null
+## Mode 1 ##
 TARGET_PID=$(/system/bin/ps -ef | grep "PROCESS_NAME" | head -n1 | awk '{print $2}')
 PATHNAME_TO_SEARCH="/system/etc/hosts"
 TARGET_INO=$(cat /proc/${TARGET_PID}/maps | grep -E "${PATHNAME_TO_SEARCH}" | head -n1 | awk '{print $5}')
@@ -81,7 +81,7 @@ if [ ! -z ${TARGET_INO} ]; then
     ${SUSFS_BIN} add_sus_maps_statically ${MODE} ${TARGET_INO} ${SPOOFED_PATHNAME} ${SPOOFED_INO} ${SPOOFED_DEV} ${SPOOFED_PGOFF} ${SPOOFED_PROT}
 fi
 
-## Mode 2, entry is isolated, not consecutive ##
+## Mode 2, entry is not isolated, previous ino of target ino and next ino of target ino == (target ino +- 1) ##
 TARGET_PID=$(/system/bin/ps -ef | grep "PROCESS_NAME" | head -n1 | awk '{print $2}')
 PATHNAME_TO_SEARCH="/system/etc/hosts"
 TARGET_INO=$(cat /proc/${TARGET_PID}/maps | grep -E "${PATHNAME_TO_SEARCH}" | head -n1 | awk '{print $5}')
@@ -89,13 +89,43 @@ if [ ! -z ${TARGET_INO} ]; then
     MODE=2
     TARGET_PGOFF=0
     TARGET_PROT="r--p"
-    SPOOFED_PATHNAME=${UseABetterPathName}
-    SPOOFED_INO=$(stat -c "%i" ${UseABetterPathName})
-    SPOOFED_DEV=$(stat -c "%d" ${UseABetterPathName})
+    SPOOFED_PATHNAME=/syste/etc/my_hosts
+    SPOOFED_INO="default"
+    SPOOFED_DEV="default"
     SPOOFED_PGOFF="default"
     SPOOFED_PROT="default"
     IS_ISOLATED_ENTRY=0
     ${SUSFS_BIN} add_sus_maps_statically ${MODE} ${TARGET_INO} ${TARGET_PGOFF} ${TARGET_PROT} ${SPOOFED_PATHNAME} ${SPOOFED_INO} ${SPOOFED_DEV} ${SPOOFED_PGOFF} ${SPOOFED_PROT} ${IS_ISOLATED_ENTRY}
+fi
+
+## Mode 2, but entry is isolated, not consecutive ##
+TARGET_PID=$(/system/bin/ps -ef | grep "PROCESS_NAME" | head -n1 | awk '{print $2}')
+PATHNAME_TO_SEARCH="/system/etc/hosts"
+TARGET_INO=$(cat /proc/${TARGET_PID}/maps | grep -E "${PATHNAME_TO_SEARCH}" | head -n1 | awk '{print $5}')
+if [ ! -z ${TARGET_INO} ]; then
+    MODE=2
+    TARGET_PGOFF=0
+    TARGET_PROT="r--p"
+    SPOOFED_PATHNAME=/syste/etc/my_hosts
+    SPOOFED_INO=0
+    SPOOFED_DEV=0
+    SPOOFED_PGOFF=0
+    SPOOFED_PROT="---p"
+    IS_ISOLATED_ENTRY=1
+    ${SUSFS_BIN} add_sus_maps_statically ${MODE} ${TARGET_INO} ${TARGET_PGOFF} ${TARGET_PROT} ${SPOOFED_PATHNAME} ${SPOOFED_INO} ${SPOOFED_DEV} ${SPOOFED_PGOFF} ${SPOOFED_PROT} ${IS_ISOLATED_ENTRY}
+fi
+
+## Mode 3, current entry ino is 0, compare with prev_target_ino and next_target_ino ##
+## Note: when prev_target_ino or next_target_ino is 0, it will not be compared, if both are not zero, both will be compared ##
+MODE=3
+PREV_TARGET_INO=0
+PREV_TARGET_INO=30
+SPOOFED_PATHNAME="empty"
+SPOOFED_INO=0
+SPOOFED_DEV=0
+SPOOFED_PGOFF=0
+SPOOFED_PROT="---p"
+${SUSFS_BIN} add_sus_maps_statically ${MODE} ${TARGET_INO} ${TARGET_PGOFF} ${TARGET_PROT} ${SPOOFED_PATHNAME} ${SPOOFED_INO} ${SPOOFED_DEV} ${SPOOFED_PGOFF} ${SPOOFED_PROT} ${IS_ISOLATED_ENTRY}
 EOF
 
 #### To spoof the link path in /proc/self/fd/ ####
