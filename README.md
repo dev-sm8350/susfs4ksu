@@ -27,11 +27,11 @@ The susfs kernel patches may differ for different kernel version. You may need t
 The ksu module here is just a demo to show how to use it.
 It will also copy the ksu_susfs tool to `/data/adb/ksu/bin/` as well when installing the module.
 
-1. Edit `./ksu_module_susfs/post-fs-data.sh` according to your own need, see the `ksu_susfs_usage` screencap for the usage.
+1. ksu_susfs tool can be run in any stage scripts, post-fs-data.sh, services.sh, boot-completed.sh according to your own need.
 2. Then run `./build_ksu_module.sh` to build the KernelSU module.
 
 ## Usage of ksu_susfs ##
-![ksu_susfs_usage](https://gitlab.com/simonpunk/susfs4ksu/-/blob/master/ksu_susfs_usage.png)
+- Run ksu_susfs in root shell for usages.
 
 ## Credits ##
 - KernelSU: https://github.com/tiann/KernelSU
