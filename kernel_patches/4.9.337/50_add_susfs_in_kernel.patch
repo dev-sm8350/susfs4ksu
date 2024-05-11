@@ -12,7 +12,7 @@ index 0e97f4b85bee..5ef37c17ee91 100644
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
  else
 diff --git a/fs/namei.c b/fs/namei.c
-index 0cbf8f5a92f4..b95561ecacec 100644
+index 3bd8276c014d..99aced0af2b0 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -42,6 +42,10 @@

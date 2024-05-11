@@ -907,6 +907,42 @@ void susfs_change_error_no_by_pathname(char* const pathname, int* const errno_to
 				*errno_to_be_changed = -ENOENT;
 				return;
 		}
+	} else if (!strncmp(pathname, "/data/", 6)) {
+				switch(syscall_family) {
+			case SYSCALL_FAMILY_ALL_ENOENT:
+				*errno_to_be_changed = -ENOENT;
+				return;
+			case SYSCALL_FAMILY_MKNOD:
+				*errno_to_be_changed = -EACCES;
+				return;
+			case SYSCALL_FAMILY_MKDIRAT:
+				*errno_to_be_changed = -EACCES;
+				return;
+			case SYSCALL_FAMILY_RMDIR:
+				*errno_to_be_changed = -ENOENT;
+				return;
+			case SYSCALL_FAMILY_UNLINKAT:
+				*errno_to_be_changed = -ENOENT;
+				return;
+			case SYSCALL_FAMILY_SYMLINKAT_NEWNAME:
+				*errno_to_be_changed = -EACCES;
+				return;
+			case SYSCALL_FAMILY_LINKAT_OLDNAME:
+				*errno_to_be_changed = -ENOENT;
+				return;
+			case SYSCALL_FAMILY_LINKAT_NEWNAME:
+				*errno_to_be_changed = -ENOENT;
+				return;
+			case SYSCALL_FAMILY_RENAMEAT2_OLDNAME:
+				*errno_to_be_changed = -ENOENT;
+				return;
+			case SYSCALL_FAMILY_RENAMEAT2_NEWNAME:
+				*errno_to_be_changed = -EXDEV;
+				return;
+			default:
+				*errno_to_be_changed = -ENOENT;
+				return;
+		}
 	}
 }
 
