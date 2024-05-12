@@ -475,8 +475,8 @@ int main(int argc, char *argv[]) {
         memset(&info, 0, sizeof(struct st_susfs_sus_maps));
         info.is_statically = true;
         info.compare_mode = strtoul(argv[2], &endptr, 10);
-        if (*endptr != '\0' || info.compare_mode > 3 || info.compare_mode < 1) {
-            log("[-] compare_mode must be [0|1|2|3]\n");
+        if (*endptr != '\0' || info.compare_mode > 4 || info.compare_mode < 1) {
+            log("[-] compare_mode must be [1|2|3|4]\n");
             return 1;
         }
         // compare_mode == 1
