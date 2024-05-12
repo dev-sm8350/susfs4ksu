@@ -193,18 +193,28 @@ int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info) {
 		return 1;
 	}
 
+#if defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64)
+#ifdef CONFIG_MIPS
+	info.target_dev = new_decode_dev(info.target_dev);
+#else
+	info.target_dev = huge_decode_dev(info.target_dev);
+#endif /* CONFIG_MIPS */
+#else
+	info.target_dev = old_decode_dev(info.target_dev);
+#endif /* defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64) */
+
     list_for_each_entry_safe(cursor, temp, &LH_MAPS_SPOOFER, list) {
 		if (cursor->info.is_statically == info.is_statically && !info.is_statically) {
 			if (cursor->info.target_ino == info.target_ino) {
-				SUSFS_LOGE("target_ino: '%lu', is_statically: '%d', is already created in LH_MAPS_SPOOFER\n",
-				info.target_ino, info.is_statically);
+				SUSFS_LOGE("is_statically: '%d', target_ino: '%lu', is already created in LH_MAPS_SPOOFER\n",
+				info.is_statically, info.target_ino);
 				return 1;
 			}
 		} else if (cursor->info.is_statically == info.is_statically && info.is_statically) {
 			if (cursor->info.compare_mode == info.compare_mode && info.compare_mode == 1) {
 				if (cursor->info.target_ino == info.target_ino) {
-					SUSFS_LOGE("target_ino: '%lu', is_statically: '%d', compare_mode: '%d', is already created in LH_MAPS_SPOOFER\n",
-					info.target_ino, info.is_statically, info.compare_mode);
+					SUSFS_LOGE("is_statically: '%d', compare_mode: '%d', target_ino: '%lu', is already created in LH_MAPS_SPOOFER\n",
+					info.is_statically, info.compare_mode, info.target_ino);
 					return 1;
 				}
 			} else if (cursor->info.compare_mode == info.compare_mode && info.compare_mode == 2) {
@@ -212,8 +222,8 @@ int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info) {
 					cursor->info.is_isolated_entry == info.is_isolated_entry &&
 				    cursor->info.target_pgoff == info.target_pgoff &&
 					cursor->info.target_prot == info.target_prot) {
-					SUSFS_LOGE("target_ino: '%lu', is_statically: '%d', compare_mode: '%d', is_isolated_entry: '%d', target_pgoff: '%lu', target_prot: '%lu', is already created in LH_MAPS_SPOOFER\n",
-					info.target_ino, info.is_statically, info.compare_mode,
+					SUSFS_LOGE("is_statically: '%d', compare_mode: '%d', target_ino: '%lu', is_isolated_entry: '%d', target_pgoff: '0x%x', target_prot: '0x%x', is already created in LH_MAPS_SPOOFER\n",
+					info.is_statically, info.compare_mode, info.target_ino,
 					info.is_isolated_entry, info.target_pgoff, info.target_prot);
 					return 1;
 				}
@@ -221,9 +231,21 @@ int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info) {
 				if (info.target_ino == 0 &&
 					cursor->info.prev_target_ino == info.prev_target_ino &&
 				    cursor->info.next_target_ino == info.next_target_ino) {
-					SUSFS_LOGE("target_ino: '%lu', is_statically: '%d', compare_mode: '%d', prev_target_ino: '%lu', next_target_ino: '%lu', is already created in LH_MAPS_SPOOFER\n",
-					info.target_ino, info.is_statically, info.compare_mode,
+					SUSFS_LOGE("is_statically: '%d', compare_mode: '%d', target_ino: '%lu', prev_target_ino: '%lu', next_target_ino: '%lu', is already created in LH_MAPS_SPOOFER\n",
+					info.is_statically, info.compare_mode, info.target_ino,
 					info.prev_target_ino, info.next_target_ino);
+					return 1;
+				}
+			} else if (cursor->info.compare_mode == info.compare_mode && info.compare_mode == 4) {
+				if (cursor->info.is_file == info.is_file &&
+					cursor->info.target_dev == info.target_dev &&
+				    cursor->info.target_pgoff == info.target_pgoff &&
+				    cursor->info.target_prot == info.target_prot &&
+				    cursor->info.target_addr_size == info.target_addr_size) {
+					SUSFS_LOGE("is_statically: '%d', compare_mode: '%d', is_file: '%d', target_dev: '0x%x', target_pgoff: '0x%x', target_prot: '0x%x', target_addr_size: '0x%x', is already created in LH_MAPS_SPOOFER\n",
+					info.is_statically, info.compare_mode, info.is_file,
+					info.target_dev, info.target_pgoff, info.target_prot,
+					info.target_addr_size);
 					return 1;
 				}
 			}
@@ -251,10 +273,11 @@ int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info) {
     list_add_tail(&new_list->list, &LH_MAPS_SPOOFER);
     spin_unlock(&susfs_spin_lock);
 
-	SUSFS_LOGI("target_ino: '%lu', is_statically: '%d', compare_mode: '%d', is_isolated_entry: '%d', prev_target_ino: '%lu', next_target_ino: '%lu', target_pgoff: '%lu', target_prot: '%lu', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_pgoff: '%lu', spoofed_prot: '%lu', is successfully added to LH_MAPS_SPOOFER\n",
-	new_list->info.target_ino, new_list->info.is_statically, new_list->info.compare_mode,
-	new_list->info.is_isolated_entry, new_list->info.prev_target_ino, new_list->info.next_target_ino,
-	new_list->info.target_pgoff, new_list->info.target_prot, new_list->info.spoofed_pathname,
+	SUSFS_LOGI("is_statically: '%d', compare_mode: '%d', is_isolated_entry: '%d', is_file: '%d', prev_target_ino: '%lu', next_target_ino: '%lu', target_ino: '%lu', target_dev: '0x%x', target_pgoff: '0x%x', target_prot: '0x%x', target_addr_size: '0x%x', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '0x%x', spoofed_pgoff: '0x%x', spoofed_prot: '0x%x', is successfully added to LH_MAPS_SPOOFER\n",
+	new_list->info.is_statically, new_list->info.compare_mode, new_list->info.is_isolated_entry,
+	new_list->info.is_file, new_list->info.prev_target_ino, new_list->info.next_target_ino,
+	new_list->info.target_ino, new_list->info.target_dev, new_list->info.target_pgoff,
+	new_list->info.target_prot, new_list->info.target_addr_size, new_list->info.spoofed_pathname,
 	new_list->info.spoofed_ino, new_list->info.spoofed_dev, new_list->info.spoofed_pgoff,
 	new_list->info.spoofed_prot);
 
@@ -548,11 +571,12 @@ void susfs_sus_kstat(unsigned long ino, struct stat* out_stat) {
 /* for non statically, it only compare with target_ino, and spoof only the ino, dev to the matched entry
  * for staticially, it compares depending on the mode user chooses
  * compare mode:
- *  1 -> target_ino is non-zero, all entries match with target_ino will be spoofed with user defined entry
- *  2 -> target_ino is non-zero, all entries match with [target_ino,target_prot,target_pgoff,is_isolated_entry] will be spoofed with user defined entry
- *  3 -> target_ino is zero, which is not file, all entries match with [prev_target_ino,next_target_ino] will be spoofed with user defined entry
+ *  1 -> target_ino is 'non-zero', all entries match with target_ino will be spoofed with user defined entry
+ *  2 -> target_ino is 'non-zero', all entries match with [target_ino,target_prot,target_pgoff,is_isolated_entry] will be spoofed with user defined entry
+ *  3 -> target_ino is 'zero', which is not file, all entries match with [prev_target_ino,next_target_ino] will be spoofed with user defined entry
+ *  4 -> target_ino is 'zero' or 'non-zero', all entries match with [is_file,target_addr_size,target_prot,target_pgoff,target_dev] will be spoofed with user defined entry
  */
-int susfs_sus_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags, unsigned long long* pgoff, struct vm_area_struct* vma, char* tmpname) {
+int susfs_sus_maps(unsigned long target_ino, unsigned long target_address_size, unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags, unsigned long long* pgoff, struct vm_area_struct* vma, char* tmpname) {
     struct st_susfs_sus_maps_list *cursor, *temp;
 	struct inode *tmp_inode, *tmp_inode_prev, *tmp_inode_next;
 
@@ -563,10 +587,11 @@ int susfs_sus_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* ori
 			if (target_ino != 0 && cursor->info.target_ino == target_ino) {
 				*orig_ino = cursor->info.spoofed_ino;
 				*orig_dev = cursor->info.spoofed_dev;
-				SUSFS_LOGI("spoofing target_ino: '%lu', is_statically: '%d', compare_mode: '%d', is_isolated_entry: '%d', prev_target_ino: '%lu', next_target_ino: '%lu', target_pgoff: '%lu', target_prot: '%lu', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_pgoff: '%lu', spoofed_prot: '%lu'\n",
-				cursor->info.target_ino, cursor->info.is_statically, cursor->info.compare_mode,
-				cursor->info.is_isolated_entry, cursor->info.prev_target_ino, cursor->info.next_target_ino, 
-				cursor->info.target_pgoff, cursor->info.target_prot, cursor->info.spoofed_pathname,
+				SUSFS_LOGI("spoofing maps -> is_statically: '%d', compare_mode: '%d', is_file: '%d', is_isolated_entry: '%d', prev_target_ino: '%lu', next_target_ino: '%lu', target_ino: '%lu', target_dev: '0x%x', target_pgoff: '0x%x', target_prot: '0x%x', target_addr_size: '0x%x', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '0x%x', spoofed_pgoff: '0x%x', spoofed_prot: '0x%x'\n",
+				cursor->info.is_statically, cursor->info.compare_mode, cursor->info.is_file,
+				cursor->info.is_isolated_entry, cursor->info.prev_target_ino, cursor->info.next_target_ino,
+				cursor->info.target_ino, cursor->info.target_dev, cursor->info.target_pgoff,
+				cursor->info.target_prot, cursor->info.target_addr_size, cursor->info.spoofed_pathname,
 				cursor->info.spoofed_ino, cursor->info.spoofed_dev, cursor->info.spoofed_pgoff,
 				cursor->info.spoofed_prot);
 				return 1;
@@ -655,6 +680,19 @@ int susfs_sus_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* ori
 						}
 					}
 					break;
+				case 4:
+					if ((cursor->info.is_file && vma->vm_file)||(!cursor->info.is_file && !vma->vm_file)) {
+						if (cursor->info.target_dev == *orig_dev &&
+							cursor->info.target_pgoff == *pgoff &&
+							((cursor->info.target_prot & VM_READ) == (*flags & VM_READ) &&
+							 (cursor->info.target_prot & VM_WRITE) == (*flags & VM_WRITE) &&
+							 (cursor->info.target_prot & VM_EXEC) == (*flags & VM_EXEC) &&
+							 (cursor->info.target_prot & VM_MAYSHARE) == (*flags & VM_MAYSHARE)) &&
+							cursor->info.target_addr_size == target_address_size) {
+							goto do_spoof;
+						}
+					}
+					break;
 				default:
 					break;
 			}
@@ -683,10 +721,11 @@ do_spoof:
 		if (cursor->info.need_to_spoof_pgoff) {
 			*pgoff = cursor->info.spoofed_pgoff;
 		}
-		SUSFS_LOGI("spoofing target_ino: '%lu', is_statically: '%d', compare_mode: '%d', is_isolated_entry: '%d', prev_target_ino: '%lu', next_target_ino: '%lu', target_pgoff: '%lu', target_prot: '%lu', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_pgoff: '%lu', spoofed_prot: '%lu'\n",
-		cursor->info.target_ino, cursor->info.is_statically, cursor->info.compare_mode,
-		cursor->info.is_isolated_entry, cursor->info.prev_target_ino, cursor->info.next_target_ino, 
-		cursor->info.target_pgoff, cursor->info.target_prot, cursor->info.spoofed_pathname,
+		SUSFS_LOGI("spoofing maps -> is_statically: '%d', compare_mode: '%d', is_file: '%d', is_isolated_entry: '%d', prev_target_ino: '%lu', next_target_ino: '%lu', target_ino: '%lu', target_dev: '0x%x', target_pgoff: '0x%x', target_prot: '0x%x', target_addr_size: '0x%x', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '0x%x', spoofed_pgoff: '0x%x', spoofed_prot: '0x%x'\n",
+		cursor->info.is_statically, cursor->info.compare_mode, cursor->info.is_file,
+		cursor->info.is_isolated_entry, cursor->info.prev_target_ino, cursor->info.next_target_ino,
+		cursor->info.target_ino, cursor->info.target_dev, cursor->info.target_pgoff,
+		cursor->info.target_prot, cursor->info.target_addr_size, cursor->info.spoofed_pathname,
 		cursor->info.spoofed_ino, cursor->info.spoofed_dev, cursor->info.spoofed_pgoff,
 		cursor->info.spoofed_prot);
 		return 2;

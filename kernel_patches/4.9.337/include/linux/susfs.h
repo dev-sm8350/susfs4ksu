@@ -75,12 +75,15 @@ struct st_susfs_sus_maps {
     bool                   is_statically;
     int                    compare_mode;
     bool                   is_isolated_entry;
+    bool                   is_file;
     unsigned long          prev_target_ino;
     unsigned long          next_target_ino;
     char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
     unsigned long          target_ino;
+    unsigned long          target_dev;
     unsigned long long     target_pgoff;
     unsigned long          target_prot;
+    unsigned long          target_addr_size;
     char                   spoofed_pathname[SUSFS_MAX_LEN_PATHNAME];
     unsigned long          spoofed_ino;
     unsigned long          spoofed_dev;
@@ -156,7 +159,7 @@ int susfs_sus_path_by_filename(struct filename* name, int* errno_to_be_changed, 
 int susfs_sus_mount(struct vfsmount* mnt, struct path* root);
 int susfs_sus_ino_for_filldir64(unsigned long ino);
 void susfs_sus_kstat(unsigned long ino, struct stat* out_stat);
-int susfs_sus_maps(unsigned long target_ino, unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags, unsigned long long* pgoff, struct vm_area_struct* vma, char* tmpname);
+int susfs_sus_maps(unsigned long target_ino, unsigned long target_address_size, unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags, unsigned long long* pgoff, struct vm_area_struct* vma, char* tmpname);
 void susfs_sus_proc_fd_link(char *pathname, int len);
 void susfs_try_umount(uid_t target_uid);
 void susfs_spoof_uname(struct new_utsname* tmp);

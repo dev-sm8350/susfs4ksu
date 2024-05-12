@@ -90,12 +90,15 @@ struct st_susfs_sus_maps {
     bool                   is_statically;
     int                    compare_mode;
     bool                   is_isolated_entry;
+    bool                   is_file;
     unsigned long          prev_target_ino;
     unsigned long          next_target_ino;
     char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
     unsigned long          target_ino;
+    unsigned long          target_dev;
     unsigned long long     target_pgoff;
     unsigned long          target_prot;
+    unsigned long          target_addr_size;
     char                   spoofed_pathname[SUSFS_MAX_LEN_PATHNAME];
     unsigned long          spoofed_ino;
     unsigned long          spoofed_dev;
@@ -224,14 +227,14 @@ static void print_help(void) {
     log("         |--> Add the desired path you have added before via <add_sus_maps> to complete the [ino] and [dev] spoofing in maps\n");
     log("\n");
     log("        add_sus_maps_statically <compare_mode> <args_for_mode>\n");
-    log("         |--> comapre_mode: 1 => target_ino is 'non-zero', all entries match target_ino will be spoofed with user defined entry\n");
+    log("         |--> compare_mode: 1 => target_ino is 'non-zero', all entries match target_ino will be spoofed with user defined entry\n");
     log("               |--> <target_ino>\n");
     log("               |--> <spoofed_pathname>\n");
     log("               |--> <spoofed_ino>\n");
     log("               |--> <spoofed_dev>\n");
     log("               |--> <spoofed_pgoff>\n");
     log("               |--> <spoofed_prot>\n");
-    log("         |--> comapre_mode: 2 => target_ino is 'non-zero', all entries match [target_ino,target_pgoff,target_prot,is_isolated_entry] will be spoofed with user defined entry\n");
+    log("         |--> compare_mode: 2 => target_ino is 'non-zero', all entries match [target_ino,target_pgoff,target_prot,is_isolated_entry] will be spoofed with user defined entry\n");
     log("               |--> <target_ino>: in decimal\n");
     log("               |--> <target_pgoff>: in decimal\n");
     log("               |--> <target_prot>: in string, must be length of 4, and include only characters 'rwxps-', e.g.: 'r--s'\n");
@@ -241,10 +244,21 @@ static void print_help(void) {
     log("               |--> <spoofed_pgoff>: in decimal, can be passed as 'default'\n");
     log("               |--> <spoofed_prot>: in string, must be length of 4, and include only characters 'rwxps-', e.g.: 'r--s', can be passed as 'default'\n");
     log("               |--> <is_isolated_entry>: 0 -> not isolated entry, 1 -> isolated entry\n");
-    log("         |--> comapre_mode: 3 => target_ino is 'zero', all entries match [prev_target_ino,next_target_ino] will be spoofed with user defined entry\n");
+    log("         |--> compare_mode: 3 => target_ino is 'zero', all entries match [prev_target_ino,next_target_ino] will be spoofed with user defined entry\n");
     log("               |--> Note: one of <prev_target_ino> and <next_target_ino> must be > 0, if both are > 0, then both will be compared\n");
     log("               |--> <prev_target_ino>: in decimal, must be >= 0, if 0, then it will not be compared\n");
     log("               |--> <next_target_ino>: in decimal, must be >= 0, if 0, then it will not be compared\n");
+    log("               |--> <spoofed_pathname>: in string, can be passed as 'default' or 'empty'\n");
+    log("               |--> <spoofed_ino>: in decimal, can be passed as 'default'\n");
+    log("               |--> <spoofed_dev>: in decimal, can be passed as 'default'\n");
+    log("               |--> <spoofed_pgoff>: in decimal, can be passed as 'default'\n");
+    log("               |--> <spoofed_prot>: in string, must be length of 4, and include only characters 'rwxps-', e.g.: 'r--s', can be passed as 'default'\n");
+    log("         |--> compare_mode: 4 => all entries match [is_file,target_addr_size,target_prot,target_pgoff,target_dev] will be spoofed with user defined entry\n");
+    log("               |--> <is_file>: '0' or '1', 0 -> NOT a file, 0 -> IS a file\n");
+    log("               |--> <target_dev>: in decimal, must be >= 0\n");
+    log("               |--> <target_pgoff>: in decimal, must be >= 0\n");
+    log("               |--> <target_prot>: in string, must be length of 4, and include only characters 'rwxps-', e.g.: 'r--s', can be passed as 'default'\n");
+    log("               |--> <target_addr_size>: in decimal, must be > 0\n");
     log("               |--> <spoofed_pathname>: in string, can be passed as 'default' or 'empty'\n");
     log("               |--> <spoofed_ino>: in decimal, can be passed as 'default'\n");
     log("               |--> <spoofed_dev>: in decimal, can be passed as 'default'\n");
@@ -680,6 +694,96 @@ int main(int argc, char *argv[]) {
                 if (argv[9][1] == 'w') info.spoofed_prot |= VM_WRITE; 
                 if (argv[9][2] == 'x') info.spoofed_prot |= VM_EXEC; 
                 if (argv[9][3] == 's') info.spoofed_prot |= VM_MAYSHARE; 
+                info.need_to_spoof_prot = true;
+            }
+        } else if (info.compare_mode == 4 && argc == 13) {
+            // is_file
+            if (strcmp(argv[3], "0") && strcmp(argv[3], "1")) {
+                print_help();
+                return 1;
+            }
+            info.is_file = strtoul(argv[3], &endptr, 10);
+            // target_dev
+            info.target_dev = strtoul(argv[4], &endptr, 10);
+            if (*endptr != '\0') {
+                print_help();
+                return 1;
+            }
+            // target_pgoff
+            info.target_pgoff = strtoul(argv[5], &endptr, 10);
+            if (*endptr != '\0') {
+                print_help();
+                return 1;
+            }
+            // target_prot
+            if (strlen(argv[6]) != 4 ||
+                ((argv[6][0] != 'r' && argv[6][0] != '-') ||
+                (argv[6][1] != 'w' && argv[6][1] != '-') ||
+                (argv[6][2] != 'x' && argv[6][2] != '-') ||
+                (argv[6][3] != 'p' && argv[6][3] != 's'))) 
+            {
+                print_help();
+                return 1;
+            }
+            if (argv[6][0] == 'r') info.target_prot |= VM_READ; 
+            if (argv[6][1] == 'w') info.target_prot |= VM_WRITE; 
+            if (argv[6][2] == 'x') info.target_prot |= VM_EXEC; 
+            if (argv[6][3] == 's') info.target_prot |= VM_MAYSHARE; 
+            // target_addr_size
+            info.target_addr_size = strtoul(argv[7], &endptr, 10);
+            if (*endptr != '\0') {
+                print_help();
+                return 1;
+            }
+            // spoofed_pathname
+            if (strcmp(argv[8], "default")) { 
+                if (strcmp(argv[8], "empty")) {
+                    strncpy(info.spoofed_pathname, argv[8], SUSFS_MAX_LEN_PATHNAME);
+                }
+                info.need_to_spoof_pathname = true;
+            }
+            // spoofed_ino
+            if (strcmp(argv[9], "default")) {
+                info.spoofed_ino = strtoul(argv[9], &endptr, 10);
+                if (*endptr != '\0') {
+                    print_help();
+                    return 1;
+                }
+                info.need_to_spoof_ino = true;
+            }
+            // spoofed_dev
+            if (strcmp(argv[10], "default")) {
+                info.spoofed_dev = strtoul(argv[10], &endptr, 10);
+                if (*endptr != '\0') {
+                    print_help();
+                    return 1;
+                }
+                info.need_to_spoof_dev = true;
+            }
+            // spoofed_pgoff
+            if (strcmp(argv[11], "default")) {
+                info.spoofed_pgoff = strtoul(argv[11], &endptr, 10);
+                if (*endptr != '\0') {
+                    print_help();
+                    return 1;
+                }
+                info.need_to_spoof_pgoff = true;
+            }
+            // spoofed_prot
+            if (strcmp(argv[12], "default")) {
+                if (strlen(argv[12]) != 4 ||
+                    ((argv[12][0] != 'r' && argv[12][0] != '-') ||
+                    (argv[12][1] != 'w' && argv[12][1] != '-') ||
+                    (argv[12][2] != 'x' && argv[12][2] != '-') ||
+                    (argv[12][3] != 'p' && argv[12][3] != 's'))) 
+                {
+                    print_help();
+                    return 1;
+                }
+                if (argv[12][0] == 'r') info.spoofed_prot |= VM_READ; 
+                if (argv[12][1] == 'w') info.spoofed_prot |= VM_WRITE; 
+                if (argv[12][2] == 'x') info.spoofed_prot |= VM_EXEC; 
+                if (argv[12][3] == 's') info.spoofed_prot |= VM_MAYSHARE; 
                 info.need_to_spoof_prot = true;
             }
         } else {

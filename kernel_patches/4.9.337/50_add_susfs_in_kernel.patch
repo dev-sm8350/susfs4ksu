@@ -331,7 +331,7 @@ index b6959f6dae5b..5e221d472a7c 100644
  		len = -EFAULT;
   out:
 diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
-index f4a77817ad74..51958e6faf50 100644
+index f4a77817ad74..24d32a561971 100644
 --- a/fs/proc/task_mmu.c
 +++ b/fs/proc/task_mmu.c
 @@ -22,6 +22,10 @@
@@ -362,7 +362,7 @@ index f4a77817ad74..51958e6faf50 100644
  	end = vma->vm_end;
 +
 +#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
-+    ret = susfs_sus_maps(ino, &ino, &dev, &flags, &pgoff, vma, tmpname);
++    ret = susfs_sus_maps(ino, end - start, &ino, &dev, &flags, &pgoff, vma, tmpname);
 +#endif
 +
  	show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
