@@ -126,8 +126,23 @@ SPOOFED_DEV=0
 SPOOFED_PGOFF=0
 SPOOFED_PROT="---p"
 ${SUSFS_BIN} add_sus_maps_statically ${MODE} ${TARGET_INO} ${TARGET_PGOFF} ${TARGET_PROT} ${SPOOFED_PATHNAME} ${SPOOFED_INO} ${SPOOFED_DEV} ${SPOOFED_PGOFF} ${SPOOFED_PROT} ${IS_ISOLATED_ENTRY}
+
+## Mode 4, all entries match with [is_file,target_addr_size,target_prot,target_pgoff,target_dev] will be spoofed with user defined entry ##
+MODE=4
+IS_FILE=1
+TARGET_DEV=6
+TARGET_PGOFF=$(echo $((0x2000000)))
+TARGET_PROT="rw-p"
+TARGET_ADDR_SIZE=$(echo $((0x2000000)))
+SPOOFED_PATHNAME="empty"
+SPOOFED_INO=0
+SPOOFED_DEV=0
+SPOOFED_PGOFF=0
+SPOOFED_PROT="---p"
+${SUSFS_BIN} add_sus_maps_statically ${MODE} ${IS_FILE} ${TARGET_DEV} ${TARGET_PGOFF} ${TARGET_PROT} ${TARGET_ADDR_SIZE} ${SPOOFED_PATHNAME} ${SPOOFED_INO} ${SPOOFED_DEV} ${SPOOFED_PGOFF} ${SPOOFED_PROT}
 EOF
 
 #### To spoof the link path in /proc/self/fd/ ####
+cat <<EOF >/dev/null
 ${SUSFS_BIN} add_sus_proc_fd_link "/dev/binder" "/dev/null"
-
+EOF
