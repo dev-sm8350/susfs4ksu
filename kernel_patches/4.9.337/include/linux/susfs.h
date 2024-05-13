@@ -48,7 +48,7 @@
 
 struct st_susfs_sus_path {
     char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
-    unsigned long          ino;
+    unsigned long          target_ino;
 };
 
 struct st_susfs_sus_mount {

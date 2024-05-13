@@ -434,7 +434,7 @@ int susfs_sus_path_by_path(struct path* file, int* errno_to_be_changed, int sysc
 
     list_for_each_entry_safe(cursor, temp, &LH_SUS_PATH, list) {
         if (!strcmp(cursor->info.target_pathname, path)) {
-            SUSFS_LOGI("hiding target_pathname '%s' for UID %i\n", cursor->info.target_pathname, current_uid().val);
+            SUSFS_LOGI("hiding target_pathname: '%s', target_ino: '%lu', for UID %i\n", cursor->info.target_pathname, cursor->info.target_ino, current_uid().val);
 			if (errno_to_be_changed != NULL) {
 				susfs_change_error_no_by_pathname(path, errno_to_be_changed, syscall_family);
 			}
@@ -476,8 +476,8 @@ int susfs_sus_ino_for_filldir64(unsigned long ino) {
 
 	if (!uid_matches_suspicious_path()) return 0;
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_PATH, list) {
-        if (cursor->info.ino == ino) {
-            SUSFS_LOGI("hiding target_pathname '%s' for UID %i\n", cursor->info.target_pathname, current_uid().val);
+        if (cursor->info.target_ino == ino) {
+            SUSFS_LOGI("hiding target_pathname: '%s', target_ino: '%lu', for UID %i\n", cursor->info.target_pathname, cursor->info.target_ino, current_uid().val);
 			return 1;
         }
     }

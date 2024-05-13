@@ -61,7 +61,7 @@
  *******************/
 struct st_susfs_sus_path {
     char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
-    unsigned long          ino;
+    unsigned long          target_ino;
 };
 
 struct st_susfs_sus_mount {
@@ -297,13 +297,12 @@ int main(int argc, char *argv[]) {
     if (argc == 3 && !strcmp(argv[1], "add_sus_path")) {
         struct st_susfs_sus_path info;
         struct stat sb;
-        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
-        if (!get_file_stat(argv[2], &sb)) {
+        if (get_file_stat(argv[2], &sb)) {
             log("%s not found, skip adding its ino\n", info.target_pathname);
-            info.ino = sb.st_ino;
-        } else {
-            info.ino = 0;
+            return 1;
         }
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        info.target_ino = sb.st_ino;
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_PATH, &info, NULL, &error);
         return error;
     // add_sus_mount
