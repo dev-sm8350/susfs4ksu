@@ -1,0 +1,243 @@
+From f035931cb7243b5af6c2c4887fbc0e2c4a16bccf Mon Sep 17 00:00:00 2001
+From: Celica Sylphil <kamikitakomaric@protonmail.com>
+Date: Sat, 13 Apr 2024 22:57:28 +0800
+Subject: [PATCH] fs/include/kernel: SUSFS fix build for k5.4
+
+Change-Id: e7cd7462674c625697c1e80cc76a4832b588751f
+Signed-off-by: TogoFire <togofire@mailfence.com>
+---
+ fs/Makefile           |  7 +++++--
+ fs/namei.c            | 26 ++++++++++----------------
+ fs/open.c             |  4 ++++
+ fs/proc/task_mmu.c    | 16 ++++++++++++++++
+ fs/proc_namespace.c   |  4 ++++
+ fs/readdir.c          |  9 +++++++++
+ fs/stat.c             |  4 ++++
+ fs/susfs.c            |  2 +-
+ include/linux/susfs.h |  2 +-
+ kernel/sys.c          |  4 ++++
+ 10 files changed, 58 insertions(+), 20 deletions(-)
+
+diff --git a/fs/Makefile b/fs/Makefile
+index be0bd46fdbca..b2b8b114020b 100644
+--- a/fs/Makefile
++++ b/fs/Makefile
+@@ -14,8 +14,11 @@ obj-y :=	open.o read_write.o file_table.o super.o \
+ 		attr.o bad_inode.o file.o filesystems.o namespace.o \
+ 		seq_file.o xattr.o libfs.o fs-writeback.o \
+ 		pnode.o splice.o sync.o utimes.o d_path.o \
+-		stack.o fs_struct.o statfs.o fs_pin.o nsfs.o \
+-		fs_types.o fs_context.o fs_parser.o fsopen.o
++		stack.o fs_struct.o statfs.o fs_pin.o nsfs.o
++
++obj-$(CONFIG_KSU_SUSFS) += susfs.o
++
++obj-y += fs_types.o fs_context.o fs_parser.o fsopen.o
+ 
+ obj-$(CONFIG_KSU_SUSFS) += susfs.o
+ 
+diff --git a/fs/namei.c b/fs/namei.c
+index 4f7ab97e24da..59c96852d3f5 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -43,13 +43,13 @@
+ #include "internal.h"
+ #include "mount.h"
+ 
+-#define CREATE_TRACE_POINTS
+-#include <trace/events/namei.h>
+-
+ #if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
+ #include <linux/susfs.h>
+ #endif
+ 
++#define CREATE_TRACE_POINTS
++#include <trace/events/namei.h>
++
+ /* [Feb-1997 T. Schoebel-Theuer]
+  * Fundamental changes in the pathname lookup mechanisms (namei)
+  * were necessary because of omirr.  The reason is that omirr needs
+@@ -4235,19 +4235,6 @@ long do_unlinkat(int dfd, struct filename *name)
+ 	struct inode *delegated_inode = NULL;
+ 	unsigned int lookup_flags = 0;
+ 
+-#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
+-	struct filename* fname;
+-	int status;
+-
+-	fname = getname_safe(pathname);
+-	status = susfs_sus_path_by_filename(fname, &error, SYSCALL_FAMILY_UNLINKAT);
+-	putname_safe(fname);
+-
+-	if (status) {
+-		return error;
+-	}
+-#endif
+-
+ retry:
+ 	name = filename_parentat(dfd, name, lookup_flags, &path, &last, &type);
+ 	if (IS_ERR(name))
+@@ -4844,6 +4831,13 @@ static int do_renameat2(int olddfd, const char __user *oldname, int newdfd,
+ 		goto exit;
+ 	}
+ 
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++	status = susfs_sus_path_by_filename(from, &error, SYSCALL_FAMILY_RENAMEAT2_OLDNAME);
++	if (status) {
++		goto exit;
++	}
++#endif
++
+ 	to = filename_parentat(newdfd, getname(newname), lookup_flags,
+ 				&new_path, &new_last, &new_type);
+ 	if (IS_ERR(to)) {
+diff --git a/fs/open.c b/fs/open.c
+index cb0f02fa3a26..257c566e7220 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -35,6 +35,10 @@
+ 
+ #include "internal.h"
+ 
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++#include <linux/susfs.h>
++#endif
++
+ int do_truncate(struct dentry *dentry, loff_t length, unsigned int time_attrs,
+ 	struct file *filp)
+ {
+diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
+index 1a5716e02394..fce5ce491574 100644
+--- a/fs/proc/task_mmu.c
++++ b/fs/proc/task_mmu.c
+@@ -28,6 +28,10 @@
+ #include <asm/tlbflush.h>
+ #include "internal.h"
+ 
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++#include <linux/susfs.h>
++#endif
++
+ #define SEQ_PUT_DEC(str, val) \
+ 		seq_put_decimal_ull_width(m, str, (val) << (PAGE_SHIFT-10), 8)
+ void task_mem(struct seq_file *m, struct mm_struct *mm)
+@@ -517,9 +521,21 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma)
+ 
+ 	start = vma->vm_start;
+ 	end = vma->vm_end;
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++	ret = susfs_sus_maps(ino, end - start, &ino, &dev, &flags, &pgoff, vma, tmpname);
++#endif
+ 	if (show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino))
+ 		return;
+ 
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++	if (ret == 2) {
++		seq_pad(m, ' ');
++		seq_puts(m, tmpname);
++		seq_putc(m, '\n');
++		return;
++	}
++#endif
++
+ 	/*
+ 	 * Print the dentry name for named mappings, and a
+ 	 * special [heap] marker for the heap:
+diff --git a/fs/proc_namespace.c b/fs/proc_namespace.c
+index d56c2d12049f..a3e0159c3fc8 100644
+--- a/fs/proc_namespace.c
++++ b/fs/proc_namespace.c
+@@ -18,6 +18,10 @@
+ #include "pnode.h"
+ #include "internal.h"
+ 
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++#include <linux/susfs.h>
++#endif
++
+ static __poll_t mounts_poll(struct file *file, poll_table *wait)
+ {
+ 	struct seq_file *m = file->private_data;
+diff --git a/fs/readdir.c b/fs/readdir.c
+index 8108c8d94a79..9bcc7ba0b1d7 100644
+--- a/fs/readdir.c
++++ b/fs/readdir.c
+@@ -22,6 +22,10 @@
+ #include <linux/compat.h>
+ #include <linux/uaccess.h>
+ 
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++#include <linux/susfs.h>
++#endif
++
+ #include <asm/unaligned.h>
+ 
+ /*
+@@ -332,6 +336,11 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
+ 	prev_reclen = buf->prev_reclen;
+ 	if (prev_reclen && signal_pending(current))
+ 		return -EINTR;
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++		if (susfs_sus_ino_for_filldir64(ino)) {
++			return 0;
++		}
++#endif
+ 	dirent = buf->current_dir;
+ 	prev = (void __user *)dirent - prev_reclen;
+ 	if (!user_access_begin(prev, reclen + prev_reclen))
+diff --git a/fs/stat.c b/fs/stat.c
+index 71bb7a03c6b1..be769568fd2b 100644
+--- a/fs/stat.c
++++ b/fs/stat.c
+@@ -21,6 +21,10 @@
+ #include <linux/uaccess.h>
+ #include <asm/unistd.h>
+ 
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++#include <linux/susfs.h>
++#endif
++
+ /**
+  * generic_fillattr - Fill in the basic attributes from the inode struct
+  * @inode: Inode to use as the source
+diff --git a/fs/susfs.c b/fs/susfs.c
+index 245e07536d6a..989a48028905 100644
+--- a/fs/susfs.c
++++ b/fs/susfs.c
+@@ -394,7 +394,7 @@ int susfs_set_uname(struct st_susfs_uname* __user user_info) {
+ 	return 0;
+ }
+ 
+-int susfs_sus_path_by_path(struct path* file, int* errno_to_be_changed, int syscall_family) {
++int susfs_sus_path_by_path(const struct path* file, int* errno_to_be_changed, int syscall_family) {
+ 	size_t size = 4096;
+ 	int res = -1;
+ 	int status = 0;
+diff --git a/include/linux/susfs.h b/include/linux/susfs.h
+index b878e1bce512..065c7d93b611 100644
+--- a/include/linux/susfs.h
++++ b/include/linux/susfs.h
+@@ -154,7 +154,7 @@ int susfs_add_sus_proc_fd_link(struct st_susfs_sus_proc_fd_link* __user user_inf
+ int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info);
+ int susfs_set_uname(struct st_susfs_uname* __user user_info);
+ 
+-int susfs_sus_path_by_path(struct path* file, int* errno_to_be_changed, int syscall_family);
++int susfs_sus_path_by_path(const struct path* file, int* errno_to_be_changed, int syscall_family);
+ int susfs_sus_path_by_filename(struct filename* name, int* errno_to_be_changed, int syscall_family);
+ int susfs_sus_mount(struct vfsmount* mnt, struct path* root);
+ int susfs_sus_ino_for_filldir64(unsigned long ino);
+diff --git a/kernel/sys.c b/kernel/sys.c
+index aa575d40e9e3..f9f30c280d49 100644
+--- a/kernel/sys.c
++++ b/kernel/sys.c
+@@ -74,6 +74,10 @@
+ #include <asm/io.h>
+ #include <asm/unistd.h>
+ 
++#if defined(CONFIG_KSU) && defined(CONFIG_KSU_SUSFS)
++#include <linux/susfs.h>
++#endif
++
+ #include "uid16.h"
+ 
+ #include <trace/hooks/sys.h>

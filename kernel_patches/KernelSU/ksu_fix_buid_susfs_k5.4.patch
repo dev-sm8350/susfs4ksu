@@ -1,0 +1,327 @@
+From 9c63569b4261f519fc4c979f9fb9733dd7f5f4ea Mon Sep 17 00:00:00 2001
+From: Celica Sylphil <kamikitakomaric@protonmail.com>
+Date: Wed, 8 May 2024 20:19:25 +0800
+Subject: [PATCH] drivers: staging: ksu: SUSFS fix buid to k5.4
+
+Fix many arguments provided to function-like macro invocation
+
+Log:
+../drivers/staging/ksu/core_hook.c:395:52: error: too many arguments provided to function-like macro invocation
+  395 |                         if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_path))) {
+      |                                                                         ^
+../arch/arm64/include/asm/uaccess.h:95:9: note: macro 'access_ok' defined here
+   95 | #define access_ok(addr, size)   __range_ok(addr, size)
+      |         ^
+../drivers/staging/ksu/core_hook.c:395:9: error: use of undeclared identifier 'access_ok'
+  395 |                         if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_path))) {
+      |                              ^
+../drivers/staging/ksu/core_hook.c:399:52: error: too many arguments provided to function-like macro invocation
+  399 |                         if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
+      |                                                                         ^
+../arch/arm64/include/asm/uaccess.h:95:9: note: macro 'access_ok' defined here
+   95 | #define access_ok(addr, size)   __range_ok(addr, size)
+      |         ^
+../drivers/staging/ksu/core_hook.c:399:9: error: use of undeclared identifier 'access_ok'
+  399 |                         if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
+      |                              ^
+../drivers/staging/ksu/core_hook.c:408:52: error: too many arguments provided to function-like macro invocation
+  408 |                         if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_mount))) {
+      |                                                                         ^
+../arch/arm64/include/asm/uaccess.h:95:9: note: macro 'access_ok' defined here
+   95 | #define access_ok(addr, size)   __range_ok(addr, size)
+      |         ^
+../drivers/staging/ksu/core_hook.c:408:9: error: use of undeclared identifier 'access_ok'
+  408 |                         if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_mount))) {
+      |                              ^
+../drivers/staging/ksu/core_hook.c:412:52: error: too many arguments provided to function-like macro invocation
+  412 |                         if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
+      |                                                                         ^
+../arch/arm64/include/asm/uaccess.h:95:9: note: macro 'access_ok' defined here
+   95 | #define access_ok(addr, size)   __range_ok(addr, size)
+      |         ^
+  CC      drivers/tty/tty_ldisc.o
+../drivers/staging/ksu/core_hook.c:412:9: error: use of undeclared identifier 'access_ok'
+  412 |                         if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
+      |                              ^
+../drivers/staging/ksu/core_hook.c:421:52: error: too many arguments provided to function-like macro invocation
+  421 |                         if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
+      |                                                                         ^
+../arch/arm64/include/asm/uaccess.h:95:9: note: macro 'access_ok' defined here
+   95 | #define access_ok(addr, size)   __range_ok(addr, size)
+      |         ^
+../drivers/staging/ksu/core_hook.c:421:9: error: use of undeclared identifier 'access_ok'
+  421 |                         if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
+      |                              ^
+../drivers/staging/ksu/core_hook.c:425:52: error: too many arguments provided to function-like macro invocation
+  425 |                         if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
+      |                                                                         ^
+../arch/arm64/include/asm/uaccess.h:95:9: note: macro 'access_ok' defined here
+   95 | #define access_ok(addr, size)   __range_ok(addr, size)
+      |         ^
+../drivers/staging/ksu/core_hook.c:425:9: error: use of undeclared identifier 'access_ok'
+  425 |                         if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
+      |                              ^
+../drivers/staging/ksu/core_hook.c:434:52: error: too many arguments provided to function-like macro invocation
+  434 |                         if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
+      |                                                                         ^
+../arch/arm64/include/asm/uaccess.h:95:9: note: macro 'access_ok' defined here
+   95 | #define access_ok(addr, size)   __range_ok(addr, size)
+      |         ^
+../drivers/staging/ksu/core_hook.c:434:9: error: use of undeclared identifier 'access_ok'
+  434 |                         if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
+      |                              ^
+../drivers/staging/ksu/core_hook.c:438:52: error: too many arguments provided to function-like macro invocation
+  438 |                         if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
+      |                                                                         ^
+../arch/arm64/include/asm/uaccess.h:95:9: note: macro 'access_ok' defined here
+   95 | #define access_ok(addr, size)   __range_ok(addr, size)
+      |         ^
+../drivers/staging/ksu/core_hook.c:438:9: error: use of undeclared identifier 'access_ok'
+  438 |                         if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
+      |                              ^
+../drivers/staging/ksu/core_hook.c:447:52: error: too many arguments provided to function-like macro invocation
+  447 |                         if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
+      |                                                                         ^
+../arch/arm64/include/asm/uaccess.h:95:9: note: macro 'access_ok' defined here
+   95 | #define access_ok(addr, size)   __range_ok(addr, size)
+      |         ^
+../drivers/staging/ksu/core_hook.c:447:9: error: use of undeclared identifier 'access_ok'
+  447 |                         if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
+      |                              ^
+../drivers/staging/ksu/core_hook.c:451:52: error: too many arguments provided to function-like macro invocation
+  451 |                         if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
+      |                                                                         ^
+../arch/arm64/include/asm/uaccess.h:95:9: note: macro 'access_ok' defined here
+   95 | #define access_ok(addr, size)   __range_ok(addr, size)
+      |         ^
+fatal error: too many errors emitted, stopping now [-ferror-limit=]
+  CC      drivers/usb/core/devio.o
+20 errors generated.
+
+[TogoFire]: Add log.
+Signed-off-by: TogoFire <togofire@mailfence.com>
+Change-Id: I67faea6cb4a41ec2f078e1b6b95c506b20c6f9ff
+---
+ drivers/staging/ksu/Makefile        |  8 +++++
+ drivers/staging/ksu/core_hook.c     | 46 +++++++++++++++--------------
+ drivers/staging/ksu/kernel_compat.c | 10 +++++++
+ drivers/staging/ksu/kernel_compat.h |  1 +
+ 4 files changed, 43 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/staging/ksu/Makefile b/drivers/staging/ksu/Makefile
+index 175982d7e41c..3d207bfdf0ec 100644
+--- a/drivers/staging/ksu/Makefile
++++ b/drivers/staging/ksu/Makefile
+@@ -60,4 +60,12 @@ ccflags-y += -Wno-declaration-after-statement -Wno-unused-function
+ 
+ ccflags-y += -DKSU_SUSFS
+ 
++ifeq ($(shell test -e $(srctree)/fs/susfs.c; echo $$?),0)
++ccflags-y += -DKSU_SUSFS
++$(info -- KSU_SUSFS is enabled.)
++else
++$(info -- You have not integrate susfs in your kernel.)
++$(info -- Read: https://gitlab.com/simonpunk/susfs4ksu)
++endif
++
+ # Keep a new line here!! Because someone may append config
+diff --git a/drivers/staging/ksu/core_hook.c b/drivers/staging/ksu/core_hook.c
+index 91307e6797af..ba3f0f29a365 100644
+--- a/drivers/staging/ksu/core_hook.c
++++ b/drivers/staging/ksu/core_hook.c
+@@ -392,11 +392,11 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+     if (current_uid().val == 0) {
+         int error = 0;
+ 		if (arg2 == CMD_SUSFS_ADD_SUS_PATH) {
+-			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_path))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_path))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_PATH -> arg3 is not accessible\n");
+                 return 0;
+ 			}
+-			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_PATH -> arg5 is not accessible\n");
+                 return 0;
+ 			}
+@@ -405,11 +405,11 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+             copy_to_user((void __user*)arg5, &error, sizeof(error));
+ 			return 0;
+ 		} else if (arg2 == CMD_SUSFS_ADD_SUS_MOUNT) {
+-			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_mount))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_mount))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_MOUNT -> arg3 is not accessible\n");
+                 return 0;
+ 			}
+-			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_MOUNT -> arg5 is not accessible\n");
+                 return 0;
+ 			}
+@@ -418,11 +418,11 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+             copy_to_user((void __user*)arg5, &error, sizeof(error));
+ 			return 0;
+ 		} else if (arg2 == CMD_SUSFS_ADD_SUS_KSTAT) {
+-			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT -> arg3 is not accessible\n");
+                 return 0;
+ 			}
+-			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT -> arg5 is not accessible\n");
+                 return 0;
+ 			}
+@@ -431,11 +431,11 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+             copy_to_user((void __user*)arg5, &error, sizeof(error));
+ 			return 0;
+ 		} else if (arg2 == CMD_SUSFS_UPDATE_SUS_KSTAT) {
+-			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
+ 				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_KSTAT -> arg3 is not accessible\n");
+                 return 0;
+ 			}
+-			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
+ 				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_KSTAT -> arg5 is not accessible\n");
+                 return 0;
+ 			}
+@@ -444,11 +444,11 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+             copy_to_user((void __user*)arg5, &error, sizeof(error));
+ 			return 0;
+ 		} else if (arg2 == CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY) {
+-			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY -> arg3 is not accessible\n");
+                 return 0;
+ 			}
+-			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY -> arg5 is not accessible\n");
+                 return 0;
+ 			}
+@@ -457,11 +457,11 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+             copy_to_user((void __user*)arg5, &error, sizeof(error));
+ 			return 0;
+         } else if (arg2 == CMD_SUSFS_ADD_SUS_MAPS) {
+-			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS -> arg3 is not accessible\n");
+                 return 0;
+ 			}
+-			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS -> arg5 is not accessible\n");
+                 return 0;
+ 			}
+@@ -470,11 +470,11 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+             copy_to_user((void __user*)arg5, &error, sizeof(error));
+ 			return 0;
+ 		} else if (arg2 == CMD_SUSFS_UPDATE_SUS_MAPS) {
+-			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
+ 				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_MAPS -> arg3 is not accessible\n");
+                 return 0;
+ 			}
+-			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
+ 				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_MAPS -> arg5 is not accessible\n");
+                 return 0;
+ 			}
+@@ -483,11 +483,11 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+             copy_to_user((void __user*)arg5, &error, sizeof(error));
+ 			return 0;
+         } else if (arg2 == CMD_SUSFS_ADD_SUS_MAPS_STATICALLY) {
+-			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS_STATICALLY -> arg3 is not accessible\n");
+                 return 0;
+ 			}
+-			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS_STATICALLY -> arg5 is not accessible\n");
+                 return 0;
+ 			}
+@@ -496,11 +496,11 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+             copy_to_user((void __user*)arg5, &error, sizeof(error));
+ 			return 0;
+ 		} else if (arg2 == CMD_SUSFS_ADD_SUS_PROC_FD_LINK) {
+-			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_proc_fd_link))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_proc_fd_link))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_PROC_FD_LINK -> arg3 is not accessible\n");
+                 return 0;
+ 			}
+-			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_SUS_PROC_FD_LINK -> arg5 is not accessible\n");
+                 return 0;
+ 			}
+@@ -509,11 +509,11 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+             copy_to_user((void __user*)arg5, &error, sizeof(error));
+ 			return 0;
+ 		} else if (arg2 == CMD_SUSFS_ADD_TRY_UMOUNT) {
+-			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_try_umount))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_try_umount))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_TRY_UMOUNT -> arg3 is not accessible\n");
+                 return 0;
+ 			}
+-			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
+ 				pr_err("susfs: CMD_SUSFS_ADD_TRY_UMOUNT -> arg5 is not accessible\n");
+                 return 0;
+ 			}
+@@ -522,11 +522,11 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+             copy_to_user((void __user*)arg5, &error, sizeof(error));
+ 			return 0;
+ 		} else if (arg2 == CMD_SUSFS_SET_UNAME) {
+-			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_uname))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_uname))) {
+ 				pr_err("susfs: CMD_SUSFS_SET_UNAME -> arg3 is not accessible\n");
+                 return 0;
+ 			}
+-			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
+ 				pr_err("susfs: CMD_SUSFS_SET_UNAME -> arg5 is not accessible\n");
+                 return 0;
+ 			}
+@@ -652,6 +652,8 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
+ 	err = ksu_umount_mnt(&path, flags);
+ 	if (err) {
+ 		pr_warn("umount %s failed: %d\n", mnt, err);
++	} else {
++		pr_info("umount %s successed", mnt);
+ 	}
+ }
+ 
+diff --git a/drivers/staging/ksu/kernel_compat.c b/drivers/staging/ksu/kernel_compat.c
+index b242bc637398..0ec3df624f94 100644
+--- a/drivers/staging/ksu/kernel_compat.c
++++ b/drivers/staging/ksu/kernel_compat.c
+@@ -77,6 +77,16 @@ void ksu_android_ns_fs_check()
+ 	task_unlock(current);
+ }
+ 
++int ksu_access_ok(const void *addr, unsigned long size) {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
++    /* For kernels before 5.0.0, pass the type argument to access_ok. */
++    return access_ok(VERIFY_READ, addr, size);
++#else
++    /* For kernels 5.0.0 and later, ignore the type argument. */
++    return access_ok(addr, size);
++#endif
++}
++
+ struct file *ksu_filp_open_compat(const char *filename, int flags, umode_t mode)
+ {
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) || defined(CONFIG_IS_HW_HISI)
+diff --git a/drivers/staging/ksu/kernel_compat.h b/drivers/staging/ksu/kernel_compat.h
+index ba9981857fd1..34050e73d790 100644
+--- a/drivers/staging/ksu/kernel_compat.h
++++ b/drivers/staging/ksu/kernel_compat.h
+@@ -29,6 +29,7 @@ extern struct key *init_session_keyring;
+ #endif
+ 
+ extern void ksu_android_ns_fs_check();
++extern int ksu_access_ok(const void *addr, unsigned long size);
+ extern struct file *ksu_filp_open_compat(const char *filename, int flags,
+ 					 umode_t mode);
+ extern ssize_t ksu_kernel_read_compat(struct file *p, void *buf, size_t count,
