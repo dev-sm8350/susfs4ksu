@@ -24,7 +24,7 @@ index 66929756..bb6b4eac 100644
 +ccflags-y += -DKSU_SUSFS
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 71265736..6729c7ae 100644
+index 429ba330..a255c023 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -44,6 +44,10 @@
@@ -38,7 +38,7 @@ index 71265736..6729c7ae 100644
  static bool ksu_module_mounted = false;
  
  extern int handle_sepolicy(unsigned long arg3, void __user *arg4);
-@@ -367,6 +371,165 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -375,6 +379,165 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		return 0;
  	}
  
@@ -204,7 +204,7 @@ index 71265736..6729c7ae 100644
  	// all other cmds are for 'root manager'
  	if (!from_manager) {
  		return 0;
-@@ -527,6 +690,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -535,6 +698,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		current->pid);
  #endif
  

@@ -65,7 +65,6 @@ struct st_susfs_sus_path {
 };
 
 struct st_susfs_sus_mount {
-    unsigned long          target_dev;
     char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
 };
 
@@ -315,7 +314,6 @@ int main(int argc, char *argv[]) {
             log("[-] Failed to get stat from path: '%s'\n", argv[2]);
             return 1;
         }
-        info.target_dev = sb.st_dev;
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_MOUNT, &info, NULL, &error);
         return error;
     // add_sus_kstat_statically

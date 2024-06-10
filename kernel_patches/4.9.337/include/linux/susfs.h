@@ -19,7 +19,8 @@
 #define CMD_SUSFS_ADD_SUS_MAPS 0x55560
 #define CMD_SUSFS_UPDATE_SUS_MAPS 0x55561
 
-#define SUSFS_MAX_LEN_PATHNAME 128
+#define SUSFS_MAX_LEN_PATHNAME 256 // 256 should address many paths already unless you are doing some strange experimental stuff, then set your own desired length
+#define SUSFS_MAX_SUS_MNTS 100 // I think 100 is enough, bet you don't have 100 mounts to hide
 
 /* non shared to userspace ksu_susfs tool */
 #define SYSCALL_FAMILY_ALL_ENOENT 0
@@ -45,6 +46,7 @@
 #define uid_matches_suspicious_kstat() (current_uid().val >= 2000)
 //#define uid_matches_suspicious_maps() (current_uid().val >= 0)
 #define uid_matches_suspicious_proc_fd_link() (current_uid().val >= 2000)
+#define uid_matches_proc_need_to_reorder_mnt_id() (current_uid().val >= 10000)
 
 struct st_susfs_sus_path {
     char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
@@ -52,7 +54,6 @@ struct st_susfs_sus_path {
 };
 
 struct st_susfs_sus_mount {
-    unsigned long          target_dev;
     char                   target_pathname[SUSFS_MAX_LEN_PATHNAME];
 };
 
@@ -106,6 +107,12 @@ struct st_susfs_sus_proc_fd_link {
     char                   spoofed_link_name[SUSFS_MAX_LEN_PATHNAME];
 };
 
+struct st_susfs_mnt_id_recorder {
+    int                    pid;
+    int                    target_mnt_id[SUSFS_MAX_SUS_MNTS];
+    int                    count;
+};
+
 struct st_susfs_sus_path_list {
     struct list_head                        list;
     struct st_susfs_sus_path                info;
@@ -118,12 +125,12 @@ struct st_susfs_sus_mount_list {
 
 struct st_susfs_sus_kstat_list {
     struct list_head                        list;
-    struct st_susfs_sus_kstat        info;
+    struct st_susfs_sus_kstat               info;
 };
 
 struct st_susfs_sus_maps_list {
     struct list_head                        list;
-    struct st_susfs_sus_maps         info;
+    struct st_susfs_sus_maps                info;
 };
 
 struct st_susfs_try_umount_list {
@@ -133,7 +140,12 @@ struct st_susfs_try_umount_list {
 
 struct st_susfs_sus_proc_fd_link_list {
     struct list_head                        list;
-    struct st_susfs_sus_proc_fd_link info;
+    struct st_susfs_sus_proc_fd_link        info;
+};
+
+struct st_susfs_mnt_id_recorder_list {
+    struct list_head                        list;
+    struct st_susfs_mnt_id_recorder         info;
 };
 
 struct st_susfs_uname {
@@ -163,6 +175,10 @@ int susfs_sus_maps(unsigned long target_ino, unsigned long target_address_size, 
 void susfs_sus_proc_fd_link(char *pathname, int len);
 void susfs_try_umount(uid_t target_uid);
 void susfs_spoof_uname(struct new_utsname* tmp);
+
+void susfs_add_mnt_id_recorder(void);
+int susfs_get_fake_mnt_id(int mnt_id);
+void susfs_remove_mnt_id_recorder(void);
 
 void susfs_set_log(bool enabled);
 
