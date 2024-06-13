@@ -1022,9 +1022,6 @@ void susfs_add_mnt_id_recorder(void) {
         list_for_each_entry(sus_mount_cursor, &LH_SUS_MOUNT, list) {
             mnt_path.dentry = mnt->mnt.mnt_root;
             mnt_path.mnt = &mnt->mnt;
-            if (path == NULL) {
-                continue;
-            }
             p_path = d_path(&mnt_path, path, SUSFS_MAX_LEN_PATHNAME);
             if (IS_ERR(p_path)) {
                 continue;
