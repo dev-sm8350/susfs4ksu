@@ -21,13 +21,13 @@ elif [ ${ARCH} = "arm" ]; then
     cp ${SUSFS_BIN_ARM} ${DEST_BIN_PATH}
 fi
 
-chmod 777 ${DEST_BIN_PATH}/ksu_susfs
+chmod 755 ${DEST_BIN_PATH}
 chmod 644 ${MODPATH}/post-fs-data.sh 
 chmod 644 ${MODPATH}/service.sh 
 chmod 644 ${MODPATH}/uninstall.sh 
 
 
 rm -rf ${MODPATH}/tools
-rm ${MODPATH}/customize.sh ${MODPATH}/build.sh ${MODPATH}/README.md
+rm ${MODPATH}/customize.sh ${MODPATH}/README.md
 
 
