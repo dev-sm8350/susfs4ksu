@@ -4,7 +4,6 @@
 #include <linux/slab.h>
 #include <linux/seq_file.h>
 #include <linux/printk.h>
-#include <linux/dcache.h>
 #include <linux/namei.h>
 #include <linux/list.h>
 #include <linux/init_task.h>
@@ -30,8 +29,13 @@ spinlock_t susfs_spin_lock;
 spinlock_t susfs_mnt_id_recorder_spin_lock;
 
 bool is_log_enable = true;
+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
 #define SUSFS_LOGI(fmt, ...) if (is_log_enable) pr_info("susfs: " fmt, ##__VA_ARGS__)
 #define SUSFS_LOGE(fmt, ...) if (is_log_enable) pr_err("susfs: " fmt, ##__VA_ARGS__)
+#else
+#define SUSFS_LOGI(fmt, ...) 
+#define SUSFS_LOGE(fmt, ...) 
+#endif
 
 int susfs_add_sus_path(struct st_susfs_sus_path* __user user_info) {
     struct st_susfs_sus_path_list *cursor, *temp;
