@@ -19,6 +19,7 @@
 #define CMD_SUSFS_ADD_SUS_MAPS 0x55560
 #define CMD_SUSFS_UPDATE_SUS_MAPS 0x55561
 
+#define SUSFS_DPATH_BUF_LEN 4096 // Just a page size
 #define SUSFS_MAX_LEN_PATHNAME 256 // 256 should address many paths already unless you are doing some strange experimental stuff, then set your own desired length
 #define SUSFS_MAX_SUS_MNTS 100 // I think 100 is enough, bet you don't have 100 mounts to hide
 

@@ -399,7 +399,7 @@ int susfs_set_uname(struct st_susfs_uname* __user user_info) {
 }
 
 int susfs_sus_path_by_path(struct path* file, int* errno_to_be_changed, int syscall_family) {
-	int res = -1;
+	int res = 0;
 	int status = 0;
 	char* path = NULL;
 	char* ptr = NULL;
@@ -407,28 +407,26 @@ int susfs_sus_path_by_path(struct path* file, int* errno_to_be_changed, int sysc
 	struct st_susfs_sus_path_list *cursor, *temp;
 
 	if (!uid_matches_suspicious_path() || file == NULL) {
-		status = 0;
-		goto out;
+        return 0;
 	}
 
-	path = kmalloc(SUSFS_MAX_LEN_PATHNAME, GFP_KERNEL);
-
+	path = kmalloc(SUSFS_DPATH_BUF_LEN, GFP_KERNEL);
 	if (path == NULL) {
-		status = -1;
-		return status;
+        SUSFS_LOGE("No enough memory\n");
+        return 0;
 	}
 
-	ptr = d_path(file, path, SUSFS_MAX_LEN_PATHNAME);
-
+	ptr = d_path(file, path, SUSFS_DPATH_BUF_LEN);
 	if (IS_ERR(ptr)) {
-		status = -1;
+        SUSFS_LOGE("d_path() failed\n");
+		status = 0;
 		goto out;
 	}
 
 	end = mangle_path(path, ptr, " \t\n\\");
 
 	if (!end) {
-		status = -1;
+		status = 0;
 		goto out;
 	}
 
@@ -457,7 +455,7 @@ int susfs_sus_path_by_filename(struct filename* name, int* errno_to_be_changed, 
 	struct path path;
 
 	if (IS_ERR(name)) {
-		return -1;
+		return 0;
 	}
 
 	if (!uid_matches_suspicious_path() || name == NULL) {
@@ -488,7 +486,7 @@ int susfs_sus_ino_for_filldir64(unsigned long ino) {
 }
 
 int susfs_sus_mount(struct vfsmount* mnt, struct path* root) {
-	int res = -1;
+	int res = 0;
 	int status = 0;
 	char* path = NULL;
 	char* ptr = NULL;
@@ -501,24 +499,23 @@ int susfs_sus_mount(struct vfsmount* mnt, struct path* root) {
 
 	//if (!uid_matches_suspicious_mount()) return status;
 
-	path = kmalloc(SUSFS_MAX_LEN_PATHNAME, GFP_KERNEL);
-
+	path = kmalloc(SUSFS_DPATH_BUF_LEN, GFP_KERNEL);
 	if (path == NULL) {
-		status = -1;
-		return status;
+        SUSFS_LOGE("No enough memory\n");
+        return 0;
 	}
 
-	ptr = __d_path(&mnt_path, root, path, SUSFS_MAX_LEN_PATHNAME);
-
-	if (!ptr) {
-		status = -1;
+	ptr = __d_path(&mnt_path, root, path, SUSFS_DPATH_BUF_LEN);
+	if (IS_ERR(ptr)) {
+        SUSFS_LOGE("__d_path() failed\n");
+		status = 0;
 		goto out;
 	}
 
 	end = mangle_path(path, ptr, " \t\n\\");
 
 	if (!end) {
-		status = -1;
+		status = 0;
 		goto out;
 	}
 
@@ -992,7 +989,6 @@ void susfs_change_error_no_by_pathname(char* const pathname, int* const errno_to
  *   enable umount by ksu, and put all your mounts to add_sus_mount and add_sus_path
  */
 void susfs_add_mnt_id_recorder(void) {
-    struct st_susfs_mnt_id_recorder_list *mnt_id_recorder_cursor;
     struct st_susfs_mnt_id_recorder_list *new_list = NULL;
     struct st_susfs_sus_mount_list *sus_mount_cursor;
     
@@ -1000,19 +996,13 @@ void susfs_add_mnt_id_recorder(void) {
     struct mount *mnt; 
 
     struct path mnt_path;
-    char path[SUSFS_MAX_LEN_PATHNAME];
+    char *path = NULL;
     char *p_path = NULL;
     char *end = NULL;
-    int res;
+    int res = 0;
 
     int cur_pid = current->pid;
     int count = 0;
-
-    list_for_each_entry(mnt_id_recorder_cursor, &LH_MOUNT_ID_RECORDER, list) {
-        if (mnt_id_recorder_cursor->info.pid == cur_pid) {
-            return;
-        }
-    }
 
     new_list = kzalloc(sizeof(struct st_susfs_mnt_id_recorder_list), GFP_KERNEL);
     if (!new_list) {
@@ -1020,22 +1010,30 @@ void susfs_add_mnt_id_recorder(void) {
         return;
 	}
     
+    path = kmalloc(SUSFS_DPATH_BUF_LEN, GFP_KERNEL);
+    if (path == NULL) {
+        SUSFS_LOGE("No enough memory\n");
+        kfree(new_list);
+        return;
+    }
+
     new_list->info.pid = cur_pid;
     
     list_for_each_entry(mnt, &ns->list, mnt_list) {
+        mnt_path.dentry = mnt->mnt.mnt_root;
+        mnt_path.mnt = &mnt->mnt;
+        p_path = d_path(&mnt_path, path, SUSFS_DPATH_BUF_LEN);
+        if (IS_ERR(p_path)) {
+            SUSFS_LOGE("d_path() failed\n");
+            continue;
+        }
+        end = mangle_path(path, p_path, " \t\n\\");
+        if (!end) {
+            continue;
+        }
+        res = end - path;
+        path[(size_t) res] = '\0';
         list_for_each_entry(sus_mount_cursor, &LH_SUS_MOUNT, list) {
-            mnt_path.dentry = mnt->mnt.mnt_root;
-            mnt_path.mnt = &mnt->mnt;
-            p_path = d_path(&mnt_path, path, SUSFS_MAX_LEN_PATHNAME);
-            if (IS_ERR(p_path)) {
-                continue;
-            }
-            end = mangle_path(path, p_path, " \t\n\\");
-            if (!end) {
-                continue;
-            }
-            res = end - path;
-            path[(size_t) res] = '\0';
             if (!strcmp(path, sus_mount_cursor->info.target_pathname)) {
                 SUSFS_LOGI("found target_mnt_id: '%d', target_pathname: '%s' for pid '%d'\n", mnt->mnt_id, sus_mount_cursor->info.target_pathname, cur_pid);
                 new_list->info.target_mnt_id[count++] = mnt->mnt_id;
@@ -1043,6 +1041,12 @@ void susfs_add_mnt_id_recorder(void) {
                 break;
             }
         }
+    }
+
+    kfree(path);
+    if (new_list->info.count == 0) {
+        kfree(new_list);
+        return;
     }
 
     INIT_LIST_HEAD(&new_list->list);
