@@ -1,5 +1,5 @@
 diff --git a/kernel/Kconfig b/kernel/Kconfig
-index 67f177f4..39fb6eda 100644
+index 67f177f4..1b2d6562 100644
 --- a/kernel/Kconfig
 +++ b/kernel/Kconfig
 @@ -16,4 +16,79 @@ config KSU_DEBUG
@@ -59,14 +59,14 @@ index 67f177f4..39fb6eda 100644
 +    help
 +      Allow spoofing the user-defined symbolic link in /proc/self/fd/
 +
-+config KSU_SUSFS_SUS_TRY_UMOUNT
++config KSU_SUSFS_TRY_UMOUNT
 +    bool "Enable to use ksu's try_umount"
 +    depends on KSU_SUSFS
 +    default y
 +    help
 +      Allow using ksu's umount to umount other user-defined mount paths prior to ksu's default umount paths
 +
-+config KSU_SUSFS_SUS_SPOOF_UNAME
++config KSU_SUSFS_SPOOF_UNAME
 +    bool "Enable to spoof uname"
 +    depends on KSU_SUSFS
 +    default y
@@ -83,7 +83,7 @@ index 67f177f4..39fb6eda 100644
 +
  endmenu
 diff --git a/kernel/Makefile b/kernel/Makefile
-index 66929756..d10a5573 100644
+index 66929756..8105165a 100644
 --- a/kernel/Makefile
 +++ b/kernel/Makefile
 @@ -66,4 +66,35 @@ endif
@@ -111,11 +111,11 @@ index 66929756..d10a5573 100644
 +ifdef KSU_SUSFS_SUS_PROC_FD_LINK
 +ccflags-y += -DKSU_SUSFS_SUS_PROC_FD_LINK
 +endif
-+ifdef KSU_SUSFS_SUS_TRY_UMOUNT
-+ccflags-y += -DKSU_SUSFS_SUS_TRY_UMOUNT
++ifdef KSU_SUSFS_TRY_UMOUNT
++ccflags-y += -DKSU_SUSFS_TRY_UMOUNT
 +endif
-+ifdef KSU_SUSFS_SUS_SPOOF_UNAME
-+ccflags-y += -DKSU_SUSFS_SUS_SPOOF_UNAME
++ifdef KSU_SUSFS_SPOOF_UNAME
++ccflags-y += -DKSU_SUSFS_SPOOF_UNAME
 +endif
 +ifdef KSU_SUSFS_ENABLE_LOG
 +ccflags-y += -DKSU_SUSFS_ENABLE_LOG
