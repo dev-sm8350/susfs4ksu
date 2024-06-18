@@ -296,11 +296,12 @@ int main(int argc, char *argv[]) {
     if (argc == 3 && !strcmp(argv[1], "add_sus_path")) {
         struct st_susfs_sus_path info;
         struct stat sb;
+
         if (get_file_stat(argv[2], &sb)) {
             log("%s not found, skip adding its ino\n", info.target_pathname);
             return 1;
         }
-        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME-1);
         info.target_ino = sb.st_ino;
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_PATH, &info, NULL, &error);
         return error;
@@ -309,7 +310,7 @@ int main(int argc, char *argv[]) {
         struct st_susfs_sus_mount info;
         struct stat sb;
 
-        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME-1);
         if (get_file_stat(argv[2], &sb)) {
             log("[-] Failed to get stat from path: '%s'\n", argv[2]);
             return 1;
@@ -321,7 +322,6 @@ int main(int argc, char *argv[]) {
         struct st_susfs_sus_kstat info;
         struct stat sb;
         char* endptr;
-
         unsigned long ino, dev, atime_nsec, mtime_nsec, ctime_nsec;
         unsigned int nlink;
         long atime, mtime, ctime;
@@ -407,7 +407,7 @@ int main(int argc, char *argv[]) {
             }
             sb.st_ctimensec = ctime_nsec;
         }
-        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME-1);
         copy_stat_to_sus_kstat(&info, &sb);
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY, &info, NULL, &error);
         return error;
@@ -415,11 +415,12 @@ int main(int argc, char *argv[]) {
     } else if (argc == 3 && !strcmp(argv[1], "add_sus_kstat")) {
         struct st_susfs_sus_kstat info;
         struct stat sb;
+
         if (get_file_stat(argv[2], &sb)) {
             log("[-] Failed to get stat from path: '%s'\n", argv[2]);
             return 1;
         }
-        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME-1);
         info.target_ino = sb.st_ino;
         copy_stat_to_sus_kstat(&info, &sb);
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_KSTAT, &info, NULL, &error);
@@ -428,11 +429,12 @@ int main(int argc, char *argv[]) {
     } else if (argc == 3 && !strcmp(argv[1], "update_sus_kstat")) {
         struct st_susfs_sus_kstat info;
         struct stat sb;
+
         if (get_file_stat(argv[2], &sb)) {
             log("[-] Failed to get stat from path: '%s'\n", argv[2]);
             return 1;
         }
-        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME-1);
         info.target_ino = sb.st_ino;
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_UPDATE_SUS_KSTAT, &info, NULL, &error);
         return error;
@@ -441,27 +443,28 @@ int main(int argc, char *argv[]) {
         struct st_susfs_sus_maps info;
         struct stat sb;
 
-        memset(&info, 0, sizeof(struct st_susfs_sus_maps));
-        info.is_statically = false;
         if (get_file_stat(argv[2], &sb)) {
             log("[-] Failed to get stat from path: '%s'\n", argv[2]);
             return 1;
         }
+        memset(&info, 0, sizeof(struct st_susfs_sus_maps));
+        info.is_statically = false;
         info.target_ino = sb.st_ino;
         copy_stat_to_sus_maps(&info, &sb);
-        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME-1);
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_MAPS, &info, NULL, &error);
         return error;
     // update_sus_maps
     } else if (argc == 3 && !strcmp(argv[1], "update_sus_maps")) {
         struct st_susfs_sus_maps info;
         struct stat sb = {0};
+
         if (get_file_stat(argv[2], &sb)) {
             log("[-] Failed to get stat from path: '%s'\n", argv[2]);
             return 1;
         }
         info.target_ino = sb.st_ino;
-        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME-1);
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_UPDATE_SUS_MAPS, &info, NULL, &error);
         return error;
     // add_sus_maps_statically
@@ -487,7 +490,7 @@ int main(int argc, char *argv[]) {
             // spoofed_pathname
             if (strcmp(argv[4], "default")) {
                 if (strcmp(argv[4], "empty")) {
-                    strncpy(info.spoofed_pathname, argv[4], SUSFS_MAX_LEN_PATHNAME);
+                    strncpy(info.spoofed_pathname, argv[4], SUSFS_MAX_LEN_PATHNAME-1);
                 }
                 info.need_to_spoof_pathname = true;
             }
@@ -566,7 +569,7 @@ int main(int argc, char *argv[]) {
             // spoofed_pathname
             if (strcmp(argv[6], "default")) { 
                 if (strcmp(argv[6], "empty")) {
-                    strncpy(info.spoofed_pathname, argv[6], SUSFS_MAX_LEN_PATHNAME);
+                    strncpy(info.spoofed_pathname, argv[6], SUSFS_MAX_LEN_PATHNAME-1);
                 }
                 info.need_to_spoof_pathname = true;
             }
@@ -645,7 +648,7 @@ int main(int argc, char *argv[]) {
             // spoofed_pathname
             if (strcmp(argv[5], "default")) { 
                 if (strcmp(argv[5], "empty")) {
-                    strncpy(info.spoofed_pathname, argv[5], SUSFS_MAX_LEN_PATHNAME);
+                    strncpy(info.spoofed_pathname, argv[5], SUSFS_MAX_LEN_PATHNAME-1);
                 }
                 info.need_to_spoof_pathname = true;
             }
@@ -735,7 +738,7 @@ int main(int argc, char *argv[]) {
             // spoofed_pathname
             if (strcmp(argv[8], "default")) { 
                 if (strcmp(argv[8], "empty")) {
-                    strncpy(info.spoofed_pathname, argv[8], SUSFS_MAX_LEN_PATHNAME);
+                    strncpy(info.spoofed_pathname, argv[8], SUSFS_MAX_LEN_PATHNAME-1);
                 }
                 info.need_to_spoof_pathname = true;
             }
@@ -795,7 +798,7 @@ int main(int argc, char *argv[]) {
         char* endptr;
         char abs_path[PATH_MAX], *p_abs_path;
 
-        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME);
+        strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME-1);
         p_abs_path = realpath(info.target_pathname, abs_path);
         if (p_abs_path == NULL) {
             perror("realpath");
@@ -824,13 +827,15 @@ int main(int argc, char *argv[]) {
     // add_sus_proc_fd_link
     } else if (argc == 4 && !strcmp(argv[1], "add_sus_proc_fd_link")) {
         struct st_susfs_sus_proc_fd_link info;
-        strncpy(info.target_link_name, argv[2], SUSFS_MAX_LEN_PATHNAME);
-        strncpy(info.spoofed_link_name, argv[3], SUSFS_MAX_LEN_PATHNAME);
+
+        strncpy(info.target_link_name, argv[2], SUSFS_MAX_LEN_PATHNAME-1);
+        strncpy(info.spoofed_link_name, argv[3], SUSFS_MAX_LEN_PATHNAME-1);
         prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_PROC_FD_LINK, &info, NULL, &error);
         return error;
     // set_uname
     } else if (argc == 7 && !strcmp(argv[1], "set_uname")) {
         struct st_susfs_uname info;
+
         strncpy(info.sysname, argv[2], __NEW_UTS_LEN);
         strncpy(info.nodename, argv[3], __NEW_UTS_LEN);
         strncpy(info.release, argv[4], __NEW_UTS_LEN);

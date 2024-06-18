@@ -699,7 +699,7 @@ int susfs_sus_maps(unsigned long target_ino, unsigned long target_address_size, 
 		continue;
 do_spoof:
 		if (cursor->info.need_to_spoof_pathname) {
-			strncpy(tmpname, cursor->info.spoofed_pathname, SUSFS_MAX_LEN_PATHNAME);
+			strncpy(tmpname, cursor->info.spoofed_pathname, SUSFS_MAX_LEN_PATHNAME-1);
 		}
 		if (cursor->info.need_to_spoof_ino) {
 			*orig_ino = cursor->info.spoofed_ino;
