@@ -1,5 +1,5 @@
 diff --git a/kernel/Kconfig b/kernel/Kconfig
-index 67f177f4..69f0f657 100644
+index 67f177f4..f2db4eac 100644
 --- a/kernel/Kconfig
 +++ b/kernel/Kconfig
 @@ -16,4 +16,87 @@ config KSU_DEBUG
@@ -60,12 +60,12 @@ index 67f177f4..69f0f657 100644
 +      Allow spoofing the user-defined symbolic link in /proc/self/fd/
 +
 +config KSU_SUSFS_SUS_MEMFD
-+    bool "Enable to prevent suspicous memfd from being created for process with uid 0 (experimental)"
++    bool "Enable to hide or spoof suspicous memfd (experimental)"
 +    depends on KSU_SUSFS
 +    default n
 +    help
-+      Allow preventing the user-defined memfd name from being created for process with uid == 0
-+      Allow spoofing the user-defined memfd name for process with uid == 0
++      Allow preventing the user-defined memfd name from being created
++      Allow spoofing the memfd name of user-defined name
 +
 +config KSU_SUSFS_TRY_UMOUNT
 +    bool "Enable to use ksu's try_umount"

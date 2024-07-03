@@ -187,7 +187,7 @@ int susfs_sus_ino_for_filldir64(unsigned long ino);
 void susfs_sus_kstat(unsigned long ino, struct stat* out_stat);
 int susfs_sus_maps(unsigned long target_ino, unsigned long target_address_size, unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags, unsigned long long* pgoff, struct vm_area_struct* vma, char* tmpname);
 void susfs_sus_proc_fd_link(char *pathname, int len);
-int susfs_sus_memfd(char *memfd_name);
+int susfs_sus_memfd(int mode, char *memfd_name, char *out_spoofed_name);
 void susfs_try_umount(uid_t target_uid);
 void susfs_spoof_uname(struct new_utsname* tmp);
 

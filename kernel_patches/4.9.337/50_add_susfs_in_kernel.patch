@@ -12,7 +12,7 @@ index 0e97f4b85bee..5ef37c17ee91 100644
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
  else
 diff --git a/fs/dcache.c b/fs/dcache.c
-index 3934c29049c0..51a5272acff0 100644
+index 3934c29049c0..e009e20cecca 100644
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
 @@ -44,6 +44,10 @@
@@ -26,13 +26,14 @@ index 3934c29049c0..51a5272acff0 100644
  /*
   * Usage:
   * dcache->d_inode->i_lock protects:
-@@ -3360,6 +3364,12 @@ char *simple_dname(struct dentry *dentry, char *buffer, int buflen)
+@@ -3360,6 +3364,13 @@ char *simple_dname(struct dentry *dentry, char *buffer, int buflen)
  {
  	char *end = buffer + buflen;
  	/* these dentries are never renamed, so d_lock is not needed */
 +#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
-+	if (strncmp(dentry->d_name.name, "memfd:", 6)) {
-+		prepend(&end, &buflen, dentry->d_name.name, dentry->d_name.len+1);
++	char spoofed_name[SUSFS_MAX_LEN_MFD_NAME];
++	if (susfs_sus_memfd(2, (char*)dentry->d_name.name, spoofed_name) == 2) {
++		prepend(&end, &buflen, spoofed_name, strlen(spoofed_name)+1);
 +		return end;
 +	}
 +#endif
@@ -597,7 +598,7 @@ index a7f823224546..893b17bf71c6 100644
  		return -EFAULT;
  
 diff --git a/mm/shmem.c b/mm/shmem.c
-index 9cb863a19d07..7df1c6184297 100644
+index 9cb863a19d07..038da13d7059 100644
 --- a/mm/shmem.c
 +++ b/mm/shmem.c
 @@ -33,6 +33,9 @@
@@ -625,7 +626,7 @@ index 9cb863a19d07..7df1c6184297 100644
  	}
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
-+	status = susfs_sus_memfd(name);
++	status = susfs_sus_memfd(1, name, NULL);
 +	if (status == 1) {
 +		error = -EFAULT;
 +		goto err_name;

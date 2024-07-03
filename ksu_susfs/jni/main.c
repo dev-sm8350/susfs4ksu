@@ -285,7 +285,7 @@ static void print_help(void) {
 	log("         |-->       So if /proc/self/fd/10 is a symlink to /dev/binder, then it will be shown as /dev/null instead\n");
 	log("\n");
 	log("        add_sus_memfd <compare_mode> <args_for_mode>\n");
-	log("         |--> NOTE: This feature only has effect on process with uid == 0\n");
+	log("         |--> NOTE: This feature will be effective on all process\n");
 	log("         |--> compare_mode: 1 => Matched <memfd_name> will be prevented from being created\n");
 	log("               |--> <memfd_name>: in string\n");
 	log("               |--> NOTE: Remeber to prepend 'memfd:' to <memfd_name>\n");

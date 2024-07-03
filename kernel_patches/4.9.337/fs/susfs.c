@@ -784,24 +784,23 @@ void susfs_sus_proc_fd_link(char *pathname, int len) {
 	}
 }
 
-int susfs_sus_memfd(char *memfd_name) {
+int susfs_sus_memfd(int mode, char *memfd_name, char *out_spoofed_name) {
 	struct st_susfs_sus_memfd_list *cursor, *temp;
-
-	if (current_uid().val != 0) {
-		return 0;
-	}
 
 	SUSFS_LOGI("checking memfd_name: '%s'\n", memfd_name);
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_MEMFD, list) {
-		if (!strcmp(memfd_name, cursor->info.target_name)) {
-			if (cursor->info.compare_mode == 1) {
-				SUSFS_LOGI("prevent memfd_name: '%s' from being created\n", memfd_name);
-				return 1;
-			} else if (cursor->info.compare_mode == 2) {
-				SUSFS_LOGI("spoofing memfd_name: '%s' to '%s'\n", memfd_name, cursor->info.spoofed_name);
-				strncpy(memfd_name, cursor->info.spoofed_name, SUSFS_MAX_LEN_MFD_NAME-1);
-				return 2;
-			}
+		if (mode == 1 && cursor->info.compare_mode == mode &&
+			!strcmp(memfd_name, cursor->info.target_name))
+		{
+			SUSFS_LOGI("prevent memfd_name: '%s' from being created\n", memfd_name);
+			return 1;
+		} 
+		else if (mode == 2 && cursor->info.compare_mode == mode &&
+				   out_spoofed_name && !strcmp(memfd_name, cursor->info.target_name))
+		{
+			SUSFS_LOGI("spoofing memfd_name: '%s' to '%s'\n", memfd_name, cursor->info.spoofed_name);
+			strncpy(out_spoofed_name, cursor->info.spoofed_name, SUSFS_MAX_LEN_MFD_NAME-1);
+			return 2;
 		}
 	}
 
