@@ -455,14 +455,12 @@ int susfs_sus_path_by_path(struct path* file, int* errno_to_be_changed, int sysc
 	ptr = d_path(file, path, SUSFS_DPATH_BUF_LEN);
 	if (IS_ERR(ptr)) {
 		SUSFS_LOGE("d_path() failed\n");
-		status = 0;
 		goto out;
 	}
 
 	end = mangle_path(path, ptr, " \t\n\\");
 
 	if (!end) {
-		status = 0;
 		goto out;
 	}
 
@@ -544,14 +542,12 @@ int susfs_sus_mount(struct vfsmount* mnt, struct path* root) {
 	ptr = __d_path(&mnt_path, root, path, SUSFS_DPATH_BUF_LEN);
 	if (IS_ERR(ptr)) {
 		SUSFS_LOGE("__d_path() failed\n");
-		status = 0;
 		goto out;
 	}
 
 	end = mangle_path(path, ptr, " \t\n\\");
 
 	if (!end) {
-		status = 0;
 		goto out;
 	}
 
