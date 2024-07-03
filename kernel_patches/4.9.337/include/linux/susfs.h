@@ -18,9 +18,11 @@
 #define CMD_SUSFS_ADD_SUS_PROC_FD_LINK 0x5555f
 #define CMD_SUSFS_ADD_SUS_MAPS 0x55560
 #define CMD_SUSFS_UPDATE_SUS_MAPS 0x55561
+#define CMD_SUSFS_ADD_SUSFS_SUS_MEMFD 0x55562
 
 #define SUSFS_DPATH_BUF_LEN 4096 // Just a page size
 #define SUSFS_MAX_LEN_PATHNAME 256 // 256 should address many paths already unless you are doing some strange experimental stuff, then set your own desired length
+#define SUSFS_MAX_LEN_MFD_NAME 248
 #define SUSFS_MAX_SUS_MNTS 100 // I think 100 is enough, bet you don't have 100 mounts to hide
 
 /* non shared to userspace ksu_susfs tool */
@@ -108,6 +110,12 @@ struct st_susfs_sus_proc_fd_link {
 	char                    spoofed_link_name[SUSFS_MAX_LEN_PATHNAME];
 };
 
+struct st_susfs_sus_memfd {
+	int                     compare_mode;
+	char                    target_name[SUSFS_MAX_LEN_MFD_NAME];
+	char                    spoofed_name[SUSFS_MAX_LEN_MFD_NAME];
+};
+
 struct st_susfs_mnt_id_recorder {
 	int                     pid;
 	int                     target_mnt_id[SUSFS_MAX_SUS_MNTS];
@@ -144,6 +152,11 @@ struct st_susfs_sus_proc_fd_link_list {
 	struct st_susfs_sus_proc_fd_link        info;
 };
 
+struct st_susfs_sus_memfd_list {
+	struct list_head                        list;
+	struct st_susfs_sus_memfd               info;
+};
+
 struct st_susfs_mnt_id_recorder_list {
 	struct list_head                        list;
 	struct st_susfs_mnt_id_recorder         info;
@@ -174,6 +187,7 @@ int susfs_sus_ino_for_filldir64(unsigned long ino);
 void susfs_sus_kstat(unsigned long ino, struct stat* out_stat);
 int susfs_sus_maps(unsigned long target_ino, unsigned long target_address_size, unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags, unsigned long long* pgoff, struct vm_area_struct* vma, char* tmpname);
 void susfs_sus_proc_fd_link(char *pathname, int len);
+int susfs_sus_memfd(char *memfd_name);
 void susfs_try_umount(uid_t target_uid);
 void susfs_spoof_uname(struct new_utsname* tmp);
 

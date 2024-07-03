@@ -30,8 +30,10 @@
 #define CMD_SUSFS_ADD_SUS_PROC_FD_LINK 0x5555f
 #define CMD_SUSFS_ADD_SUS_MAPS 0x55560
 #define CMD_SUSFS_UPDATE_SUS_MAPS 0x55561
+#define CMD_SUSFS_ADD_SUSFS_SUS_MEMFD 0x55562
 
 #define SUSFS_MAX_LEN_PATHNAME 256
+#define SUSFS_MAX_LEN_MFD_NAME 248
 #define SUSFS_MAX_LEN_MOUNT_TYPE_NAME 32
 
 #ifndef TIME_HAVE_NANOSEC
@@ -118,6 +120,12 @@ struct st_susfs_try_umount {
 struct st_susfs_sus_proc_fd_link {
 	char                    target_link_name[SUSFS_MAX_LEN_PATHNAME];
 	char                    spoofed_link_name[SUSFS_MAX_LEN_PATHNAME];
+};
+
+struct st_susfs_sus_memfd {
+	int                     compare_mode;
+	char                    target_name[SUSFS_MAX_LEN_MFD_NAME];
+	char                    spoofed_name[SUSFS_MAX_LEN_MFD_NAME];
 };
 
 struct st_susfs_uname {
@@ -275,6 +283,18 @@ static void print_help(void) {
 	log("         |--> Added symlinked path will be spoofed in /proc/self/fd/[xx] only\n");
 	log("         |--> e.g., add_sus_proc_fd_link /dev/binder /dev/null\n");
 	log("         |-->       So if /proc/self/fd/10 is a symlink to /dev/binder, then it will be shown as /dev/null instead\n");
+	log("\n");
+	log("        add_sus_memfd <compare_mode> <args_for_mode>\n");
+	log("         |--> NOTE: This feature only has effect on process with uid == 0\n");
+	log("         |--> compare_mode: 1 => Matched <memfd_name> will be prevented from being created\n");
+	log("               |--> <memfd_name>: in string\n");
+	log("               |--> NOTE: Remeber to prepend 'memfd:' to <memfd_name>\n");
+	log("               |--> e.g., add_sus_memfd 1 'memfd:/jit-cache'\n");
+	log("         |--> compare_mode: 2 => Matched <memfd_name> will be spoofed to <spoofed_name>\n");
+	log("               |--> <memfd_name>: in string\n");
+	log("               |--> <spoofed_name>: in string\n");
+	log("               |--> NOTE: Remeber to prepend 'memfd:' to <memfd_name>\n");
+	log("               |--> e.g., add_sus_memfd 2 'memfd:/jit-cache' '/jit-cache'\n");
 	log("\n");
 	log("        set_uname <sysname> <nodename> <release> <version> <machine>\n");
 	log("         |--> Spoof uname for all processes, set string to 'default' to imply the function to use original string\n");
@@ -831,6 +851,27 @@ int main(int argc, char *argv[]) {
 		strncpy(info.target_link_name, argv[2], SUSFS_MAX_LEN_PATHNAME-1);
 		strncpy(info.spoofed_link_name, argv[3], SUSFS_MAX_LEN_PATHNAME-1);
 		prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_PROC_FD_LINK, &info, NULL, &error);
+		return error;
+	// add_sus_memfd
+	} else if (argc > 3 && !strcmp(argv[1], "add_sus_memfd")) {
+		struct st_susfs_sus_memfd info;
+		char* endptr;
+	
+		memset(&info, 0, sizeof(struct st_susfs_sus_memfd));
+		info.compare_mode = strtoul(argv[2], &endptr, 10);
+		if (*endptr != '\0' || info.compare_mode > 2 || info.compare_mode < 1) {
+			log("[-] compare_mode must be [1|2]\n");
+			return 1;
+		}
+
+		if (argc == 4 && info.compare_mode == 1) {
+			strncpy(info.target_name, argv[3], SUSFS_MAX_LEN_MFD_NAME-1);
+		}
+		else if (argc == 5 && info.compare_mode == 2) {
+			strncpy(info.target_name, argv[3], SUSFS_MAX_LEN_MFD_NAME-1);
+			strncpy(info.spoofed_name, argv[4], SUSFS_MAX_LEN_MFD_NAME-1);
+		}
+		prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUSFS_SUS_MEMFD, &info, NULL, &error);
 		return error;
 	// set_uname
 	} else if (argc == 7 && !strcmp(argv[1], "set_uname")) {

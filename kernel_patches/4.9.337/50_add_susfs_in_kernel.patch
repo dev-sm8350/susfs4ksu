@@ -11,6 +11,34 @@ index 0e97f4b85bee..5ef37c17ee91 100644
  ifeq ($(CONFIG_BLOCK),y)
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
  else
+diff --git a/fs/dcache.c b/fs/dcache.c
+index 3934c29049c0..51a5272acff0 100644
+--- a/fs/dcache.c
++++ b/fs/dcache.c
+@@ -44,6 +44,10 @@
+ #include "internal.h"
+ #include "mount.h"
+ 
++#ifdef CONFIG_KSU_SUSFS
++#include "linux/susfs.h"
++#endif
++
+ /*
+  * Usage:
+  * dcache->d_inode->i_lock protects:
+@@ -3360,6 +3364,12 @@ char *simple_dname(struct dentry *dentry, char *buffer, int buflen)
+ {
+ 	char *end = buffer + buflen;
+ 	/* these dentries are never renamed, so d_lock is not needed */
++#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
++	if (strncmp(dentry->d_name.name, "memfd:", 6)) {
++		prepend(&end, &buflen, dentry->d_name.name, dentry->d_name.len+1);
++		return end;
++	}
++#endif
+ 	if (prepend(&end, &buflen, " (deleted)", 11) ||
+ 	    prepend(&end, &buflen, dentry->d_name.name, dentry->d_name.len) ||
+ 	    prepend(&end, &buflen, "/", 1))  
 diff --git a/fs/namei.c b/fs/namei.c
 index 0cbf8f5a92f4..8bc8dbc5d770 100644
 --- a/fs/namei.c
@@ -568,3 +596,42 @@ index a7f823224546..893b17bf71c6 100644
  	if (copy_to_user(name, &tmp, sizeof(tmp)))
  		return -EFAULT;
  
+diff --git a/mm/shmem.c b/mm/shmem.c
+index 9cb863a19d07..7df1c6184297 100644
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -33,6 +33,9 @@
+ #include <linux/swap.h>
+ #include <linux/uio.h>
+ #include <linux/khugepaged.h>
++#ifdef CONFIG_KSU_SUSFS
++#include "linux/susfs.h"
++#endif
+ 
+ static struct vfsmount *shm_mnt;
+ 
+@@ -3535,6 +3538,9 @@ SYSCALL_DEFINE2(memfd_create,
+ 	int fd, error;
+ 	char *name;
+ 	long len;
++#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
++	int status = 0;
++#endif
+ 
+ 	if (flags & ~(unsigned int)MFD_ALL_FLAGS)
+ 		return -EINVAL;
+@@ -3562,6 +3568,14 @@ SYSCALL_DEFINE2(memfd_create,
+ 		goto err_name;
+ 	}
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
++	status = susfs_sus_memfd(name);
++	if (status == 1) {
++		error = -EFAULT;
++		goto err_name;
++	}
++#endif
++
+ 	fd = get_unused_fd_flags((flags & MFD_CLOEXEC) ? O_CLOEXEC : 0);
+ 	if (fd < 0) {
+ 		error = fd;

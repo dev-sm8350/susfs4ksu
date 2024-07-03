@@ -11,6 +11,7 @@
 #include <linux/stat.h>
 #include <linux/uaccess.h>
 #include <linux/version.h>
+#include <linux/fdtable.h>
 #include <linux/susfs.h>
 #include <mount.h>
 
@@ -19,8 +20,8 @@ LIST_HEAD(LH_KSTAT_SPOOFER);
 LIST_HEAD(LH_SUS_MOUNT);
 LIST_HEAD(LH_MAPS_SPOOFER);
 LIST_HEAD(LH_SUS_PROC_FD_LINK);
+LIST_HEAD(LH_SUS_MEMFD);
 LIST_HEAD(LH_TRY_UMOUNT_PATH);
-
 LIST_HEAD(LH_MOUNT_ID_RECORDER);
 
 struct st_susfs_uname my_uname;
@@ -342,6 +343,41 @@ int susfs_add_sus_proc_fd_link(struct st_susfs_sus_proc_fd_link* __user user_inf
 	spin_unlock(&susfs_spin_lock);
 	SUSFS_LOGI("target_link_name: '%s', spoofed_link_name: '%s', is successfully added to LH_SUS_PROC_FD_LINK\n",
 				new_list->info.target_link_name, new_list->info.spoofed_link_name);
+	return 0;
+}
+
+int susfs_add_sus_memfd(struct st_susfs_sus_proc_fd_link* __user user_info) {
+	struct st_susfs_sus_memfd_list *cursor, *temp;
+	struct st_susfs_sus_memfd_list *new_list = NULL;
+	struct st_susfs_sus_memfd info;
+
+	if (copy_from_user(&info, user_info, sizeof(struct st_susfs_sus_memfd))) {
+		SUSFS_LOGE("failed copying from userspace\n");
+		return 1;
+	}
+
+	list_for_each_entry_safe(cursor, temp, &LH_SUS_MEMFD, list) {
+		if ((info.compare_mode == cursor->info.compare_mode) &&
+			(!strcmp(info.target_name, cursor->info.target_name))) {
+			SUSFS_LOGE("compare_mode: '%d', target_name: '%s' is already created in LH_SUS_MEMFD\n", info.compare_mode, info.target_name);
+			return 1;
+		}
+	}
+
+	new_list = kmalloc(sizeof(struct st_susfs_sus_memfd_list), GFP_KERNEL);
+	if (!new_list) {
+		SUSFS_LOGE("No enough memory\n");
+		return 1;
+	}
+
+	memcpy(&new_list->info, &info, sizeof(struct st_susfs_sus_memfd));
+
+	INIT_LIST_HEAD(&new_list->list);
+	spin_lock(&susfs_spin_lock);
+	list_add_tail(&new_list->list, &LH_SUS_MEMFD);
+	spin_unlock(&susfs_spin_lock);
+	SUSFS_LOGI("target_name: '%s', is successfully added to LH_SUS_MEMFD\n",
+				new_list->info.target_name);
 	return 0;
 }
 
@@ -752,6 +788,30 @@ void susfs_sus_proc_fd_link(char *pathname, int len) {
 	}
 }
 
+int susfs_sus_memfd(char *memfd_name) {
+	struct st_susfs_sus_memfd_list *cursor, *temp;
+
+	if (current_uid().val != 0) {
+		return 0;
+	}
+
+	SUSFS_LOGI("checking memfd_name: '%s'\n", memfd_name);
+	list_for_each_entry_safe(cursor, temp, &LH_SUS_MEMFD, list) {
+		if (!strcmp(memfd_name, cursor->info.target_name)) {
+			if (cursor->info.compare_mode == 1) {
+				SUSFS_LOGI("prevent memfd_name: '%s' from being created\n", memfd_name);
+				return 1;
+			} else if (cursor->info.compare_mode == 2) {
+				SUSFS_LOGI("spoofing memfd_name: '%s' to '%s'\n", memfd_name, cursor->info.spoofed_name);
+				strncpy(memfd_name, cursor->info.spoofed_name, SUSFS_MAX_LEN_MFD_NAME-1);
+				return 2;
+			}
+		}
+	}
+
+    return 0;
+}
+
 static void umount_mnt(struct path *path, int flags) {
 	int err = path_umount(path, flags);
 	if (err) {
@@ -1101,6 +1161,21 @@ void susfs_remove_mnt_id_recorder(void) {
 	}
 	spin_unlock(&susfs_mnt_id_recorder_spin_lock);
 }
+
+/*
+static int susfs_get_cur_fd_counts() {
+	struct fdtable *files_table;
+    int fd_count = 0;
+
+	files_table = files_fdtable(current->files);
+	for (i = 0; i < files_table->max_fds; i++) {
+        if (files_table->fd[i] != NULL) {
+            fd_count++;
+        }
+    }
+	return fd_count;
+}
+*/
 
 static void susfs_my_uname_init(void) {
 	memset(&my_uname, 0, sizeof(struct st_susfs_uname));
