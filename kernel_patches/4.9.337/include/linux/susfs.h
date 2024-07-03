@@ -46,7 +46,7 @@
 
 #define uid_matches_suspicious_path() (current_uid().val >= 2000)
 //#define uid_matches_suspicious_mount() (current_uid().val >= 0)
-#define uid_matches_suspicious_kstat() (current_uid().val >= 2000)
+//#define uid_matches_suspicious_kstat() (current_uid().val >= 2000)
 //#define uid_matches_suspicious_maps() (current_uid().val >= 0)
 #define uid_matches_suspicious_proc_fd_link() (current_uid().val >= 2000)
 #define uid_matches_proc_need_to_reorder_mnt_id() (current_uid().val >= 10000)

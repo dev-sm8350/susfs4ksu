@@ -575,7 +575,7 @@ out:
 void susfs_sus_kstat(unsigned long ino, struct stat* out_stat) {
 	struct st_susfs_sus_kstat_list *cursor, *temp;
 
-	if (!uid_matches_suspicious_kstat()) return;
+	//if (!uid_matches_suspicious_kstat()) return;
 	list_for_each_entry_safe(cursor, temp, &LH_KSTAT_SPOOFER, list) {
 		if (cursor->info.target_ino == ino) {
 			SUSFS_LOGI("spoofing kstat for pathname '%s' for UID %i\n", cursor->info.target_pathname, current_uid().val);
