@@ -18,12 +18,11 @@
 #define CMD_SUSFS_ADD_SUS_PROC_FD_LINK 0x5555f
 #define CMD_SUSFS_ADD_SUS_MAPS 0x55560
 #define CMD_SUSFS_UPDATE_SUS_MAPS 0x55561
-#define CMD_SUSFS_ADD_SUSFS_SUS_MEMFD 0x55562
+#define CMD_SUSFS_ADD_SUS_MEMFD 0x55562
 
-#define SUSFS_DPATH_BUF_LEN 4096 // Just a page size
 #define SUSFS_MAX_LEN_PATHNAME 256 // 256 should address many paths already unless you are doing some strange experimental stuff, then set your own desired length
 #define SUSFS_MAX_LEN_MFD_NAME 248
-#define SUSFS_MAX_SUS_MNTS 100 // I think 100 is enough, bet you don't have 100 mounts to hide
+#define SUSFS_MAX_SUS_MNTS 200 // I think 200 is now enough? Tell me why if you have over 200 entries
 
 /* non shared to userspace ksu_susfs tool */
 #define SYSCALL_FAMILY_ALL_ENOENT 0
@@ -45,10 +44,6 @@
 #define putname_safe(name) (IS_ERR(name) ? NULL : putname(name))
 
 #define uid_matches_suspicious_path() (current_uid().val >= 2000)
-//#define uid_matches_suspicious_mount() (current_uid().val >= 0)
-//#define uid_matches_suspicious_kstat() (current_uid().val >= 2000)
-//#define uid_matches_suspicious_maps() (current_uid().val >= 0)
-#define uid_matches_suspicious_proc_fd_link() (current_uid().val >= 2000)
 #define uid_matches_proc_need_to_reorder_mnt_id() (current_uid().val >= 10000)
 
 struct st_susfs_sus_path {
@@ -111,9 +106,7 @@ struct st_susfs_sus_proc_fd_link {
 };
 
 struct st_susfs_sus_memfd {
-	int                     compare_mode;
-	char                    target_name[SUSFS_MAX_LEN_MFD_NAME];
-	char                    spoofed_name[SUSFS_MAX_LEN_MFD_NAME];
+	char                    target_pathname[SUSFS_MAX_LEN_MFD_NAME];
 };
 
 struct st_susfs_mnt_id_recorder {
@@ -177,6 +170,7 @@ int susfs_update_sus_kstat(struct st_susfs_sus_kstat* __user user_info);
 int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info);
 int susfs_update_sus_maps(struct st_susfs_sus_maps* __user user_info);
 int susfs_add_sus_proc_fd_link(struct st_susfs_sus_proc_fd_link* __user user_info);
+int susfs_add_sus_memfd(struct st_susfs_sus_memfd* __user user_info);
 int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info);
 int susfs_set_uname(struct st_susfs_uname* __user user_info);
 
@@ -185,9 +179,14 @@ int susfs_sus_path_by_filename(struct filename* name, int* errno_to_be_changed, 
 int susfs_sus_mount(struct vfsmount* mnt, struct path* root);
 int susfs_sus_ino_for_filldir64(unsigned long ino);
 void susfs_sus_kstat(unsigned long ino, struct stat* out_stat);
-int susfs_sus_maps(unsigned long target_ino, unsigned long target_address_size, unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags, unsigned long long* pgoff, struct vm_area_struct* vma, char* tmpname);
-void susfs_sus_proc_fd_link(char *pathname, int len);
-int susfs_sus_memfd(int mode, char *memfd_name, char *out_spoofed_name);
+int susfs_sus_maps(unsigned long target_ino, unsigned long target_addr_size,
+					unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags,
+					unsigned long long* pgoff, struct vm_area_struct* vma, char* out_name);
+int susfs_sus_map_files(unsigned long target_ino, char* pathname);
+int susfs_is_sus_maps_list_empty(void);
+int susfs_sus_proc_fd_link(char *pathname, int len);
+int susfs_is_sus_proc_fd_link_list_empty(void);
+int susfs_sus_memfd(char *memfd_name);
 void susfs_try_umount(uid_t target_uid);
 void susfs_spoof_uname(struct new_utsname* tmp);
 

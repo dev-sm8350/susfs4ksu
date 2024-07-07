@@ -1,8 +1,8 @@
 diff --git a/kernel/Kconfig b/kernel/Kconfig
-index 67f177f4..f2db4eac 100644
+index 67f177f4..c52936e3 100644
 --- a/kernel/Kconfig
 +++ b/kernel/Kconfig
-@@ -16,4 +16,87 @@ config KSU_DEBUG
+@@ -16,4 +16,86 @@ config KSU_DEBUG
  	help
  	  Enable KernelSU debug mode.
  
@@ -50,12 +50,12 @@ index 67f177f4..f2db4eac 100644
 +    depends on KSU_SUSFS
 +    default y
 +    help
-+      Allow spoofing the user-defined mappings in /proc/self/[maps|smaps]
++      Allow spoofing the user-defined mappings in /proc/self/[maps|smaps|map_files]
 +
 +config KSU_SUSFS_SUS_PROC_FD_LINK
-+    bool "Enable to spoof suspicous symbolic links"
++    bool "Enable to spoof suspicous symbolic links (experimental)"
 +    depends on KSU_SUSFS
-+    default y
++    default n
 +    help
 +      Allow spoofing the user-defined symbolic link in /proc/self/fd/
 +
@@ -65,7 +65,6 @@ index 67f177f4..f2db4eac 100644
 +    default n
 +    help
 +      Allow preventing the user-defined memfd name from being created
-+      Allow spoofing the memfd name of user-defined name
 +
 +config KSU_SUSFS_TRY_UMOUNT
 +    bool "Enable to use ksu's try_umount"
@@ -134,7 +133,7 @@ index 66929756..b0a30f60 100644
 +
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 429ba330..7bf24a0c 100644
+index 429ba330..a6579d6c 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -44,6 +44,10 @@
@@ -292,17 +291,17 @@ index 429ba330..7bf24a0c 100644
 +		}
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK
 +#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
-+		if (arg2 == CMD_SUSFS_ADD_SUSFS_SUS_MEMFD) {
++		if (arg2 == CMD_SUSFS_ADD_SUS_MEMFD) {
 +			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_memfd))) {
-+				pr_err("susfs: CMD_SUSFS_ADD_SUSFS_SUS_MEMFD -> arg3 is not accessible\n");
++				pr_err("susfs: CMD_SUSFS_ADD_SUS_MEMFD -> arg3 is not accessible\n");
 +				return 0;
 +			}
 +			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
-+				pr_err("susfs: CMD_SUSFS_ADD_SUSFS_SUS_MEMFD -> arg5 is not accessible\n");
++				pr_err("susfs: CMD_SUSFS_ADD_SUS_MEMFD -> arg5 is not accessible\n");
 +				return 0;
 +			}
 +			error = susfs_add_sus_memfd((struct st_susfs_sus_memfd __user*)arg3);
-+			pr_info("susfs: CMD_SUSFS_ADD_SUSFS_SUS_MEMFD -> ret: %d\n", error);
++			pr_info("susfs: CMD_SUSFS_ADD_SUS_MEMFD -> ret: %d\n", error);
 +			copy_to_user((void __user*)arg5, &error, sizeof(error));
 +			return 0;
 +		}

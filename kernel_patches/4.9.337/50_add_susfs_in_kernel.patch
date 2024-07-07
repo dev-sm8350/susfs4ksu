@@ -11,35 +11,6 @@ index 0e97f4b85bee..5ef37c17ee91 100644
  ifeq ($(CONFIG_BLOCK),y)
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
  else
-diff --git a/fs/dcache.c b/fs/dcache.c
-index 3934c29049c0..e009e20cecca 100644
---- a/fs/dcache.c
-+++ b/fs/dcache.c
-@@ -44,6 +44,10 @@
- #include "internal.h"
- #include "mount.h"
- 
-+#ifdef CONFIG_KSU_SUSFS
-+#include "linux/susfs.h"
-+#endif
-+
- /*
-  * Usage:
-  * dcache->d_inode->i_lock protects:
-@@ -3360,6 +3364,13 @@ char *simple_dname(struct dentry *dentry, char *buffer, int buflen)
- {
- 	char *end = buffer + buflen;
- 	/* these dentries are never renamed, so d_lock is not needed */
-+#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
-+	char spoofed_name[SUSFS_MAX_LEN_MFD_NAME];
-+	if (susfs_sus_memfd(2, (char*)dentry->d_name.name, spoofed_name) == 2) {
-+		prepend(&end, &buflen, spoofed_name, strlen(spoofed_name)+1);
-+		return end;
-+	}
-+#endif
- 	if (prepend(&end, &buflen, " (deleted)", 11) ||
- 	    prepend(&end, &buflen, dentry->d_name.name, dentry->d_name.len) ||
- 	    prepend(&end, &buflen, "/", 1))  
 diff --git a/fs/namei.c b/fs/namei.c
 index 0cbf8f5a92f4..8bc8dbc5d770 100644
 --- a/fs/namei.c
@@ -333,7 +304,7 @@ index f2b82c462fbb..8c73e9371764 100644
  	error = user_path_at(AT_FDCWD, filename, lookup_flags, &path);
  	if (error)
 diff --git a/fs/proc/base.c b/fs/proc/base.c
-index b6959f6dae5b..9f80942ab530 100644
+index b6959f6dae5b..a80098c89abe 100644
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
 @@ -97,6 +97,10 @@
@@ -347,20 +318,114 @@ index b6959f6dae5b..9f80942ab530 100644
  /* NOTE:
   *	Implementing inode permission operations in /proc is almost
   *	certainly an error.  Permission checks need to happen during
-@@ -1839,6 +1843,11 @@ static int do_proc_readlink(struct path *path, char __user *buffer, int buflen)
+@@ -1828,6 +1832,15 @@ static int do_proc_readlink(struct path *path, char __user *buffer, int buflen)
+ 	char *pathname;
+ 	int len;
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
++	struct mm_struct *mm;
++	struct vm_area_struct *vma;
++	struct file *vma_file;
++	struct dentry *vma_dentry;
++	struct inode *vma_inode;
++	unsigned long ino;
++#endif
++
+ 	if (!tmp)
+ 		return -ENOMEM;
+ 
+@@ -1839,6 +1852,37 @@ static int do_proc_readlink(struct path *path, char __user *buffer, int buflen)
  
  	if (len > buflen)
  		len = buflen;
 +
 +#ifdef CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK
-+	susfs_sus_proc_fd_link(pathname, len);
++	if (!susfs_is_sus_proc_fd_link_list_empty())
++		if (susfs_sus_proc_fd_link(pathname, len))
++			goto orig_flow;
 +#endif
 +
++
++#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
++	if (!susfs_is_sus_maps_list_empty()) {
++		mm = current->mm;
++		down_read(&mm->mmap_sem);
++		for (vma = mm->mmap; vma; vma = vma->vm_next) {
++			if (vma->vm_file) {
++				vma_file = vma->vm_file;
++				vma_dentry = vma_file->f_path.dentry;
++				if (vma_dentry == path->dentry) {
++					vma_inode = file_inode(vma_file);
++					ino = vma_inode->i_ino;
++					susfs_sus_map_files(ino, pathname);
++					break;
++				}
++			}
++		}
++		up_read(&mm->mmap_sem);
++	}
++#endif
++
++#if defined(CONFIG_KSU_SUSFS_SUS_MAPS) || defined(CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK)
++orig_flow:
++#endif
  	if (copy_to_user(buffer, pathname, len))
  		len = -EFAULT;
   out:
+@@ -2242,6 +2286,16 @@ proc_map_files_instantiate(struct inode *dir, struct dentry *dentry,
+ 	struct proc_inode *ei;
+ 	struct inode *inode;
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
++	struct mm_struct *mm;
++	struct vm_area_struct *vma;
++	struct file *vma_file;
++	struct dentry *vma_dentry;
++	struct inode *vma_inode;
++	unsigned long ino;
++	struct path link_path;
++#endif
++
+ 	inode = proc_pid_make_inode(dir->i_sb, task, S_IFLNK |
+ 				    ((mode & FMODE_READ ) ? S_IRUSR : 0) |
+ 				    ((mode & FMODE_WRITE) ? S_IWUSR : 0));
+@@ -2257,6 +2311,34 @@ proc_map_files_instantiate(struct inode *dir, struct dentry *dentry,
+ 	d_set_d_op(dentry, &tid_map_files_dentry_operations);
+ 	d_add(dentry, inode);
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
++	if (susfs_is_sus_maps_list_empty())
++		goto orig_flow;
++	if (map_files_get_link(dentry, &link_path))
++		goto orig_flow;
++	mm = task->mm;
++	for (vma = mm->mmap; vma; vma = vma->vm_next) {
++		if (vma->vm_file) {
++			vma_file = vma->vm_file;
++			vma_dentry = vma_file->f_path.dentry;
++			if (vma_dentry == link_path.dentry) {
++				vma_inode = file_inode(vma_file);
++				ino = vma_inode->i_ino;
++				if (susfs_sus_map_files(ino, NULL)) {
++					if (inode->i_mode & S_IWUSR) {
++						inode->i_mode &= ~S_IWUSR;
++						memcpy(&inode->i_atime, &inode->i_mtime, sizeof(struct timespec));
++					}
++				}
++				goto out_path_put;
++			}
++		}
++	}
++out_path_put:
++	path_put(&link_path);
++orig_flow:
++#endif
++
+ 	return 0;
+ }
+ 
 diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
-index f4a77817ad74..312e72005108 100644
+index f4a77817ad74..c2b36c3b317a 100644
 --- a/fs/proc/task_mmu.c
 +++ b/fs/proc/task_mmu.c
 @@ -22,6 +22,10 @@
@@ -379,19 +444,24 @@ index f4a77817ad74..312e72005108 100644
  	dev_t dev = 0;
  	const char *name = NULL;
 +#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
-+	char tmpname[SUSFS_MAX_LEN_PATHNAME];
++	char *out_name;
 +	int ret = 0;
 +#endif
  
  	if (file) {
  		struct inode *inode = file_inode(vma->vm_file);
-@@ -369,8 +377,21 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
+@@ -369,8 +377,28 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
  	/* We don't show the stack guard page in /proc/maps */
  	start = vma->vm_start;
  	end = vma->vm_end;
 +
 +#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
-+	ret = susfs_sus_maps(ino, end - start, &ino, &dev, &flags, &pgoff, vma, tmpname);
++	out_name = kmalloc(SUSFS_MAX_LEN_PATHNAME, GFP_KERNEL);
++	if (!out_name)
++		goto orig_flow;
++	ret = susfs_sus_maps(ino, end - start, &ino, &dev, &flags, &pgoff, vma, out_name);
++
++orig_flow:
 +#endif
 +
  	show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
@@ -399,10 +469,12 @@ index f4a77817ad74..312e72005108 100644
 +#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
 +	if (ret == 2) {
 +		seq_pad(m, ' ');
-+		seq_puts(m, tmpname);
++		seq_puts(m, out_name);
 +		seq_putc(m, '\n');
++		kfree(out_name);
 +		return;
 +	}
++	kfree(out_name);
 +#endif
  	/*
  	 * Print the dentry name for named mappings, and a
@@ -598,7 +670,7 @@ index a7f823224546..893b17bf71c6 100644
  		return -EFAULT;
  
 diff --git a/mm/shmem.c b/mm/shmem.c
-index 9cb863a19d07..038da13d7059 100644
+index 9cb863a19d07..91774b37a6f1 100644
 --- a/mm/shmem.c
 +++ b/mm/shmem.c
 @@ -33,6 +33,9 @@
@@ -611,23 +683,12 @@ index 9cb863a19d07..038da13d7059 100644
  
  static struct vfsmount *shm_mnt;
  
-@@ -3535,6 +3538,9 @@ SYSCALL_DEFINE2(memfd_create,
- 	int fd, error;
- 	char *name;
- 	long len;
-+#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
-+	int status = 0;
-+#endif
- 
- 	if (flags & ~(unsigned int)MFD_ALL_FLAGS)
- 		return -EINVAL;
-@@ -3562,6 +3568,14 @@ SYSCALL_DEFINE2(memfd_create,
+@@ -3562,6 +3565,13 @@ SYSCALL_DEFINE2(memfd_create,
  		goto err_name;
  	}
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
-+	status = susfs_sus_memfd(1, name, NULL);
-+	if (status == 1) {
++	if (susfs_sus_memfd(name)) {
 +		error = -EFAULT;
 +		goto err_name;
 +	}

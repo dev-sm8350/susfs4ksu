@@ -30,7 +30,7 @@
 #define CMD_SUSFS_ADD_SUS_PROC_FD_LINK 0x5555f
 #define CMD_SUSFS_ADD_SUS_MAPS 0x55560
 #define CMD_SUSFS_UPDATE_SUS_MAPS 0x55561
-#define CMD_SUSFS_ADD_SUSFS_SUS_MEMFD 0x55562
+#define CMD_SUSFS_ADD_SUS_MEMFD 0x55562
 
 #define SUSFS_MAX_LEN_PATHNAME 256
 #define SUSFS_MAX_LEN_MFD_NAME 248
@@ -123,9 +123,7 @@ struct st_susfs_sus_proc_fd_link {
 };
 
 struct st_susfs_sus_memfd {
-	int                     compare_mode;
-	char                    target_name[SUSFS_MAX_LEN_MFD_NAME];
-	char                    spoofed_name[SUSFS_MAX_LEN_MFD_NAME];
+	char                    target_pathname[SUSFS_MAX_LEN_MFD_NAME];
 };
 
 struct st_susfs_uname {
@@ -241,8 +239,9 @@ static void print_help(void) {
 	log("               |--> <spoofed_dev>\n");
 	log("               |--> <spoofed_pgoff>\n");
 	log("               |--> <spoofed_prot>\n");
-	log("         |--> compare_mode: 2 => target_ino is 'non-zero', all entries match [target_ino,target_pgoff,target_prot,is_isolated_entry] will be spoofed with user defined entry\n");
+	log("         |--> compare_mode: 2 => target_ino is 'non-zero', all entries match [target_ino,target_addr_size,target_pgoff,target_prot,is_isolated_entry] will be spoofed with user defined entry\n");
 	log("               |--> <target_ino>: in decimal\n");
+	log("               |--> <target_addr_size>: in decimal\n");
 	log("               |--> <target_pgoff>: in decimal\n");
 	log("               |--> <target_prot>: in string, must be length of 4, and include only characters 'rwxps-', e.g.: 'r--s'\n");
 	log("               |--> <spoofed_pathname>: in string, can be passed as 'default' or 'empty'\n");
@@ -284,17 +283,10 @@ static void print_help(void) {
 	log("         |--> e.g., add_sus_proc_fd_link /dev/binder /dev/null\n");
 	log("         |-->       So if /proc/self/fd/10 is a symlink to /dev/binder, then it will be shown as /dev/null instead\n");
 	log("\n");
-	log("        add_sus_memfd <compare_mode> <args_for_mode>\n");
+	log("        add_sus_memfd <target_pathname>\n");
 	log("         |--> NOTE: This feature will be effective on all process\n");
-	log("         |--> compare_mode: 1 => Matched <memfd_name> will be prevented from being created\n");
-	log("               |--> <memfd_name>: in string\n");
-	log("               |--> NOTE: Remeber to prepend 'memfd:' to <memfd_name>\n");
-	log("               |--> e.g., add_sus_memfd 1 'memfd:/jit-cache'\n");
-	log("         |--> compare_mode: 2 => Matched <memfd_name> will be spoofed to <spoofed_name>\n");
-	log("               |--> <memfd_name>: in string\n");
-	log("               |--> <spoofed_name>: in string\n");
-	log("               |--> NOTE: Remeber to prepend 'memfd:' to <memfd_name>\n");
-	log("               |--> e.g., add_sus_memfd 2 'memfd:/jit-cache' '/jit-cache'\n");
+	log("         |--> NOTE: Remeber to prepend 'memfd:' to <memfd_name>\n");
+	log("         |--> e.g., add_sus_memfd 'memfd:/jit-cache'\n");
 	log("\n");
 	log("        set_uname <sysname> <nodename> <release> <version> <machine>\n");
 	log("         |--> Spoof uname for all processes, set string to 'default' to imply the function to use original string\n");
@@ -559,43 +551,49 @@ int main(int argc, char *argv[]) {
 				info.need_to_spoof_prot = true;
 			}
 		// compare_mode == 2
-		} else if (info.compare_mode == 2 && argc == 12) {
+		} else if (info.compare_mode == 2 && argc == 13) {
 			// target_ino
 			info.target_ino = strtoul(argv[3], &endptr, 10);
 			if (*endptr != '\0') {
 				print_help();
 				return 1;
 			}
+			// target_addr_size
+			info.target_addr_size = strtoul(argv[4], &endptr, 10);
+			if (*endptr != '\0') {
+				print_help();
+				return 1;
+			}
 			// target_pgoff
-			info.target_pgoff = strtoul(argv[4], &endptr, 10);
+			info.target_pgoff = strtoul(argv[5], &endptr, 10);
 			if (*endptr != '\0') {
 				print_help();
 				return 1;
 			}
 			// target_prot
-			if (strlen(argv[5]) != 4 ||
-				((argv[5][0] != 'r' && argv[5][0] != '-') ||
-				(argv[5][1] != 'w' && argv[5][1] != '-') ||
-				(argv[5][2] != 'x' && argv[5][2] != '-') ||
-				(argv[5][3] != 'p' && argv[5][3] != 's'))) 
+			if (strlen(argv[6]) != 4 ||
+				((argv[6][0] != 'r' && argv[6][0] != '-') ||
+				(argv[6][1] != 'w' && argv[6][1] != '-') ||
+				(argv[6][2] != 'x' && argv[6][2] != '-') ||
+				(argv[6][3] != 'p' && argv[6][3] != 's'))) 
 			{
 				print_help();
 				return 1;
 			}
-			if (argv[5][0] == 'r') info.target_prot |= VM_READ; 
-			if (argv[5][1] == 'w') info.target_prot |= VM_WRITE; 
-			if (argv[5][2] == 'x') info.target_prot |= VM_EXEC; 
-			if (argv[5][3] == 's') info.target_prot |= VM_MAYSHARE; 
+			if (argv[6][0] == 'r') info.target_prot |= VM_READ; 
+			if (argv[6][1] == 'w') info.target_prot |= VM_WRITE; 
+			if (argv[6][2] == 'x') info.target_prot |= VM_EXEC; 
+			if (argv[6][3] == 's') info.target_prot |= VM_MAYSHARE; 
 			// spoofed_pathname
-			if (strcmp(argv[6], "default")) { 
-				if (strcmp(argv[6], "empty")) {
-					strncpy(info.spoofed_pathname, argv[6], SUSFS_MAX_LEN_PATHNAME-1);
+			if (strcmp(argv[7], "default")) { 
+				if (strcmp(argv[7], "empty")) {
+					strncpy(info.spoofed_pathname, argv[7], SUSFS_MAX_LEN_PATHNAME-1);
 				}
 				info.need_to_spoof_pathname = true;
 			}
 			// spoofed_ino
-			if (strcmp(argv[7], "default")) {
-				info.spoofed_ino = strtoul(argv[7], &endptr, 10);
+			if (strcmp(argv[8], "default")) {
+				info.spoofed_ino = strtoul(argv[8], &endptr, 10);
 				if (*endptr != '\0') {
 					print_help();
 					return 1;
@@ -603,8 +601,8 @@ int main(int argc, char *argv[]) {
 				info.need_to_spoof_ino = true;
 			}
 			// spoofed_dev
-			if (strcmp(argv[8], "default")) {
-				info.spoofed_dev = strtoul(argv[8], &endptr, 10);
+			if (strcmp(argv[9], "default")) {
+				info.spoofed_dev = strtoul(argv[9], &endptr, 10);
 				if (*endptr != '\0') {
 					print_help();
 					return 1;
@@ -612,8 +610,8 @@ int main(int argc, char *argv[]) {
 				info.need_to_spoof_dev = true;
             }
 			// spoofed_pgoff
-			if (strcmp(argv[9], "default")) {
-				info.spoofed_pgoff = strtoul(argv[9], &endptr, 10);
+			if (strcmp(argv[10], "default")) {
+				info.spoofed_pgoff = strtoul(argv[10], &endptr, 10);
 				if (*endptr != '\0') {
 					print_help();
 					return 1;
@@ -621,28 +619,28 @@ int main(int argc, char *argv[]) {
 				info.need_to_spoof_pgoff = true;
 			}
 			// spoofed_prot
-			if (strcmp(argv[10], "default")) {
-				if (strlen(argv[10]) != 4 ||
-					((argv[10][0] != 'r' && argv[10][0] != '-') ||
-					(argv[10][1] != 'w' && argv[10][1] != '-') ||
-					(argv[10][2] != 'x' && argv[10][2] != '-') ||
-					(argv[10][3] != 'p' && argv[10][3] != 's'))) 
+			if (strcmp(argv[11], "default")) {
+				if (strlen(argv[11]) != 4 ||
+					((argv[11][0] != 'r' && argv[11][0] != '-') ||
+					(argv[11][1] != 'w' && argv[11][1] != '-') ||
+					(argv[11][2] != 'x' && argv[11][2] != '-') ||
+					(argv[11][3] != 'p' && argv[11][3] != 's'))) 
 				{
 					print_help();
 					return 1;
 				}
-				if (argv[10][0] == 'r') info.spoofed_prot |= VM_READ; 
-				if (argv[10][1] == 'w') info.spoofed_prot |= VM_WRITE; 
-				if (argv[10][2] == 'x') info.spoofed_prot |= VM_EXEC; 
-				if (argv[10][3] == 's') info.spoofed_prot |= VM_MAYSHARE; 
+				if (argv[11][0] == 'r') info.spoofed_prot |= VM_READ; 
+				if (argv[11][1] == 'w') info.spoofed_prot |= VM_WRITE; 
+				if (argv[11][2] == 'x') info.spoofed_prot |= VM_EXEC; 
+				if (argv[11][3] == 's') info.spoofed_prot |= VM_MAYSHARE; 
 				info.need_to_spoof_prot = true;
 			}
 			// is_isolated_entry
-			if (strcmp(argv[11], "0") && strcmp(argv[11], "1")) {
+			if (strcmp(argv[12], "0") && strcmp(argv[12], "1")) {
 				print_help();
 				return 1;
 			}
-			if (!strcmp(argv[11], "0")) {
+			if (!strcmp(argv[12], "0")) {
 				info.is_isolated_entry = false;
 			} else {
 				info.is_isolated_entry = true;
@@ -853,25 +851,13 @@ int main(int argc, char *argv[]) {
 		prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_PROC_FD_LINK, &info, NULL, &error);
 		return error;
 	// add_sus_memfd
-	} else if (argc > 3 && !strcmp(argv[1], "add_sus_memfd")) {
+	} else if (argc == 3 && !strcmp(argv[1], "add_sus_memfd")) {
 		struct st_susfs_sus_memfd info;
 		char* endptr;
 	
 		memset(&info, 0, sizeof(struct st_susfs_sus_memfd));
-		info.compare_mode = strtoul(argv[2], &endptr, 10);
-		if (*endptr != '\0' || info.compare_mode > 2 || info.compare_mode < 1) {
-			log("[-] compare_mode must be [1|2]\n");
-			return 1;
-		}
-
-		if (argc == 4 && info.compare_mode == 1) {
-			strncpy(info.target_name, argv[3], SUSFS_MAX_LEN_MFD_NAME-1);
-		}
-		else if (argc == 5 && info.compare_mode == 2) {
-			strncpy(info.target_name, argv[3], SUSFS_MAX_LEN_MFD_NAME-1);
-			strncpy(info.spoofed_name, argv[4], SUSFS_MAX_LEN_MFD_NAME-1);
-		}
-		prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUSFS_SUS_MEMFD, &info, NULL, &error);
+		strncpy(info.target_pathname, argv[3], SUSFS_MAX_LEN_MFD_NAME-1);
+		prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_MEMFD, &info, NULL, &error);
 		return error;
 	// set_uname
 	} else if (argc == 7 && !strcmp(argv[1], "set_uname")) {
