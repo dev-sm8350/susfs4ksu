@@ -853,10 +853,9 @@ int main(int argc, char *argv[]) {
 	// add_sus_memfd
 	} else if (argc == 3 && !strcmp(argv[1], "add_sus_memfd")) {
 		struct st_susfs_sus_memfd info;
-		char* endptr;
 	
 		memset(&info, 0, sizeof(struct st_susfs_sus_memfd));
-		strncpy(info.target_pathname, argv[3], SUSFS_MAX_LEN_MFD_NAME-1);
+		strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_MFD_NAME-1);
 		prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_MEMFD, &info, NULL, &error);
 		return error;
 	// set_uname
