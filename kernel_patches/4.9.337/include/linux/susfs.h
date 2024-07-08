@@ -44,6 +44,7 @@
 #define putname_safe(name) (IS_ERR(name) ? NULL : putname(name))
 
 #define uid_matches_suspicious_path() (current_uid().val >= 2000)
+#define uid_matches_suspicious_kstat() (current_uid().val >= 2000)
 #define uid_matches_proc_need_to_reorder_mnt_id() (current_uid().val >= 10000)
 
 struct st_susfs_sus_path {

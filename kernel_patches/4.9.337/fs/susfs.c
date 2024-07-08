@@ -569,6 +569,9 @@ out:
 void susfs_sus_kstat(unsigned long ino, struct stat* out_stat) {
 	struct st_susfs_sus_kstat_list *cursor, *temp;
 
+	if (!uid_matches_suspicious_kstat())
+		return;
+
 	list_for_each_entry_safe(cursor, temp, &LH_KSTAT_SPOOFER, list) {
 		if (cursor->info.target_ino == ino) {
 			SUSFS_LOGI("spoofing kstat for pathname '%s' for UID %i\n", cursor->info.target_pathname, current_uid().val);
@@ -764,17 +767,23 @@ do_spoof:
 	return 0;
 }
 
-/* This function mainly does the following:
- * 1. Spoof the symlink name listed in /proc/self/map_files
- * 2. Remove the user write access for spoofed symlink name in /proc/self/map_files
+/* @ This function mainly does the following:
+ *   1. Spoof the symlink name listed in /proc/self/map_files
+ *   2. Remove the user write access for spoofed symlink name in /proc/self/map_files
  * 
  * @Note
- * - It has limitation as there is no way to check which \
- *   vma address it belongs by passing dentry* only, so it just \
- *   checks for matched dentry* and its target_ino in sus_maps list, \
+ * - It has limitation as there is no way to check which
+ *   vma address it belongs by passing dentry* only, so it just
+ *   checks for matched dentry* and its target_ino in sus_maps list,
  *   then spoof or remove the user write access of the symlink name defined by user.
- * - So the best practise is: Do not spoof the map entries which share the same name \
- *   to different name, otherwise there will be inconsistent entries between maps and map_files.
+ * - Also user cannot see the effects in map_files from other root session,
+ *   because it uses current->mm to compare the dentry, the only way to test
+ *   is to check within its own pid.
+ * - Once the write permission is removed, it is effective on all process referencing it,
+ *   and stays permanant for that dentry.
+ * - So the best practise is: Do NOT spoof the map entries which share the same name
+ *   to different name seperately, otherwise there will be inconsistent entries between
+ *   maps and map_files.
  */
 int susfs_sus_map_files(unsigned long target_ino, char* pathname) {
 	struct st_susfs_sus_maps_list *cursor, *temp;
@@ -1123,6 +1132,7 @@ void susfs_add_mnt_id_recorder(void) {
 			kfree(path);
 			continue;
 		}
+
 		res = end - path;
 		path[(size_t) res] = '\0';
 		list_for_each_entry_safe(sus_mount_cursor, sus_mount_temp, &LH_SUS_MOUNT, list) {
