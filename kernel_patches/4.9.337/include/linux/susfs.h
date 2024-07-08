@@ -23,6 +23,7 @@
 #define SUSFS_MAX_LEN_PATHNAME 256 // 256 should address many paths already unless you are doing some strange experimental stuff, then set your own desired length
 #define SUSFS_MAX_LEN_MFD_NAME 248
 #define SUSFS_MAX_SUS_MNTS 200 // I think 200 is now enough? Tell me why if you have over 200 entries
+#define SUSFS_MAX_SUS_MAPS 200 // I think 100 is now enough? Tell me why if you have over 200 entries
 
 /* non shared to userspace ksu_susfs tool */
 #define SYSCALL_FAMILY_ALL_ENOENT 0
@@ -183,7 +184,8 @@ void susfs_sus_kstat(unsigned long ino, struct stat* out_stat);
 int susfs_sus_maps(unsigned long target_ino, unsigned long target_addr_size,
 					unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags,
 					unsigned long long* pgoff, struct vm_area_struct* vma, char* out_name);
-int susfs_sus_map_files(unsigned long target_ino, char* pathname);
+int susfs_sus_map_files_readlink(unsigned long target_ino, char* pathname);
+int susfs_sus_map_files_instantiate(struct vm_area_struct* vma);
 int susfs_is_sus_maps_list_empty(void);
 int susfs_sus_proc_fd_link(char *pathname, int len);
 int susfs_is_sus_proc_fd_link_list_empty(void);

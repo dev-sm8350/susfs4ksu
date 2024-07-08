@@ -193,6 +193,8 @@ int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info) {
 	struct st_susfs_sus_maps_list *new_list = NULL;
 	struct st_susfs_sus_maps info;
 	
+	int list_count = 0;
+
 	if (copy_from_user(&info, user_info, sizeof(struct st_susfs_sus_maps))) {
 		SUSFS_LOGE("failed copying from userspace\n");
 		return 1;
@@ -256,6 +258,12 @@ int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info) {
 				}
 			}
 		}
+		list_count += 1;
+	}
+
+	if (list_count == SUSFS_MAX_SUS_MAPS) {
+		SUSFS_LOGE("LH_SUS_MOUNT has reached the list limit of %d\n", SUSFS_MAX_SUS_MAPS);
+		return 1;
 	}
 
 	new_list = kmalloc(sizeof(struct st_susfs_sus_maps_list), GFP_KERNEL);
@@ -767,50 +775,188 @@ do_spoof:
 	return 0;
 }
 
-/* @ This function mainly does the following:
- *   1. Spoof the symlink name listed in /proc/self/map_files
- *   2. Remove the user write access for spoofed symlink name in /proc/self/map_files
+/* @ This function only does the following:
+ *   1. Spoof the symlink name of a target_ino listed in /proc/self/map_files
  * 
  * @Note
  * - It has limitation as there is no way to check which
  *   vma address it belongs by passing dentry* only, so it just
  *   checks for matched dentry* and its target_ino in sus_maps list,
- *   then spoof or remove the user write access of the symlink name defined by user.
+ *   then spoof the symlink name of the target_ino defined by user.
  * - Also user cannot see the effects in map_files from other root session,
  *   because it uses current->mm to compare the dentry, the only way to test
  *   is to check within its own pid.
- * - Once the write permission is removed, it is effective on all process referencing it,
- *   and stays permanant for that dentry.
- * - So the best practise is: Do NOT spoof the map entries which share the same name
- *   to different name seperately, otherwise there will be inconsistent entries between
- *   maps and map_files.
+ * - So the BEST practise here is:
+ *     Do NOT spoof the map entries which share the same name to different name
+ *     seperately unless the other spoofed name is empty of which spoofed_ino is 0,
+ *     otherwise there will be inconsistent entries between maps and map_files.
  */
-int susfs_sus_map_files(unsigned long target_ino, char* pathname) {
+int susfs_sus_map_files_readlink(unsigned long target_ino, char* pathname) {
 	struct st_susfs_sus_maps_list *cursor, *temp;
+
+	if (!pathname)
+		return 0;
 
 	list_for_each_entry_safe(cursor, temp, &LH_MAPS_SPOOFER, list) {
 		// We are only interested in statically and target_ino > 0
 		if (cursor->info.is_statically && cursor->info.compare_mode > 0 &&
-			target_ino > 0 && cursor->info.target_ino == target_ino) {
-			if (!pathname) {
-				if (!(cursor->info.spoofed_ino == 0 ||
-					(MAJOR(cursor->info.spoofed_dev) == 0 &&
-					(MINOR(cursor->info.spoofed_dev) == 0 || MINOR(cursor->info.spoofed_dev) == 1))))
-				{
-					SUSFS_LOGI("remove user write permission of spoofed symlink '%s' in map_files\n", cursor->info.spoofed_pathname);
-					return 1;
-				}
-			} else {
-				if (cursor->info.need_to_spoof_pathname) {
-					SUSFS_LOGI("spoofing symlink name of ino '%lu' to '%s' in map_files\n",
-							target_ino, cursor->info.spoofed_pathname);
-					// Don't need to check buffer size as 'pathname' is allocated with 'PAGE_SIZE'
-					// which is way bigger than SUSFS_MAX_LEN_PATHNAME
-					strcpy(pathname, cursor->info.spoofed_pathname);
-					return 2;
-				}
+			target_ino > 0 && cursor->info.target_ino == target_ino)
+		{
+			if (cursor->info.need_to_spoof_pathname) {
+				SUSFS_LOGI("spoofing symlink name of ino '%lu' to '%s' in map_files\n",
+						target_ino, cursor->info.spoofed_pathname);
+				// Don't need to check buffer size as 'pathname' is allocated with 'PAGE_SIZE'
+				// which is way bigger than SUSFS_MAX_LEN_PATHNAME
+				strcpy(pathname, cursor->info.spoofed_pathname);
+				return 2;
 			}
 		}
+	}
+	return 0;
+}
+
+/* @ This function mainly does the following:
+ *   1. Remove the user write access for spoofed symlink name in /proc/self/map_files
+ *   2. Prevent the dentry from being seen in /proc/self/map_files
+ * 
+ * @Note
+ * - anon files are supposed to be not shown in /proc/self/map_files and 
+ *   spoofing from memfd name to non-memfd name should not have write
+ *   permission on that target dentry
+ */
+int susfs_sus_map_files_instantiate(struct vm_area_struct* vma) {
+	struct inode *inode = file_inode(vma->vm_file);
+	unsigned long target_ino = inode->i_ino;
+	dev_t target_dev = inode->i_sb->s_dev;
+	unsigned long long target_pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
+	unsigned long target_addr_size = vma->vm_end - vma->vm_start;
+	vm_flags_t target_flags = vma->vm_flags;
+	struct st_susfs_sus_maps_list *cursor, *temp;
+	struct inode *tmp_inode, *tmp_inode_prev, *tmp_inode_next;
+
+	list_for_each_entry_safe(cursor, temp, &LH_MAPS_SPOOFER, list) {
+		// We are only interested in statically
+		if (!cursor->info.is_statically) {
+			continue;
+		// if it is statically, then compare with compare_mode
+		} else if (cursor->info.compare_mode > 0) {
+			switch(cursor->info.compare_mode) {
+				case 1:
+					if (target_ino != 0 && cursor->info.target_ino == target_ino) {
+						goto do_spoof;
+					}
+					break;
+				case 2:
+					if (target_ino != 0 && cursor->info.target_ino == target_ino &&
+						((cursor->info.target_prot & VM_READ) == (target_flags & VM_READ)) &&
+						((cursor->info.target_prot & VM_WRITE) == (target_flags & VM_WRITE)) &&
+						((cursor->info.target_prot & VM_EXEC) == (target_flags & VM_EXEC)) &&
+						((cursor->info.target_prot & VM_MAYSHARE) == (target_flags & VM_MAYSHARE)) &&
+						  cursor->info.target_addr_size == target_addr_size &&
+						  cursor->info.target_pgoff == target_pgoff) {
+						// if is NOT isolated_entry, check for vma->vm_next and vma->vm_prev to see if they have the same inode
+						if (!cursor->info.is_isolated_entry) {
+							if (vma && vma->vm_next) {
+								if (vma->vm_next->vm_file) {
+									tmp_inode = file_inode(vma->vm_next->vm_file);
+									if (tmp_inode->i_ino == cursor->info.target_ino)
+										goto do_spoof;
+								}
+							}
+							if (vma && vma->vm_prev) {
+								if (vma->vm_prev->vm_file) {
+									tmp_inode = file_inode(vma->vm_prev->vm_file);
+									if (tmp_inode->i_ino == cursor->info.target_ino)
+										goto do_spoof;
+								}
+							}
+							continue;
+						// if it is isolated_entry
+						} else {
+							if (vma && vma->vm_next) {
+								if (vma->vm_next->vm_file) {
+									tmp_inode = file_inode(vma->vm_next->vm_file);
+									if (tmp_inode->i_ino == cursor->info.target_ino) {
+										continue;
+									}
+								}
+							}
+							if (vma && vma->vm_prev) {
+								if (vma->vm_prev->vm_file) {
+									tmp_inode = file_inode(vma->vm_prev->vm_file);
+									if (tmp_inode->i_ino == cursor->info.target_ino) {
+										continue;
+									}
+								}
+							}
+							// both prev and next don't have the same indoe as current entry, we can spoof now
+							goto do_spoof;
+						}
+					}
+					break;
+				case 3:
+					// if current vma is a file, it is not our target
+					if (vma->vm_file) continue;
+					// compare next target ino only
+					if (cursor->info.prev_target_ino == 0 && cursor->info.next_target_ino > 0) {
+						if (vma->vm_next && vma->vm_next->vm_file) {
+							tmp_inode_next = file_inode(vma->vm_next->vm_file);
+							if (tmp_inode_next->i_ino == cursor->info.next_target_ino) {
+								goto do_spoof;
+							}
+						}
+					// compare prev target ino only
+					} else if (cursor->info.prev_target_ino > 0 && cursor->info.next_target_ino == 0) {
+						if (vma->vm_prev && vma->vm_prev->vm_file) {
+							tmp_inode_prev = file_inode(vma->vm_prev->vm_file);
+							if (tmp_inode_prev->i_ino == cursor->info.prev_target_ino) {
+								goto do_spoof;
+							}
+						}
+					// compare both prev ino and next ino
+					} else if (cursor->info.prev_target_ino > 0 && cursor->info.next_target_ino > 0) {
+						if (vma->vm_prev && vma->vm_prev->vm_file &&
+							vma->vm_next && vma->vm_next->vm_file) {
+							tmp_inode_prev = file_inode(vma->vm_prev->vm_file);
+							tmp_inode_next = file_inode(vma->vm_next->vm_file);
+							if (tmp_inode_prev->i_ino == cursor->info.prev_target_ino &&
+							    tmp_inode_next->i_ino == cursor->info.next_target_ino) {
+								goto do_spoof;
+							}
+						}
+					}
+					break;
+				case 4:
+					if ((cursor->info.is_file && vma->vm_file)||(!cursor->info.is_file && !vma->vm_file)) {
+						if (cursor->info.target_dev == target_dev &&
+							cursor->info.target_pgoff == target_pgoff &&
+							((cursor->info.target_prot & VM_READ) == (target_flags & VM_READ) &&
+							 (cursor->info.target_prot & VM_WRITE) == (target_flags & VM_WRITE) &&
+							 (cursor->info.target_prot & VM_EXEC) == (target_flags & VM_EXEC) &&
+							 (cursor->info.target_prot & VM_MAYSHARE) == (target_flags & VM_MAYSHARE)) &&
+							  cursor->info.target_addr_size == target_addr_size) {
+							goto do_spoof;
+						}
+					}
+					break;
+				default:
+					break;
+			}
+		}
+		continue;
+do_spoof:
+		if (!(cursor->info.spoofed_ino == 0 ||
+			(MAJOR(cursor->info.spoofed_dev) == 0 &&
+			(MINOR(cursor->info.spoofed_dev) == 0 || MINOR(cursor->info.spoofed_dev) == 1))))
+		{
+			SUSFS_LOGI("remove user write permission of spoofed symlink '%s' in map_files\n", cursor->info.spoofed_pathname);
+			return 1;
+		} else {
+			SUSFS_LOGI("drop dentry of target_ino '%lu' with spoofed_ino '%lu' in map_files\n",
+						cursor->info.target_ino, cursor->info.spoofed_ino);
+			return 2;
+		}
+		return 0;
 	}
 	return 0;
 }
