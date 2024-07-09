@@ -25,6 +25,9 @@
 #define SUSFS_MAX_SUS_MNTS 200 // I think 200 is now enough? Tell me why if you have over 200 entries
 #define SUSFS_MAX_SUS_MAPS 200 // I think 100 is now enough? Tell me why if you have over 200 entries
 
+#define SUSFS_MAP_FILES_ACTION_REMOVE_WRITE_PERM 1
+#define SUSFS_MAP_FILES_ACTION_HIDE_DENTRY 2
+
 /* non shared to userspace ksu_susfs tool */
 #define SYSCALL_FAMILY_ALL_ENOENT 0
 #define SYSCALL_FAMILY_OPENAT 1
