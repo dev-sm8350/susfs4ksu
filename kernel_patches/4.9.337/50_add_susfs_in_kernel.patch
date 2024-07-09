@@ -527,7 +527,7 @@ index f4a77817ad74..c2b36c3b317a 100644
  	 * Print the dentry name for named mappings, and a
  	 * special [heap] marker for the heap:
 diff --git a/fs/proc_namespace.c b/fs/proc_namespace.c
-index 6863773aff25..8725ceb41469 100644
+index 6863773aff25..3b042d3f1fbd 100644
 --- a/fs/proc_namespace.c
 +++ b/fs/proc_namespace.c
 @@ -15,6 +15,10 @@
@@ -589,30 +589,33 @@ index 6863773aff25..8725ceb41469 100644
  	/* device */
  	if (sb->s_op->show_devname) {
  		seq_puts(m, "device ");
-@@ -298,6 +327,11 @@ static int mounts_release(struct inode *inode, struct file *file)
+@@ -282,6 +311,12 @@ static int mounts_open_common(struct inode *inode, struct file *file,
+ 	p->show = show;
+ 	p->cached_event = ~0ULL;
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
++	if (uid_matches_proc_need_to_reorder_mnt_id()) {
++		susfs_add_mnt_id_recorder(p->ns);
++	}
++#endif
++
+ 	return 0;
+ 
+  err_put_path:
+@@ -296,6 +331,13 @@ static int mounts_release(struct inode *inode, struct file *file)
+ {
+ 	struct seq_file *m = file->private_data;
  	struct proc_mounts *p = m->private;
- 	path_put(&p->root);
- 	put_mnt_ns(p->ns);
++
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
 +	if (uid_matches_proc_need_to_reorder_mnt_id()) {
 +		susfs_remove_mnt_id_recorder();
 +	}
 +#endif
++
+ 	path_put(&p->root);
+ 	put_mnt_ns(p->ns);
  	return seq_release_private(inode, file);
- }
- 
-@@ -308,6 +342,11 @@ static int mounts_open(struct inode *inode, struct file *file)
- 
- static int mountinfo_open(struct inode *inode, struct file *file)
- {
-+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
-+	if (uid_matches_proc_need_to_reorder_mnt_id()) {
-+		susfs_add_mnt_id_recorder();
-+	}
-+#endif
- 	return mounts_open_common(inode, file, show_mountinfo);
- }
- 
 diff --git a/fs/readdir.c b/fs/readdir.c
 index 1059f2a9be0b..41e5677c178d 100644
 --- a/fs/readdir.c

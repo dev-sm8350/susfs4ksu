@@ -115,7 +115,6 @@ struct st_susfs_sus_memfd {
 };
 
 struct st_susfs_mnt_id_recorder {
-	int                     pid;
 	int                     target_mnt_id[SUSFS_MAX_SUS_MNTS];
 	int                     count;
 };
@@ -157,6 +156,7 @@ struct st_susfs_sus_memfd_list {
 
 struct st_susfs_mnt_id_recorder_list {
 	struct list_head                        list;
+	int                                     pid;
 	struct st_susfs_mnt_id_recorder         info;
 };
 
@@ -195,8 +195,7 @@ int susfs_is_sus_proc_fd_link_list_empty(void);
 int susfs_sus_memfd(char *memfd_name);
 void susfs_try_umount(uid_t target_uid);
 void susfs_spoof_uname(struct new_utsname* tmp);
-
-void susfs_add_mnt_id_recorder(void);
+void susfs_add_mnt_id_recorder(struct mnt_namespace *ns);
 int susfs_get_fake_mnt_id(int mnt_id);
 void susfs_remove_mnt_id_recorder(void);
 

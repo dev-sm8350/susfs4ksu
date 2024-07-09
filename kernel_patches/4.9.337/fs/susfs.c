@@ -1231,11 +1231,10 @@ void susfs_change_error_no_by_pathname(char* const pathname, int* const errno_to
  * - The current mechanism cannot deal with umounted path, so to get the best outcome is not to
  *   enable umount by ksu, and put all your mounts to add_sus_mount and add_sus_path
  */
-void susfs_add_mnt_id_recorder(void) {
+void susfs_add_mnt_id_recorder(struct mnt_namespace *ns) {
 	struct st_susfs_mnt_id_recorder_list *new_list = NULL;
 	struct st_susfs_sus_mount_list *sus_mount_cursor, *sus_mount_temp;
 
-	struct mnt_namespace *ns = current->nsproxy->mnt_ns;
 	struct mount *mnt_cursor, *mnt_temp; 
 
 	struct path mnt_path;
@@ -1247,13 +1246,16 @@ void susfs_add_mnt_id_recorder(void) {
 	int cur_pid = current->pid;
 	int count = 0;
 
+	if (!ns)
+		return;
+
 	new_list = kzalloc(sizeof(struct st_susfs_mnt_id_recorder_list), GFP_KERNEL);
 	if (!new_list) {
 		SUSFS_LOGE("No enough memory\n");
 		return;
 	}
 
-	new_list->info.pid = cur_pid;
+	new_list->pid = cur_pid;
 
 	list_for_each_entry_safe(mnt_cursor, mnt_temp, &ns->list, mnt_list) {
 		mnt_path.dentry = mnt_cursor->mnt.mnt_root;
@@ -1306,7 +1308,7 @@ out_loop:
 	spin_lock(&susfs_mnt_id_recorder_spin_lock);
 	list_add_tail(&new_list->list, &LH_MOUNT_ID_RECORDER);
 	spin_unlock(&susfs_mnt_id_recorder_spin_lock);
-	SUSFS_LOGI("recording pid '%u' to LH_MOUNT_ID_RECORDER\n", new_list->info.pid);
+	SUSFS_LOGI("recording pid '%u' to LH_MOUNT_ID_RECORDER\n", new_list->pid);
 }
 
 int susfs_get_fake_mnt_id(int mnt_id) {
@@ -1315,7 +1317,7 @@ int susfs_get_fake_mnt_id(int mnt_id) {
 	int i;
 
 	list_for_each_entry_safe(cursor, temp, &LH_MOUNT_ID_RECORDER, list) {
-		if (cursor->info.pid == cur_pid) {
+		if (cursor->pid == cur_pid) {
 			for (i = 0; i < cursor->info.count; i++) {
 				// if comparing with first target_mnt_id and mnt_id is before any target_mnt_id
 				if (i == 0 && mnt_id < cursor->info.target_mnt_id[i]) {
@@ -1344,8 +1346,8 @@ void susfs_remove_mnt_id_recorder(void) {
 
 	spin_lock(&susfs_mnt_id_recorder_spin_lock);
 	list_for_each_entry_safe(cursor, temp, &LH_MOUNT_ID_RECORDER, list) {
-		if (cursor->info.pid == cur_pid) {
-			SUSFS_LOGI("removing pid '%u' from LH_MOUNT_ID_RECORDER\n", cursor->info.pid);
+		if (cursor->pid == cur_pid) {
+			SUSFS_LOGI("removing pid '%u' from LH_MOUNT_ID_RECORDER\n", cursor->pid);
 			list_del(&cursor->list);
 			kfree(cursor);
 			spin_unlock(&susfs_mnt_id_recorder_spin_lock);
