@@ -22,8 +22,8 @@
 
 #define SUSFS_MAX_LEN_PATHNAME 256 // 256 should address many paths already unless you are doing some strange experimental stuff, then set your own desired length
 #define SUSFS_MAX_LEN_MFD_NAME 248
-#define SUSFS_MAX_SUS_MNTS 200 // I think 200 is now enough? Tell me why if you have over 200 entries
-#define SUSFS_MAX_SUS_MAPS 200 // I think 100 is now enough? Tell me why if you have over 200 entries
+#define SUSFS_MAX_SUS_MNTS 300 // I think 300 is now enough? This includes the mount entries for each process and sus mounts added by user 
+#define SUSFS_MAX_SUS_MAPS 200 // I think 200 is now enough? Tell me why if you have over 200 entries
 
 #define SUSFS_MAP_FILES_ACTION_REMOVE_WRITE_PERM 1
 #define SUSFS_MAP_FILES_ACTION_HIDE_DENTRY 2
@@ -116,6 +116,8 @@ struct st_susfs_sus_memfd {
 
 struct st_susfs_mnt_id_recorder {
 	int                     target_mnt_id[SUSFS_MAX_SUS_MNTS];
+	int                     spoofed_mnt_id[SUSFS_MAX_SUS_MNTS];
+	int                     spoofed_parent_mnt_id[SUSFS_MAX_SUS_MNTS];
 	int                     count;
 };
 
@@ -157,6 +159,7 @@ struct st_susfs_sus_memfd_list {
 struct st_susfs_mnt_id_recorder_list {
 	struct list_head                        list;
 	int                                     pid;
+	int                                     opened_count;
 	struct st_susfs_mnt_id_recorder         info;
 };
 
@@ -187,7 +190,7 @@ void susfs_sus_kstat(unsigned long ino, struct stat* out_stat);
 int susfs_sus_maps(unsigned long target_ino, unsigned long target_addr_size,
 					unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags,
 					unsigned long long* pgoff, struct vm_area_struct* vma, char* out_name);
-int susfs_sus_map_files_readlink(unsigned long target_ino, char* pathname);
+void susfs_sus_map_files_readlink(unsigned long target_ino, char* pathname);
 int susfs_sus_map_files_instantiate(struct vm_area_struct* vma);
 int susfs_is_sus_maps_list_empty(void);
 int susfs_sus_proc_fd_link(char *pathname, int len);
@@ -196,7 +199,7 @@ int susfs_sus_memfd(char *memfd_name);
 void susfs_try_umount(uid_t target_uid);
 void susfs_spoof_uname(struct new_utsname* tmp);
 void susfs_add_mnt_id_recorder(struct mnt_namespace *ns);
-int susfs_get_fake_mnt_id(int mnt_id);
+int susfs_get_fake_mnt_id(int mnt_id, int *out_mnt_id, int *out_parent_mnt_id);
 void susfs_remove_mnt_id_recorder(void);
 
 void susfs_set_log(bool enabled);
