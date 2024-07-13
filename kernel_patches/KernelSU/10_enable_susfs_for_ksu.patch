@@ -1,8 +1,8 @@
 diff --git a/kernel/Kconfig b/kernel/Kconfig
-index 67f177f4..c52936e3 100644
+index 67f177f4..27cc7b1e 100644
 --- a/kernel/Kconfig
 +++ b/kernel/Kconfig
-@@ -16,4 +16,86 @@ config KSU_DEBUG
+@@ -16,4 +16,87 @@ config KSU_DEBUG
  	help
  	  Enable KernelSU debug mode.
  
@@ -33,10 +33,11 @@ index 67f177f4..c52936e3 100644
 +    depends on KSU_SUSFS_SUS_MOUNT
 +    default n
 +    help
-+      - Enable this option will automatically re-order the mount id and parent mount id in /proc/self/mountinfo as much as it can according to the list of sus_mount.
-+      - Only mount paths added to sus_mount will be counted, because we are not able to get the mount id of sus mounts umounted by user during enumerating the current mount list.
-+      - Also be careful this feature may cause unknown system crashes/random reboot/bootloop, further testing is needed on other kernels and devices.
-+      - Required KSU_SUSFS_SUS_MOUNT to be ON
++      - Enable this option will automatically and completely re-order the mount id and parent mount id in /proc/self/mountinfo
++      - The actual mnt_id/parent_mnt_id is not changed in kernel, only reflects on /proc/self/mountinfo
++      - You should not enable this if the mnt_id on your device is already not in order by default
++      - Moreover, be careful this feature may cause unknown system crashes / random reboot / bootloop on different kernels or devices, further testing is needed.
++      - Requires KSU_SUSFS_SUS_MOUNT to be ON
 +
 +config KSU_SUSFS_SUS_KSTAT
 +    bool "Enable to spoof suspicious kstat"
