@@ -276,7 +276,7 @@ index f2b82c462fbb..8c73e9371764 100644
  	error = user_path_at(AT_FDCWD, filename, lookup_flags, &path);
  	if (error)
 diff --git a/fs/proc/base.c b/fs/proc/base.c
-index b6959f6dae5b..2fccc5ba4a56 100644
+index b6959f6dae5b..9665ef85f778 100644
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
 @@ -97,6 +97,10 @@
@@ -306,15 +306,16 @@ index b6959f6dae5b..2fccc5ba4a56 100644
  	if (!tmp)
  		return -ENOMEM;
  
-@@ -1839,6 +1852,37 @@ static int do_proc_readlink(struct path *path, char __user *buffer, int buflen)
+@@ -1839,6 +1852,38 @@ static int do_proc_readlink(struct path *path, char __user *buffer, int buflen)
  
  	if (len > buflen)
  		len = buflen;
 +
 +#ifdef CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK
-+	if (!susfs_is_sus_proc_fd_link_list_empty())
++	if (!susfs_is_sus_proc_fd_link_list_empty()) {
 +		if (susfs_sus_proc_fd_link(pathname, len))
 +			goto orig_flow;
++	}
 +#endif
 +
 +
@@ -344,7 +345,7 @@ index b6959f6dae5b..2fccc5ba4a56 100644
  	if (copy_to_user(buffer, pathname, len))
  		len = -EFAULT;
   out:
-@@ -2207,6 +2251,9 @@ struct map_files_info {
+@@ -2207,6 +2252,9 @@ struct map_files_info {
  	fmode_t		mode;
  	unsigned long	len;
  	unsigned char	name[4*sizeof(long)+2]; /* max: %lx-%lx\0 */
@@ -354,7 +355,7 @@ index b6959f6dae5b..2fccc5ba4a56 100644
  };
  
  /*
-@@ -2269,6 +2316,10 @@ static struct dentry *proc_map_files_lookup(struct inode *dir,
+@@ -2269,6 +2317,10 @@ static struct dentry *proc_map_files_lookup(struct inode *dir,
  	int result;
  	struct mm_struct *mm;
  
@@ -365,7 +366,7 @@ index b6959f6dae5b..2fccc5ba4a56 100644
  	result = -ENOENT;
  	task = get_proc_task(dir);
  	if (!task)
-@@ -2291,6 +2342,23 @@ static struct dentry *proc_map_files_lookup(struct inode *dir,
+@@ -2291,6 +2343,23 @@ static struct dentry *proc_map_files_lookup(struct inode *dir,
  	if (!vma)
  		goto out_no_vma;
  
@@ -389,7 +390,7 @@ index b6959f6dae5b..2fccc5ba4a56 100644
  	if (vma->vm_file)
  		result = proc_map_files_instantiate(dir, dentry, task,
  				(void *)(unsigned long)vma->vm_file->f_mode);
-@@ -2322,6 +2390,10 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
+@@ -2322,6 +2391,10 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
  	struct map_files_info *p;
  	int ret;
  
@@ -400,7 +401,7 @@ index b6959f6dae5b..2fccc5ba4a56 100644
  	ret = -ENOENT;
  	task = get_proc_task(file_inode(file));
  	if (!task)
-@@ -2380,6 +2452,12 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
+@@ -2380,6 +2453,12 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
  			info.len = snprintf(info.name,
  					sizeof(info.name), "%lx-%lx",
  					vma->vm_start, vma->vm_end);
@@ -413,7 +414,7 @@ index b6959f6dae5b..2fccc5ba4a56 100644
  			if (flex_array_put(fa, i++, &info, GFP_KERNEL))
  				BUG();
  		}
-@@ -2388,12 +2466,28 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
+@@ -2388,12 +2467,28 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
  
  	for (i = 0; i < nr_files; i++) {
  		p = flex_array_get(fa, i);
