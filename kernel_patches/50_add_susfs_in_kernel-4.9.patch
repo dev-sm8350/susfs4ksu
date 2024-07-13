@@ -11,6 +11,21 @@ index 0e97f4b85bee..5ef37c17ee91 100644
  ifeq ($(CONFIG_BLOCK),y)
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
  else
+diff --git a/fs/internal.h b/fs/internal.h
+index 3e58863de514..4fe0133cc4f6 100644
+--- a/fs/internal.h
++++ b/fs/internal.h
+@@ -74,6 +74,10 @@ extern int __mnt_want_write_file(struct file *);
+ extern void __mnt_drop_write(struct vfsmount *);
+ extern void __mnt_drop_write_file(struct file *);
+ 
++#ifdef CONFIG_KSU_SUSFS
++int path_umount(struct path *path, int flags);
++#endif
++
+ /*
+  * fs_struct.c
+  */
 diff --git a/fs/namei.c b/fs/namei.c
 index 0cbf8f5a92f4..2ff97f64a110 100644
 --- a/fs/namei.c
@@ -499,7 +514,7 @@ index f4a77817ad74..c2b36c3b317a 100644
  	 * Print the dentry name for named mappings, and a
  	 * special [heap] marker for the heap:
 diff --git a/fs/proc_namespace.c b/fs/proc_namespace.c
-index 6863773aff25..0df4740eca69 100644
+index 6863773aff25..493de1b4e7de 100644
 --- a/fs/proc_namespace.c
 +++ b/fs/proc_namespace.c
 @@ -15,6 +15,10 @@
@@ -513,18 +528,19 @@ index 6863773aff25..0df4740eca69 100644
  static unsigned mounts_poll(struct file *file, poll_table *wait)
  {
  	struct seq_file *m = file->private_data;
-@@ -99,6 +103,10 @@ static int show_vfsmnt(struct seq_file *m, struct vfsmount *mnt)
+@@ -99,6 +103,11 @@ static int show_vfsmnt(struct seq_file *m, struct vfsmount *mnt)
  	struct super_block *sb = mnt_path.dentry->d_sb;
  	int err;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+	if (susfs_sus_mount(mnt, &p->root)) return 0;
++	if (susfs_sus_mount(mnt, &p->root))
++		return SEQ_SKIP;
 +#endif
 +
  	if (sb->s_op->show_devname) {
  		err = sb->s_op->show_devname(m, mnt_path.dentry);
  		if (err)
-@@ -135,8 +143,30 @@ static int show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
+@@ -135,8 +144,30 @@ static int show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
  	struct path mnt_path = { .dentry = mnt->mnt_root, .mnt = mnt };
  	int err;
  
@@ -555,18 +571,19 @@ index 6863773aff25..0df4740eca69 100644
  	if (sb->s_op->show_path) {
  		err = sb->s_op->show_path(m, mnt->mnt_root);
  		if (err)
-@@ -199,6 +229,10 @@ static int show_vfsstat(struct seq_file *m, struct vfsmount *mnt)
+@@ -199,6 +230,11 @@ static int show_vfsstat(struct seq_file *m, struct vfsmount *mnt)
  	struct super_block *sb = mnt_path.dentry->d_sb;
  	int err;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+	if (susfs_sus_mount(mnt, &p->root)) return 0;
++	if (susfs_sus_mount(mnt, &p->root))
++		return 0;
 +#endif
 +
  	/* device */
  	if (sb->s_op->show_devname) {
  		seq_puts(m, "device ");
-@@ -282,6 +316,12 @@ static int mounts_open_common(struct inode *inode, struct file *file,
+@@ -282,6 +318,12 @@ static int mounts_open_common(struct inode *inode, struct file *file,
  	p->show = show;
  	p->cached_event = ~0ULL;
  
@@ -579,7 +596,7 @@ index 6863773aff25..0df4740eca69 100644
  	return 0;
  
   err_put_path:
-@@ -296,6 +336,13 @@ static int mounts_release(struct inode *inode, struct file *file)
+@@ -296,6 +338,13 @@ static int mounts_release(struct inode *inode, struct file *file)
  {
  	struct seq_file *m = file->private_data;
  	struct proc_mounts *p = m->private;
@@ -658,19 +675,6 @@ index 068fdbcc9e26..ffb058f2b58f 100644
  	return copy_to_user(statbuf,&tmp,sizeof(tmp)) ? -EFAULT : 0;
  }
  
-diff --git a/include/linux/mount.h b/include/linux/mount.h
-index 5615a9eb59db..8c95f94b40a1 100644
---- a/include/linux/mount.h
-+++ b/include/linux/mount.h
-@@ -102,4 +102,8 @@ extern dev_t name_to_dev_t(const char *name);
- 
- extern unsigned int sysctl_mount_max;
- 
-+#ifdef CONFIG_KSU_SUSFS
-+extern int path_umount(struct path *path, int flags);
-+#endif
-+
- #endif /* _LINUX_MOUNT_H */
 diff --git a/kernel/sys.c b/kernel/sys.c
 index a7f823224546..893b17bf71c6 100644
 --- a/kernel/sys.c
@@ -697,7 +701,7 @@ index a7f823224546..893b17bf71c6 100644
  		return -EFAULT;
  
 diff --git a/mm/shmem.c b/mm/shmem.c
-index 9cb863a19d07..91774b37a6f1 100644
+index 9cb863a19d07..f91b4b4595ca 100644
 --- a/mm/shmem.c
 +++ b/mm/shmem.c
 @@ -33,6 +33,9 @@

@@ -134,7 +134,7 @@ index 66929756..b0a30f60 100644
 +
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 429ba330..a6579d6c 100644
+index 429ba330..2f1619e7 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -44,6 +44,10 @@
@@ -369,7 +369,7 @@ index 429ba330..a6579d6c 100644
  	// filter the mountpoint whose target is `/data/adb`
  	try_umount("/system", true, 0);
 diff --git a/kernel/ksu.c b/kernel/ksu.c
-index 3639edc2..50e750a4 100644
+index 3639edc2..4a9cfaba 100644
 --- a/kernel/ksu.c
 +++ b/kernel/ksu.c
 @@ -11,6 +11,10 @@

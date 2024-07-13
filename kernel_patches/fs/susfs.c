@@ -14,8 +14,9 @@
 #include <linux/version.h>
 #include <linux/fdtable.h>
 #include <linux/mnt_namespace.h>
-#include <linux/susfs.h>
+#include "internal.h"
 #include "mount.h"
+#include <linux/susfs.h>
 
 LIST_HEAD(LH_SUS_PATH);
 LIST_HEAD(LH_SUS_KSTAT_SPOOFER);
@@ -594,9 +595,9 @@ void susfs_add_mnt_id_recorder(struct mnt_namespace *ns) {
 	// if there exists the same pid already, increase the reference
 	list_for_each_entry_safe(recorder_cursor, recorder_temp, &LH_MOUNT_ID_RECORDER, list) {
 		if (recorder_cursor->pid == cur_pid) {
-			new_recorder_list->opened_count++;
+			recorder_cursor->opened_count++;
 			SUSFS_LOGI("mountinfo opened by the same pid: '%d', recorder_cursor->opened_count: '%d'\n",
-						cur_pid, new_recorder_list->opened_count);
+						cur_pid, recorder_cursor->opened_count);
 			return;
 		}
 	}
