@@ -1,6 +1,7 @@
 #ifndef KSU_SUSFS_H
 #define KSU_SUSFS_H
 
+#include <linux/version.h>
 #include <linux/types.h>
 #include <linux/utsname.h>
 #include <linux/mount.h>
@@ -182,7 +183,11 @@ int susfs_add_sus_memfd(struct st_susfs_sus_memfd* __user user_info);
 int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info);
 int susfs_set_uname(struct st_susfs_uname* __user user_info);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,19,0)
 int susfs_sus_path_by_path(struct path* file, int* errno_to_be_changed, int syscall_family);
+#else
+int susfs_sus_path_by_path(const struct path* file, int* errno_to_be_changed, int syscall_family);
+#endif
 int susfs_sus_path_by_filename(struct filename* name, int* errno_to_be_changed, int syscall_family);
 int susfs_sus_mount(struct vfsmount* mnt, struct path* root);
 int susfs_sus_ino_for_filldir64(unsigned long ino);

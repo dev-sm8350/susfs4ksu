@@ -705,7 +705,7 @@ index 9cb863a19d07..91774b37a6f1 100644
  #include <linux/uio.h>
  #include <linux/khugepaged.h>
 +#ifdef CONFIG_KSU_SUSFS
-+#include "linux/susfs.h"
++#include <linux/susfs.h>
 +#endif
  
  static struct vfsmount *shm_mnt;

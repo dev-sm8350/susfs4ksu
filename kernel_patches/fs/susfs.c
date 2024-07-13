@@ -1,3 +1,4 @@
+#include <linux/version.h>
 #include <linux/cred.h>
 #include <linux/fs.h>
 #include <linux/path.h>
@@ -441,7 +442,12 @@ int susfs_set_uname(struct st_susfs_uname* __user user_info) {
 	return 0;
 }
 
-int susfs_sus_path_by_path(struct path* file, int* errno_to_be_changed, int syscall_family) {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,19,0)
+int susfs_sus_path_by_path(struct path* file, int* errno_to_be_changed, int syscall_family)
+#else
+int susfs_sus_path_by_path(const struct path* file, int* errno_to_be_changed, int syscall_family)
+#endif
+{
 	int res = 0;
 	int status = 0;
 	char* path = NULL;

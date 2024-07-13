@@ -142,7 +142,7 @@ index 429ba330..a6579d6c 100644
  #include "kernel_compat.h"
  
 +#ifdef CONFIG_KSU_SUSFS
-+#include "linux/susfs.h"
++#include <linux/susfs.h>
 +#endif
 +
  static bool ksu_module_mounted = false;
@@ -377,7 +377,7 @@ index 3639edc2..50e750a4 100644
  #include "throne_tracker.h"
  
 +#ifdef CONFIG_KSU_SUSFS
-+#include "linux/susfs.h"
++#include <linux/susfs.h>
 +#endif
 +
  static struct workqueue_struct *ksu_workqueue;
