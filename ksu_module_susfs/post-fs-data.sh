@@ -87,6 +87,7 @@ PATHNAME_TO_SEARCH="/system/etc/hosts"
 TARGET_INO=$(cat /proc/${TARGET_PID}/maps | grep -E "${PATHNAME_TO_SEARCH}" | head -n1 | awk '{print $5}')
 if [ ! -z ${TARGET_INO} ]; then
     MODE=2
+    TARGET_ADDR_SIZE=4096
     TARGET_PGOFF=0
     TARGET_PROT="r--p"
     SPOOFED_PATHNAME=/syste/etc/my_hosts
@@ -95,7 +96,7 @@ if [ ! -z ${TARGET_INO} ]; then
     SPOOFED_PGOFF="default"
     SPOOFED_PROT="default"
     IS_ISOLATED_ENTRY=0
-    ${SUSFS_BIN} add_sus_maps_statically ${MODE} ${TARGET_INO} ${TARGET_PGOFF} ${TARGET_PROT} ${SPOOFED_PATHNAME} ${SPOOFED_INO} ${SPOOFED_DEV} ${SPOOFED_PGOFF} ${SPOOFED_PROT} ${IS_ISOLATED_ENTRY}
+    ${SUSFS_BIN} add_sus_maps_statically ${MODE} ${TARGET_INO} ${TARGET_ADDR_SIZE} ${TARGET_PGOFF} ${TARGET_PROT} ${SPOOFED_PATHNAME} ${SPOOFED_INO} ${SPOOFED_DEV} ${SPOOFED_PGOFF} ${SPOOFED_PROT} ${IS_ISOLATED_ENTRY}
 fi
 
 ## Mode 2, but entry is isolated, not consecutive ##
@@ -145,4 +146,9 @@ EOF
 #### To spoof the link path in /proc/self/fd/ ####
 cat <<EOF >/dev/null
 ${SUSFS_BIN} add_sus_proc_fd_link "/dev/binder" "/dev/null"
+EOF
+
+#### To prevent a memfd from being created by all process ####
+cat <<EOF >/dev/null
+${SUSFS_BIN} add_sus_memfd "memfd:/jit-cache"
 EOF
