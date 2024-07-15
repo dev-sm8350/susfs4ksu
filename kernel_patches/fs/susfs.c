@@ -52,7 +52,7 @@ int susfs_add_sus_path(struct st_susfs_sus_path* __user user_info) {
 	}
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_PATH, list) {
-		if (!strcmp(info.target_pathname, cursor->info.target_pathname)) {
+		if (unlikely(!strcmp(info.target_pathname, cursor->info.target_pathname))) {
 			SUSFS_LOGE("target_pathname: '%s' is already created in LH_SUS_PATH\n", info.target_pathname);
 			return 1;
 		}
@@ -86,7 +86,7 @@ int susfs_add_sus_mount(struct st_susfs_sus_mount* __user user_info) {
 	}
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_MOUNT, list) {
-		if (!strcmp(cursor->info.target_pathname, info.target_pathname)) {
+		if (unlikely(!strcmp(cursor->info.target_pathname, info.target_pathname))) {
 			SUSFS_LOGE("target_pathname: '%s' is already created in LH_SUS_MOUNT\n", cursor->info.target_pathname);
 			return 1;
 		}
@@ -179,7 +179,7 @@ int susfs_update_sus_kstat(struct st_susfs_sus_kstat* __user user_info) {
 	}
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_KSTAT_SPOOFER, list) {
-		if (!strcmp(info.target_pathname, cursor->info.target_pathname)) {
+		if (unlikely(!strcmp(info.target_pathname, cursor->info.target_pathname))) {
 			SUSFS_LOGI("updating target_ino from '%lu' to '%lu' for pathname: '%s' in LH_SUS_KSTAT_SPOOFER\n", cursor->info.target_ino, info.target_ino, info.target_pathname);
 			cursor->info.target_ino = info.target_ino;
 			return 0;
@@ -310,7 +310,7 @@ int susfs_update_sus_maps(struct st_susfs_sus_maps* __user user_info) {
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_MAPS_SPOOFER, list) {
 		if (cursor->info.is_statically == info.is_statically && !info.is_statically) {
-			if (!strcmp(info.target_pathname, cursor->info.target_pathname)) {
+			if (unlikely(!strcmp(info.target_pathname, cursor->info.target_pathname))) {
 				SUSFS_LOGI("updating target_ino from '%lu' to '%lu' for pathname: '%s' in LH_SUS_MAPS_SPOOFER\n", cursor->info.target_ino, info.target_ino, info.target_pathname);
 				cursor->info.target_ino = info.target_ino;
 				return 0;
@@ -333,7 +333,7 @@ int susfs_add_sus_proc_fd_link(struct st_susfs_sus_proc_fd_link* __user user_inf
 	}
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_PROC_FD_LINK, list) {
-		if (!strcmp(info.target_link_name, cursor->info.target_link_name)) {
+		if (unlikely(!strcmp(info.target_link_name, cursor->info.target_link_name))) {
 			SUSFS_LOGE("target_link_name: '%s' is already created in LH_SUS_PROC_FD_LINK\n", info.target_link_name);
 			return 1;
 		}
@@ -367,7 +367,7 @@ int susfs_add_sus_memfd(struct st_susfs_sus_memfd* __user user_info) {
 	}
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_MEMFD, list) {
-		if (!strcmp(info.target_pathname, cursor->info.target_pathname)) {
+		if (unlikely(!strcmp(info.target_pathname, cursor->info.target_pathname))) {
 			SUSFS_LOGE("target_pathname: '%s' is already created in LH_SUS_MEMFD\n", info.target_pathname);
 			return 1;
 		}
@@ -401,7 +401,7 @@ int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info) {
 	}
 
 	list_for_each_entry_safe(cursor, temp, &LH_TRY_UMOUNT_PATH, list) {
-		if (!strcmp(info.target_pathname, cursor->info.target_pathname)) {
+		if (unlikely(!strcmp(info.target_pathname, cursor->info.target_pathname))) {
 			SUSFS_LOGE("target_pathname: '%s' is already created in LH_TRY_UMOUNT_PATH\n", info.target_pathname);
 			return 1;
 		}
@@ -478,7 +478,7 @@ int susfs_sus_path_by_path(const struct path* file, int* errno_to_be_changed, in
 	path[(size_t) res] = '\0';
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_PATH, list) {
-		if (!strcmp(cursor->info.target_pathname, path)) {
+		if (unlikely(!strcmp(cursor->info.target_pathname, path))) {
 			SUSFS_LOGI("hiding target_pathname: '%s', target_ino: '%lu'\n", cursor->info.target_pathname, cursor->info.target_ino);
 			if (errno_to_be_changed != NULL) {
 				susfs_change_error_no_by_pathname(path, errno_to_be_changed, syscall_family);
@@ -560,7 +560,7 @@ int susfs_sus_mount(struct vfsmount* mnt, struct path* root) {
 	path[(size_t) res] = '\0';
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_MOUNT, list) {
-		if (!strcmp(path, cursor->info.target_pathname)) {
+		if (unlikely(!strcmp(path, cursor->info.target_pathname))) {
 			SUSFS_LOGI("hide target_pathname '%s' from mounts\n",
 						cursor->info.target_pathname);
 			status = 1;
@@ -607,14 +607,19 @@ void susfs_add_mnt_id_recorder(struct mnt_namespace *ns) {
 		SUSFS_LOGE("no enough memory\n");
 		return;
 	}
-
 	new_recorder_list->info.count = 0;
+
+	path = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!path) {
+		SUSFS_LOGE("no enough memory\n");
+		goto out_free_new_recorder_list;
+	}
 
 	list_for_each_entry_safe(mnt_cursor, mnt_temp, &ns->list, mnt_list) {
 		// Avoid overflow
 		if (count == SUSFS_MAX_SUS_MNTS) {
 			SUSFS_LOGE("LH_MOUNT_ID_RECORDER has reached the list limit of %d\n", SUSFS_MAX_SUS_MNTS);
-			goto out_free_new_recorder_list;
+			goto out_free_path;
 		}
 		// if this is the first mount entry
 		if (count == 0) {
@@ -630,13 +635,6 @@ void susfs_add_mnt_id_recorder(struct mnt_namespace *ns) {
 		mnt_path.mnt = &mnt_cursor->mnt;
 		mnt_path.dentry = mnt_cursor->mnt.mnt_root;
 
-		path = kmalloc(PAGE_SIZE, GFP_KERNEL);
-		if (!path) {
-			SUSFS_LOGE("no enough memory\n");
-			dput(mnt_cursor->mnt.mnt_root);
-			mntput(&mnt_cursor->mnt);
-			goto out_free_new_recorder_list;
-		}
 		p_path = d_path(&mnt_path, path, PAGE_SIZE);
 		if (IS_ERR(p_path)) {
 			SUSFS_LOGE("d_path() failed\n");
@@ -652,7 +650,7 @@ void susfs_add_mnt_id_recorder(struct mnt_namespace *ns) {
 		// check if the mount is suspicious
 		list_for_each_entry_safe(sus_mount_cursor, sus_mount_temp, &LH_SUS_MOUNT, list) {
 			// skip adding this mount to recorder list if it is suspicious
-			if (!strcmp(path, sus_mount_cursor->info.target_pathname)) {
+			if (unlikely(!strcmp(path, sus_mount_cursor->info.target_pathname))) {
 				SUSFS_LOGI("skip adding target_mnt_id: '%d', target_pathname: '%s' to LH_MOUNT_ID_RECORDER\n",
 							mnt_cursor->mnt_id, sus_mount_cursor->info.target_pathname);
 				goto out_continue;
@@ -673,13 +671,13 @@ void susfs_add_mnt_id_recorder(struct mnt_namespace *ns) {
 		}
 		new_recorder_list->info.count = ++count;
 out_continue:
-		kfree(path);
 		dput(mnt_cursor->mnt.mnt_root);
 		mntput(&mnt_cursor->mnt);
 	}
 
 	new_recorder_list->pid = cur_pid;
 	new_recorder_list->opened_count = 1;
+	kfree(path);
 
 	/*
 	for (i = 0; i<new_recorder_list->info.count; i++) {
@@ -696,6 +694,8 @@ out_continue:
 	spin_unlock(&susfs_mnt_id_recorder_spin_lock);
 	SUSFS_LOGI("recording pid '%u' to LH_MOUNT_ID_RECORDER\n", new_recorder_list->pid);
 	return;
+out_free_path:
+	kfree(path);
 out_free_new_recorder_list:
 	kfree(new_recorder_list);
 }
@@ -1135,7 +1135,7 @@ int susfs_sus_proc_fd_link(char *pathname, int len) {
 	struct st_susfs_sus_proc_fd_link_list *cursor, *temp;
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_PROC_FD_LINK, list) {
-		if (!strcmp(pathname, cursor->info.target_link_name)) {
+		if (unlikely(!strcmp(pathname, cursor->info.target_link_name))) {
 			SUSFS_LOGI("[uid:%u] spoofing fd link: '%s' -> '%s'\n", current_uid().val, pathname, cursor->info.spoofed_link_name);
 			memset(pathname, 0, len);
 			strcpy(pathname, cursor->info.spoofed_link_name);
@@ -1153,7 +1153,7 @@ int susfs_sus_memfd(char *memfd_name) {
 	struct st_susfs_sus_memfd_list *cursor, *temp;
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_MEMFD, list) {
-		if (!strcmp(memfd_name, cursor->info.target_pathname)) {
+		if (unlikely(!strcmp(memfd_name, cursor->info.target_pathname))) {
 			SUSFS_LOGI("prevent memfd_name: '%s' from being created\n", memfd_name);
 			return 1;
 		}
@@ -1230,11 +1230,11 @@ void susfs_spoof_uname(struct new_utsname* tmp) {
 		memset(tmp->nodename, 0, __NEW_UTS_LEN);
 		strncpy(tmp->nodename, my_uname.nodename, __NEW_UTS_LEN);
 	}
-	if (strcmp(my_uname.release, "default")) {
+	if (likely(strcmp(my_uname.release, "default"))) {
 		memset(tmp->release, 0, __NEW_UTS_LEN);
 		strncpy(tmp->release, my_uname.release, __NEW_UTS_LEN);
 	}
-	if (strcmp(my_uname.version, "default")) {
+	if (likely(strcmp(my_uname.version, "default"))) {
 		memset(tmp->version, 0, __NEW_UTS_LEN);
 		strncpy(tmp->version, my_uname.version, __NEW_UTS_LEN);
 	}
