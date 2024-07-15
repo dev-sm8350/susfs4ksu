@@ -301,7 +301,7 @@ static void print_help(void) {
  ** Main Function **
  *******************/
 int main(int argc, char *argv[]) {
-	int error;
+	int error = 1;
 
 	pre_check();
 	// add_sus_path
