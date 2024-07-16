@@ -667,7 +667,7 @@ void susfs_add_mnt_id_recorder(struct mnt_namespace *ns) {
 		}
 		// if no match from above, use the original parent mnt_id
 		if (new_recorder_list->info.spoofed_parent_mnt_id[count] == 0) {
-			new_recorder_list->info.spoofed_parent_mnt_id[count] == mnt_cursor->mnt_parent->mnt_id;
+			new_recorder_list->info.spoofed_parent_mnt_id[count] = mnt_cursor->mnt_parent->mnt_id;
 		}
 		new_recorder_list->info.count = ++count;
 out_continue:
