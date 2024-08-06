@@ -91,13 +91,14 @@ index 67f177f4..27cc7b1e 100644
 +
  endmenu
 diff --git a/kernel/Makefile b/kernel/Makefile
-index 66929756..b0a30f60 100644
+index 66929756..d25f36c7 100644
 --- a/kernel/Makefile
 +++ b/kernel/Makefile
-@@ -66,4 +66,38 @@ endif
+@@ -66,4 +66,43 @@ endif
  ccflags-y += -Wno-implicit-function-declaration -Wno-strict-prototypes -Wno-int-conversion -Wno-gcc-compat
  ccflags-y += -Wno-declaration-after-statement -Wno-unused-function
  
++ifeq ($(shell test -e $(srctree)/fs/susfs.c; echo $$?),0)
 +ifdef KSU_SUSFS
 +ccflags-y += -DKSU_SUSFS
 +endif
@@ -131,10 +132,14 @@ index 66929756..b0a30f60 100644
 +ifdef KSU_SUSFS_ENABLE_LOG
 +ccflags-y += -DKSU_SUSFS_ENABLE_LOG
 +endif
++else
++$(info -- You have not integrate susfs in your kernel.)
++$(info -- Read: https://gitlab.com/simonpunk/susfs4ksu)
++endif
 +
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 429ba330..2f1619e7 100644
+index 429ba330..f016db75 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -44,6 +44,10 @@
@@ -157,11 +162,11 @@ index 429ba330..2f1619e7 100644
 +		int error = 0;
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +		if (arg2 == CMD_SUSFS_ADD_SUS_PATH) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_path))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_path))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_PATH -> arg3 is not accessible\n");
 +				return 0;
 +			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_PATH -> arg5 is not accessible\n");
 +				return 0;
 +			}
@@ -173,11 +178,11 @@ index 429ba330..2f1619e7 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 +		if (arg2 == CMD_SUSFS_ADD_SUS_MOUNT) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_mount))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_mount))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MOUNT -> arg3 is not accessible\n");
 +				return 0;
 +			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MOUNT -> arg5 is not accessible\n");
 +				return 0;
 +			}
@@ -189,11 +194,11 @@ index 429ba330..2f1619e7 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 +#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 +		if (arg2 == CMD_SUSFS_ADD_SUS_KSTAT) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT -> arg3 is not accessible\n");
 +				return 0;
 +			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT -> arg5 is not accessible\n");
 +				return 0;
 +			}
@@ -203,11 +208,11 @@ index 429ba330..2f1619e7 100644
 +			return 0;
 +		}
 +		if (arg2 == CMD_SUSFS_UPDATE_SUS_KSTAT) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
 +				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_KSTAT -> arg3 is not accessible\n");
 +				return 0;
 +			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
 +				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_KSTAT -> arg5 is not accessible\n");
 +				return 0;
 +			}
@@ -217,11 +222,11 @@ index 429ba330..2f1619e7 100644
 +			return 0;
 +		}
 +		if (arg2 == CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY -> arg3 is not accessible\n");
 +				return 0;
 +			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY -> arg5 is not accessible\n");
 +				return 0;
 +			}
@@ -233,11 +238,11 @@ index 429ba330..2f1619e7 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 +#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
 +		if (arg2 == CMD_SUSFS_ADD_SUS_MAPS) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS -> arg3 is not accessible\n");
 +				return 0;
 +			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS -> arg5 is not accessible\n");
 +				return 0;
 +			}
@@ -247,11 +252,11 @@ index 429ba330..2f1619e7 100644
 +			return 0;
 +		}
 +		if (arg2 == CMD_SUSFS_UPDATE_SUS_MAPS) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
 +				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_MAPS -> arg3 is not accessible\n");
 +				return 0;
 +			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
 +				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_MAPS -> arg5 is not accessible\n");
 +				return 0;
 +			}
@@ -261,11 +266,11 @@ index 429ba330..2f1619e7 100644
 +			return 0;
 +		}
 +		if (arg2 == CMD_SUSFS_ADD_SUS_MAPS_STATICALLY) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS_STATICALLY -> arg3 is not accessible\n");
 +				return 0;
 +			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS_STATICALLY -> arg5 is not accessible\n");
 +				return 0;
 +			}
@@ -277,11 +282,11 @@ index 429ba330..2f1619e7 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
 +#ifdef CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK
 +		if (arg2 == CMD_SUSFS_ADD_SUS_PROC_FD_LINK) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_proc_fd_link))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_proc_fd_link))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_PROC_FD_LINK -> arg3 is not accessible\n");
 +				return 0;
 +			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_PROC_FD_LINK -> arg5 is not accessible\n");
 +				return 0;
 +			}
@@ -293,11 +298,11 @@ index 429ba330..2f1619e7 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK
 +#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
 +		if (arg2 == CMD_SUSFS_ADD_SUS_MEMFD) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_sus_memfd))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_memfd))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MEMFD -> arg3 is not accessible\n");
 +				return 0;
 +			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MEMFD -> arg5 is not accessible\n");
 +				return 0;
 +			}
@@ -309,11 +314,11 @@ index 429ba330..2f1619e7 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
 +#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 +		if (arg2 == CMD_SUSFS_ADD_TRY_UMOUNT) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_try_umount))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_try_umount))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_TRY_UMOUNT -> arg3 is not accessible\n");
 +				return 0;
 +			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_TRY_UMOUNT -> arg5 is not accessible\n");
 +				return 0;
 +			}
@@ -325,11 +330,11 @@ index 429ba330..2f1619e7 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 +#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
 +		if (arg2 == CMD_SUSFS_SET_UNAME) {
-+			if (!access_ok(VERIFY_READ, (void __user*)arg3, sizeof(struct st_susfs_uname))) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_uname))) {
 +				pr_err("susfs: CMD_SUSFS_SET_UNAME -> arg3 is not accessible\n");
 +				return 0;
 +			}
-+			if (!access_ok(VERIFY_READ, (void __user*)arg5, sizeof(error))) {
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
 +				pr_err("susfs: CMD_SUSFS_SET_UNAME -> arg5 is not accessible\n");
 +				return 0;
 +			}
@@ -368,6 +373,39 @@ index 429ba330..2f1619e7 100644
  	// fixme: use `collect_mounts` and `iterate_mount` to iterate all mountpoint and
  	// filter the mountpoint whose target is `/data/adb`
  	try_umount("/system", true, 0);
+diff --git a/kernel/kernel_compat.c b/kernel/kernel_compat.c
+index b242bc63..0ec3df62 100644
+--- a/kernel/kernel_compat.c
++++ b/kernel/kernel_compat.c
+@@ -77,6 +77,16 @@ void ksu_android_ns_fs_check()
+ 	task_unlock(current);
+ }
+ 
++int ksu_access_ok(const void *addr, unsigned long size) {
++#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
++    /* For kernels before 5.0.0, pass the type argument to access_ok. */
++    return access_ok(VERIFY_READ, addr, size);
++#else
++    /* For kernels 5.0.0 and later, ignore the type argument. */
++    return access_ok(addr, size);
++#endif
++}
++
+ struct file *ksu_filp_open_compat(const char *filename, int flags, umode_t mode)
+ {
+ #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) || defined(CONFIG_IS_HW_HISI)
+diff --git a/kernel/kernel_compat.h b/kernel/kernel_compat.h
+index ba998185..34050e73 100644
+--- a/kernel/kernel_compat.h
++++ b/kernel/kernel_compat.h
+@@ -29,6 +29,7 @@ extern struct key *init_session_keyring;
+ #endif
+ 
+ extern void ksu_android_ns_fs_check();
++extern int ksu_access_ok(const void *addr, unsigned long size);
+ extern struct file *ksu_filp_open_compat(const char *filename, int flags,
+ 					 umode_t mode);
+ extern ssize_t ksu_kernel_read_compat(struct file *p, void *buf, size_t count,
 diff --git a/kernel/ksu.c b/kernel/ksu.c
 index 3639edc2..4a9cfaba 100644
 --- a/kernel/ksu.c
