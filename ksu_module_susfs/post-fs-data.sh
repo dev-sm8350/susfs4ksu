@@ -33,7 +33,7 @@ EOF
 
 #### Spoof the uname ####
 cat <<EOF >/dev/null
-${SUSFS_BIN} set_uname 'default' 'default' '4.9.337-g3291538446b7' 'default' 'default'
+${SUSFS_BIN} set_uname 'default' 'default' '4.9.337-g3291538446b7' 'default' 'default' 'default'
 EOF
 
 #### Enable / Disable susfs logging to kernel, 0 -> disable, 1 -> enable ####
