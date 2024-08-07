@@ -170,6 +170,7 @@ struct st_susfs_uname {
 	char        release[__NEW_UTS_LEN+1];
 	char        version[__NEW_UTS_LEN+1];
 	char        machine[__NEW_UTS_LEN+1];
+	char        domainname[__NEW_UTS_LEN + 1];
 };
 
 int susfs_add_sus_path(struct st_susfs_sus_path* __user user_info);
@@ -202,7 +203,7 @@ int susfs_sus_proc_fd_link(char *pathname, int len);
 int susfs_is_sus_proc_fd_link_list_empty(void);
 int susfs_sus_memfd(char *memfd_name);
 void susfs_try_umount(uid_t target_uid);
-void susfs_spoof_uname(struct new_utsname* tmp);
+int susfs_spoof_uname(struct new_utsname* tmp);
 void susfs_add_mnt_id_recorder(struct mnt_namespace *ns);
 int susfs_get_fake_mnt_id(int mnt_id, int *out_mnt_id, int *out_parent_mnt_id);
 void susfs_remove_mnt_id_recorder(void);

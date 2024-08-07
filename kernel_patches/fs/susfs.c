@@ -31,6 +31,7 @@ struct st_susfs_uname my_uname;
 
 spinlock_t susfs_spin_lock;
 spinlock_t susfs_mnt_id_recorder_spin_lock;
+spinlock_t susfs_uname_spin_lock;
 
 bool is_log_enable = true;
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
@@ -431,15 +432,40 @@ int susfs_set_uname(struct st_susfs_uname* __user user_info) {
 		return 1;
 	}
 
-	spin_lock(&susfs_spin_lock);
-	strncpy(my_uname.sysname, info.sysname, __NEW_UTS_LEN);
-	strncpy(my_uname.nodename, info.nodename, __NEW_UTS_LEN);
-	strncpy(my_uname.release, info.release, __NEW_UTS_LEN);
-	strncpy(my_uname.version, info.version, __NEW_UTS_LEN);
-	strncpy(my_uname.machine, info.machine, __NEW_UTS_LEN);
-	SUSFS_LOGI("setting sysname: '%s', nodename: '%s', release: '%s', version: '%s', machine: '%s'\n",
-				my_uname.sysname, my_uname.nodename, my_uname.release, my_uname.version, my_uname.machine);
-	spin_unlock(&susfs_spin_lock);
+	spin_lock(&susfs_uname_spin_lock);
+	if (!strcmp(info.sysname, "default")) {
+		strncpy(my_uname.sysname, utsname()->sysname, __NEW_UTS_LEN);
+	} else {
+		strncpy(my_uname.sysname, info.sysname, __NEW_UTS_LEN);
+	}
+	if (!strcmp(info.nodename, "default")) {
+		strncpy(my_uname.nodename, utsname()->nodename, __NEW_UTS_LEN);
+	} else {
+		strncpy(my_uname.nodename, info.nodename, __NEW_UTS_LEN);
+	}
+	if (!strcmp(info.release, "default")) {
+		strncpy(my_uname.release, utsname()->release, __NEW_UTS_LEN);
+	} else {
+		strncpy(my_uname.release, info.release, __NEW_UTS_LEN);
+	}
+	if (!strcmp(info.version, "default")) {
+		strncpy(my_uname.version, utsname()->version, __NEW_UTS_LEN);
+	} else {
+		strncpy(my_uname.version, info.version, __NEW_UTS_LEN);
+	}
+	if (!strcmp(info.machine, "default")) {
+		strncpy(my_uname.machine, utsname()->machine, __NEW_UTS_LEN);
+	} else {
+		strncpy(my_uname.machine, info.machine, __NEW_UTS_LEN);
+	}
+	if (!strcmp(info.domainname, "default")) {
+		strncpy(my_uname.domainname, utsname()->domainname, __NEW_UTS_LEN);
+	} else {
+		strncpy(my_uname.domainname, info.domainname, __NEW_UTS_LEN);
+	}
+	spin_unlock(&susfs_uname_spin_lock);
+	SUSFS_LOGI("setting sysname: '%s', nodename: '%s', release: '%s', version: '%s', machine: '%s', domainname: '%s'\n",
+				my_uname.sysname, my_uname.nodename, my_uname.release, my_uname.version, my_uname.machine, my_uname.domainname);
 	return 0;
 }
 
@@ -1221,27 +1247,11 @@ void susfs_try_umount(uid_t target_uid) {
 	}
 }
 
-void susfs_spoof_uname(struct new_utsname* tmp) {
-	if (strcmp(my_uname.sysname, "default")) {
-		memset(tmp->sysname, 0, __NEW_UTS_LEN);
-		strncpy(tmp->sysname, my_uname.sysname, __NEW_UTS_LEN);
-	}
-	if (strcmp(my_uname.nodename, "default")) {
-		memset(tmp->nodename, 0, __NEW_UTS_LEN);
-		strncpy(tmp->nodename, my_uname.nodename, __NEW_UTS_LEN);
-	}
-	if (likely(strcmp(my_uname.release, "default"))) {
-		memset(tmp->release, 0, __NEW_UTS_LEN);
-		strncpy(tmp->release, my_uname.release, __NEW_UTS_LEN);
-	}
-	if (likely(strcmp(my_uname.version, "default"))) {
-		memset(tmp->version, 0, __NEW_UTS_LEN);
-		strncpy(tmp->version, my_uname.version, __NEW_UTS_LEN);
-	}
-	if (strcmp(my_uname.machine, "default")) {
-		memset(tmp->machine, 0, __NEW_UTS_LEN);
-		strncpy(tmp->machine, my_uname.machine, __NEW_UTS_LEN);
-	}
+int susfs_spoof_uname(struct new_utsname* tmp) {
+	if (unlikely(my_uname.sysname[0] == '\0' || spin_is_locked(&susfs_uname_spin_lock)))
+		return 1;
+	memcpy(tmp, &my_uname, sizeof(my_uname));
+	return 0;
 }
 
 void susfs_set_log(bool enabled) {
@@ -1409,17 +1419,13 @@ static int susfs_get_cur_fd_counts() {
 */
 
 static void susfs_my_uname_init(void) {
-	memset(&my_uname, 0, sizeof(struct st_susfs_uname));
-	strncpy(my_uname.sysname, "default", __NEW_UTS_LEN);
-	strncpy(my_uname.nodename, "default", __NEW_UTS_LEN);
-	strncpy(my_uname.release, "default", __NEW_UTS_LEN);
-	strncpy(my_uname.version, "default", __NEW_UTS_LEN);
-	strncpy(my_uname.machine, "default", __NEW_UTS_LEN);
+	memset(&my_uname, 0, sizeof(my_uname));
 }
 
 void __init susfs_init(void) {
 	spin_lock_init(&susfs_spin_lock);
 	spin_lock_init(&susfs_mnt_id_recorder_spin_lock);
+	spin_lock_init(&susfs_uname_spin_lock);
 	susfs_my_uname_init();
 }
 

@@ -132,6 +132,7 @@ struct st_susfs_uname {
 	char                    release[__NEW_UTS_LEN+1];
 	char                    version[__NEW_UTS_LEN+1];
 	char                    machine[__NEW_UTS_LEN+1];
+	char                    domainname[__NEW_UTS_LEN + 1];
 };
 
 /**********************
@@ -288,9 +289,9 @@ static void print_help(void) {
 	log("         |--> NOTE: Remeber to prepend 'memfd:' to <memfd_name>\n");
 	log("         |--> e.g., add_sus_memfd 'memfd:/jit-cache'\n");
 	log("\n");
-	log("        set_uname <sysname> <nodename> <release> <version> <machine>\n");
+	log("        set_uname <sysname> <nodename> <release> <version> <machine> <domainname>\n");
 	log("         |--> Spoof uname for all processes, set string to 'default' to imply the function to use original string\n");
-	log("         |--> e.g., set_uname 'default' 'default' '4.9.337-g3291538446b7' 'default' 'default' \n");
+	log("         |--> e.g., set_uname 'default' 'default' '4.9.337-g3291538446b7' 'default' 'default' 'default'\n");
 	log("\n");
 	log("        enable_log <0|1>\n");
 	log("         |--> 0: disable susfs log in kernel, 1: enable susfs log in kernel\n");
@@ -859,7 +860,7 @@ int main(int argc, char *argv[]) {
 		prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_MEMFD, &info, NULL, &error);
 		return error;
 	// set_uname
-	} else if (argc == 7 && !strcmp(argv[1], "set_uname")) {
+	} else if (argc == 8 && !strcmp(argv[1], "set_uname")) {
 		struct st_susfs_uname info;
 		
 		strncpy(info.sysname, argv[2], __NEW_UTS_LEN);
@@ -867,6 +868,7 @@ int main(int argc, char *argv[]) {
 		strncpy(info.release, argv[4], __NEW_UTS_LEN);
 		strncpy(info.version, argv[5], __NEW_UTS_LEN);
 		strncpy(info.machine, argv[6], __NEW_UTS_LEN);
+		strncpy(info.domainname, argv[7], __NEW_UTS_LEN);
 		prctl(KERNEL_SU_OPTION, CMD_SUSFS_SET_UNAME, &info, NULL, &error);
 		return error;
 	// enable_log

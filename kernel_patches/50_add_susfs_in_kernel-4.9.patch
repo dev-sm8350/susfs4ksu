@@ -1,5 +1,5 @@
 diff --git a/fs/Makefile b/fs/Makefile
-index 0e97f4b85bee..5ef37c17ee91 100644
+index 0e97f4b85bee4..5ef37c17ee915 100644
 --- a/fs/Makefile
 +++ b/fs/Makefile
 @@ -13,6 +13,8 @@ obj-y :=	open.o read_write.o file_table.o super.o \
@@ -12,7 +12,7 @@ index 0e97f4b85bee..5ef37c17ee91 100644
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
  else
 diff --git a/fs/internal.h b/fs/internal.h
-index 3e58863de514..4fe0133cc4f6 100644
+index 3e58863de5144..4fe0133cc4f6e 100644
 --- a/fs/internal.h
 +++ b/fs/internal.h
 @@ -74,6 +74,10 @@ extern int __mnt_want_write_file(struct file *);
@@ -27,7 +27,7 @@ index 3e58863de514..4fe0133cc4f6 100644
   * fs_struct.c
   */
 diff --git a/fs/namei.c b/fs/namei.c
-index 0cbf8f5a92f4..2ff97f64a110 100644
+index 0cbf8f5a92f44..2ff97f64a1100 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
 @@ -42,6 +42,10 @@
@@ -215,7 +215,7 @@ index 0cbf8f5a92f4..2ff97f64a110 100644
  		return -EINVAL;
  
 diff --git a/fs/open.c b/fs/open.c
-index f2b82c462fbb..8c73e9371764 100644
+index f2b82c462fbba..8c73e93717648 100644
 --- a/fs/open.c
 +++ b/fs/open.c
 @@ -34,6 +34,10 @@
@@ -291,7 +291,7 @@ index f2b82c462fbb..8c73e9371764 100644
  	error = user_path_at(AT_FDCWD, filename, lookup_flags, &path);
  	if (error)
 diff --git a/fs/proc/base.c b/fs/proc/base.c
-index b6959f6dae5b..9665ef85f778 100644
+index b6959f6dae5b3..9665ef85f7780 100644
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
 @@ -97,6 +97,10 @@
@@ -459,7 +459,7 @@ index b6959f6dae5b..9665ef85f778 100644
  	}
  	if (fa)
 diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
-index f4a77817ad74..c2b36c3b317a 100644
+index f4a77817ad74c..c2b36c3b317a1 100644
 --- a/fs/proc/task_mmu.c
 +++ b/fs/proc/task_mmu.c
 @@ -22,6 +22,10 @@
@@ -514,7 +514,7 @@ index f4a77817ad74..c2b36c3b317a 100644
  	 * Print the dentry name for named mappings, and a
  	 * special [heap] marker for the heap:
 diff --git a/fs/proc_namespace.c b/fs/proc_namespace.c
-index 6863773aff25..493de1b4e7de 100644
+index 6863773aff252..493de1b4e7de9 100644
 --- a/fs/proc_namespace.c
 +++ b/fs/proc_namespace.c
 @@ -15,6 +15,10 @@
@@ -611,7 +611,7 @@ index 6863773aff25..493de1b4e7de 100644
  	put_mnt_ns(p->ns);
  	return seq_release_private(inode, file);
 diff --git a/fs/readdir.c b/fs/readdir.c
-index 1059f2a9be0b..41e5677c178d 100644
+index 1059f2a9be0b2..41e5677c178d7 100644
 --- a/fs/readdir.c
 +++ b/fs/readdir.c
 @@ -21,6 +21,10 @@
@@ -638,7 +638,7 @@ index 1059f2a9be0b..41e5677c178d 100644
  			goto efault;
  	}
 diff --git a/fs/stat.c b/fs/stat.c
-index 068fdbcc9e26..ffb058f2b58f 100644
+index 068fdbcc9e26a..ffb058f2b58f4 100644
 --- a/fs/stat.c
 +++ b/fs/stat.c
 @@ -18,6 +18,10 @@
@@ -676,7 +676,7 @@ index 068fdbcc9e26..ffb058f2b58f 100644
  }
  
 diff --git a/kernel/sys.c b/kernel/sys.c
-index a7f823224546..893b17bf71c6 100644
+index a7f8232245463..b4ef430350a98 100644
 --- a/kernel/sys.c
 +++ b/kernel/sys.c
 @@ -66,6 +66,10 @@
@@ -690,18 +690,23 @@ index a7f823224546..893b17bf71c6 100644
  #ifndef SET_UNALIGN_CTL
  # define SET_UNALIGN_CTL(a, b)	(-EINVAL)
  #endif
-@@ -1150,6 +1154,9 @@ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
+@@ -1148,7 +1152,14 @@ SYSCALL_DEFINE1(newuname, struct new_utsname __user *, name)
+ 	struct new_utsname tmp;
+ 
  	down_read(&uts_sem);
- 	memcpy(&tmp, utsname(), sizeof(tmp));
- 	up_read(&uts_sem);
 +#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
-+	susfs_spoof_uname(&tmp);
++	if (likely(!susfs_spoof_uname(&tmp)))
++		goto bypass_orig_flow;
 +#endif
+ 	memcpy(&tmp, utsname(), sizeof(tmp));
++#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
++bypass_orig_flow:
++#endif
+ 	up_read(&uts_sem);
  	if (copy_to_user(name, &tmp, sizeof(tmp)))
  		return -EFAULT;
- 
 diff --git a/mm/shmem.c b/mm/shmem.c
-index 9cb863a19d07..f91b4b4595ca 100644
+index 9cb863a19d074..f91b4b4595ca2 100644
 --- a/mm/shmem.c
 +++ b/mm/shmem.c
 @@ -33,6 +33,9 @@
