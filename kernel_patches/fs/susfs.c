@@ -25,15 +25,13 @@ LIST_HEAD(LH_SUS_MAPS_SPOOFER);
 LIST_HEAD(LH_SUS_PROC_FD_LINK);
 LIST_HEAD(LH_SUS_MEMFD);
 LIST_HEAD(LH_TRY_UMOUNT_PATH);
-LIST_HEAD(LH_MOUNT_ID_RECORDER);
 
 struct st_susfs_uname my_uname;
 
 spinlock_t susfs_spin_lock;
-spinlock_t susfs_mnt_id_recorder_spin_lock;
 spinlock_t susfs_uname_spin_lock;
 
-bool is_log_enable = true;
+bool is_log_enable __read_mostly = true;
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
 #define SUSFS_LOGI(fmt, ...) if (is_log_enable) pr_info("susfs:[%u][%u][%s] " fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
 #define SUSFS_LOGE(fmt, ...) if (is_log_enable) pr_err("susfs:[%u][%u][%s]" fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
@@ -556,106 +554,39 @@ int susfs_sus_ino_for_filldir64(unsigned long ino) {
 	return 0;
 }
 
-int susfs_sus_mount(struct vfsmount* mnt, struct path* root) {
-	struct st_susfs_sus_mount_list *cursor, *temp;
-	char* path = NULL;
-	char* ptr = NULL;
-	char* end = NULL;
-	int res = 0;
-	int status = 0;
-	struct path mnt_path = {
-		.dentry = mnt->mnt_root,
-		.mnt = mnt
-	};
-
-	path = kmalloc(PAGE_SIZE, GFP_KERNEL);
-	if (path == NULL) {
-		SUSFS_LOGE("no enough memory\n");
-		return 0;
-	}
-	ptr = __d_path(&mnt_path, root, path, PAGE_SIZE);
-	if (IS_ERR(ptr)) {
-		SUSFS_LOGE("__d_path() failed\n");
-		goto out_free_path;
-	}
-	end = mangle_path(path, ptr, " \t\n\\");
-	if (!end) {
-		goto out_free_path;
-	}
-	res = end - path;
-	path[(size_t) res] = '\0';
-
-	list_for_each_entry_safe(cursor, temp, &LH_SUS_MOUNT, list) {
-		if (unlikely(!strcmp(path, cursor->info.target_pathname))) {
-			SUSFS_LOGI("hide target_pathname '%s' from mounts\n",
-						cursor->info.target_pathname);
-			status = 1;
-			goto out_free_path;
-		}
-	}
-out_free_path:
-	kfree(path);
-	return status;
-}
-
-/*  This function records the original mnt_id and parent_mnt_id of all mounts of
- *  current process and save to a list of corresponding spoofed mnt_id and parent_mnt_id
- *  once process with uid >= 10000 opens /proc/self/mountinfo
+/* This implementation may not work for newer kernel like 5.4+,
+ * looks like it is caused by mount namespace iteration, need some more investigations.
+ * Don't enable this feature if it causes bootloop or stucking at boot logo for you,
+ * or use the patch version 1.3.8 instead.
  */
-void susfs_add_mnt_id_recorder(struct mnt_namespace *ns) {
-	struct st_susfs_mnt_id_recorder_list *new_recorder_list = NULL;
-	struct st_susfs_mnt_id_recorder_list *recorder_cursor, *recorder_temp;
+void susfs_sus_mount(struct mnt_namespace *ns) {
 	struct st_susfs_sus_mount_list *sus_mount_cursor, *sus_mount_temp;
-	struct mount *mnt_cursor, *mnt_temp; 
+	struct mount *mnt_cursor, *mnt_temp;
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
+	struct mount *first_mnt_entry;
+	int first_entry_mnt_id = 0;
+#endif
 	struct path mnt_path;
 	char *path = NULL;
 	char *p_path = NULL;
 	char *end = NULL;
 	int res = 0;
-	int cur_pid = current->pid;
-	int i = 0, count = 0;
 
 	if (!ns)
 		return;
-
-	// if there exists the same pid already, increase the reference
-	list_for_each_entry_safe(recorder_cursor, recorder_temp, &LH_MOUNT_ID_RECORDER, list) {
-		if (recorder_cursor->pid == cur_pid) {
-			recorder_cursor->opened_count++;
-			SUSFS_LOGI("mountinfo opened by the same pid: '%d', recorder_cursor->opened_count: '%d'\n",
-						cur_pid, recorder_cursor->opened_count);
-			return;
-		}
-	}
-
-	new_recorder_list = kzalloc(sizeof(struct st_susfs_mnt_id_recorder_list), GFP_KERNEL);
-	if (!new_recorder_list) {
-		SUSFS_LOGE("no enough memory\n");
-		return;
-	}
-	new_recorder_list->info.count = 0;
+	get_mnt_ns(ns);
 
 	path = kmalloc(PAGE_SIZE, GFP_KERNEL);
 	if (!path) {
 		SUSFS_LOGE("no enough memory\n");
-		goto out_free_new_recorder_list;
+		goto out_put_mnt_ns;
 	}
 
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
+	first_mnt_entry = list_first_entry(&ns->list, struct mount, mnt_list);
+	first_entry_mnt_id = first_mnt_entry->mnt_id;
+#endif
 	list_for_each_entry_safe(mnt_cursor, mnt_temp, &ns->list, mnt_list) {
-		// Avoid overflow
-		if (count == SUSFS_MAX_SUS_MNTS) {
-			SUSFS_LOGE("LH_MOUNT_ID_RECORDER has reached the list limit of %d\n", SUSFS_MAX_SUS_MNTS);
-			goto out_free_path;
-		}
-		// if this is the first mount entry
-		if (count == 0) {
-			new_recorder_list->info.target_mnt_id[count] = mnt_cursor->mnt_id;
-			new_recorder_list->info.spoofed_mnt_id[count] = mnt_cursor->mnt_id;
-			new_recorder_list->info.spoofed_parent_mnt_id[count] = mnt_cursor->mnt_parent->mnt_id;
-			new_recorder_list->info.count = ++count;
-			continue;
-		}
-
 		mntget(&mnt_cursor->mnt);
 		dget(mnt_cursor->mnt.mnt_root);
 		mnt_path.mnt = &mnt_cursor->mnt;
@@ -664,106 +595,43 @@ void susfs_add_mnt_id_recorder(struct mnt_namespace *ns) {
 		p_path = d_path(&mnt_path, path, PAGE_SIZE);
 		if (IS_ERR(p_path)) {
 			SUSFS_LOGE("d_path() failed\n");
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
+			goto out_inc_fake_mnt_id;
+#else
 			goto out_continue;
+#endif
 		}
 		end = mangle_path(path, p_path, " \t\n\\");
 		if (!end) {
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
+			goto out_inc_fake_mnt_id;
+#else
 			goto out_continue;
+#endif
 		}
 		res = end - path;
 		path[(size_t) res] = '\0';
 
-		// check if the mount is suspicious
 		list_for_each_entry_safe(sus_mount_cursor, sus_mount_temp, &LH_SUS_MOUNT, list) {
-			// skip adding this mount to recorder list if it is suspicious
 			if (unlikely(!strcmp(path, sus_mount_cursor->info.target_pathname))) {
-				SUSFS_LOGI("skip adding target_mnt_id: '%d', target_pathname: '%s' to LH_MOUNT_ID_RECORDER\n",
-							mnt_cursor->mnt_id, sus_mount_cursor->info.target_pathname);
+				SUSFS_LOGI("hiding '%s' from proc mounts\n",
+							sus_mount_cursor->info.target_pathname);
+				mnt_cursor->is_sus_mount = 1;
 				goto out_continue;
 			}
+			mnt_cursor->is_sus_mount = 0;
 		}
-		// if the mount entry is NOT suspicioius
-		new_recorder_list->info.target_mnt_id[count] = mnt_cursor->mnt_id;
-		new_recorder_list->info.spoofed_mnt_id[count] = new_recorder_list->info.spoofed_mnt_id[0] + count;
-		for (i = 0; i < count; i++) {
-			if (mnt_cursor->mnt_parent->mnt_id == new_recorder_list->info.target_mnt_id[i]) {
-				new_recorder_list->info.spoofed_parent_mnt_id[count] = new_recorder_list->info.spoofed_mnt_id[i];
-				break;
-			}
-		}
-		// if no match from above, use the original parent mnt_id
-		if (new_recorder_list->info.spoofed_parent_mnt_id[count] == 0) {
-			new_recorder_list->info.spoofed_parent_mnt_id[count] = mnt_cursor->mnt_parent->mnt_id;
-		}
-		new_recorder_list->info.count = ++count;
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
+out_inc_fake_mnt_id:
+		mnt_cursor->fake_mnt_id = first_entry_mnt_id++;
+#endif
 out_continue:
 		dput(mnt_cursor->mnt.mnt_root);
 		mntput(&mnt_cursor->mnt);
 	}
-
-	new_recorder_list->pid = cur_pid;
-	new_recorder_list->opened_count = 1;
 	kfree(path);
-
-	/*
-	for (i = 0; i<new_recorder_list->info.count; i++) {
-		SUSFS_LOGI("target_mnt_id: %d, spoofed_mnt_id: %d, spoofed_parent_mnt_id: %d\n",
-				new_recorder_list->info.target_mnt_id[i],
-				new_recorder_list->info.spoofed_mnt_id[i],
-				new_recorder_list->info.spoofed_parent_mnt_id[i]);
-	}
-	*/
-
-	INIT_LIST_HEAD(&new_recorder_list->list);
-	spin_lock(&susfs_mnt_id_recorder_spin_lock);
-	list_add_tail(&new_recorder_list->list, &LH_MOUNT_ID_RECORDER);
-	spin_unlock(&susfs_mnt_id_recorder_spin_lock);
-	SUSFS_LOGI("recording pid '%u' to LH_MOUNT_ID_RECORDER\n", new_recorder_list->pid);
-	return;
-out_free_path:
-	kfree(path);
-out_free_new_recorder_list:
-	kfree(new_recorder_list);
-}
-
-int susfs_get_fake_mnt_id(int mnt_id, int *out_mnt_id, int *out_parent_mnt_id) {
-	struct st_susfs_mnt_id_recorder_list *cursor, *temp;
-	int cur_pid = current->pid;
-	int i;
-
-	list_for_each_entry_safe(cursor, temp, &LH_MOUNT_ID_RECORDER, list) {
-		if (cursor->pid == cur_pid) {
-			for (i = 0; i < cursor->info.count; i++) {
-				if (cursor->info.target_mnt_id[i] == mnt_id) {
-					*out_mnt_id = cursor->info.spoofed_mnt_id[i];
-					*out_parent_mnt_id = cursor->info.spoofed_parent_mnt_id[i];
-					return 0;
-				}
-			}
-			return 1;
-		}
-	}
-	return 1;
-}
-
-void susfs_remove_mnt_id_recorder(void) {
-	struct st_susfs_mnt_id_recorder_list *cursor, *temp;
-	int cur_pid = current->pid;
-
-	spin_lock(&susfs_mnt_id_recorder_spin_lock);
-	list_for_each_entry_safe(cursor, temp, &LH_MOUNT_ID_RECORDER, list) {
-		if (cursor->pid == cur_pid) {
-			cursor->opened_count--;
-			if (cursor->opened_count != 0)
-				goto out_spin_unlock;
-			list_del(&cursor->list);
-			kfree(cursor);
-			SUSFS_LOGI("removing pid '%u' from LH_MOUNT_ID_RECORDER\n", cur_pid);
-			goto out_spin_unlock;
-		}
-	}
-out_spin_unlock:
-	spin_unlock(&susfs_mnt_id_recorder_spin_lock);
+out_put_mnt_ns:
+	put_mnt_ns(ns);
 }
 
 void susfs_sus_kstat(unsigned long ino, struct stat* out_stat) {
@@ -1404,6 +1272,7 @@ void susfs_change_error_no_by_pathname(char* const pathname, int* const errno_to
 }
 
 /*
+// For debugging use only 
 static int susfs_get_cur_fd_counts() {
 	struct fdtable *files_table;
     int fd_count = 0;
@@ -1416,6 +1285,81 @@ static int susfs_get_cur_fd_counts() {
     }
 	return fd_count;
 }
+
+static int susfs_pre_add_sus_mount(const char *target_pathname) {
+	struct st_susfs_sus_mount_list *cursor, *temp;
+	struct st_susfs_sus_mount_list *new_list = NULL;
+	int list_count = 0;
+
+	list_for_each_entry_safe(cursor, temp, &LH_SUS_MOUNT, list) {
+		if (unlikely(!strcmp(cursor->info.target_pathname, target_pathname))) {
+			SUSFS_LOGE("target_pathname: '%s' is already created in LH_SUS_MOUNT\n", cursor->info.target_pathname);
+			return 1;
+		}
+		list_count++;
+	}
+
+	if (list_count == SUSFS_MAX_SUS_MNTS) {
+		SUSFS_LOGE("LH_SUS_MOUNT has reached the list limit of %d\n", SUSFS_MAX_SUS_MNTS);
+		return 1;
+	}
+
+	new_list = kmalloc(sizeof(struct st_susfs_sus_mount_list), GFP_KERNEL);
+	if (!new_list) {
+		SUSFS_LOGE("no enough memory\n");
+		return 1;
+	}
+
+	strncpy(new_list->info.target_pathname, target_pathname, SUSFS_MAX_LEN_PATHNAME-1);
+
+	INIT_LIST_HEAD(&new_list->list);
+	spin_lock(&susfs_spin_lock);
+	list_add_tail(&new_list->list, &LH_SUS_MOUNT);
+	spin_unlock(&susfs_spin_lock);
+	SUSFS_LOGI("target_pathname: '%s', is successfully added to LH_SUS_MOUNT\n", new_list->info.target_pathname);
+	return 0;
+}
+
+void susfs_d_path(struct vfsmount *vfs_mnt, struct dentry *vfs_dentry) {
+	const struct path mnt_path = {
+		.mnt = vfs_mnt,
+		.dentry = vfs_dentry,
+	};
+	char *path = NULL;
+	char *p_path = NULL;
+	char *end = NULL;
+	int res = 0;
+
+	mntget(mnt_path.mnt);
+	dget(mnt_path.dentry);
+
+	path = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!path) {
+		SUSFS_LOGE("no enough memory\n");
+		return;
+	}
+
+	//path_get(mnt_path);
+
+	p_path = d_path(&mnt_path, path, PAGE_SIZE);
+	if (IS_ERR(p_path)) {
+		SUSFS_LOGE("d_path() failed\n");
+		goto out_free_path;
+	}
+	end = mangle_path(path, p_path, " \t\n\\");
+	if (!end) {
+		goto out_free_path;
+	}
+	res = end - path;
+	path[(size_t) res] = '\0';
+
+	SUSFS_LOGI("checking path: '%s'\n", path);
+
+out_free_path:
+	kfree(path);
+	dput(mnt_path.dentry);
+	mntput(mnt_path.mnt);
+}
 */
 
 static void susfs_my_uname_init(void) {
@@ -1424,7 +1368,6 @@ static void susfs_my_uname_init(void) {
 
 void __init susfs_init(void) {
 	spin_lock_init(&susfs_spin_lock);
-	spin_lock_init(&susfs_mnt_id_recorder_spin_lock);
 	spin_lock_init(&susfs_uname_spin_lock);
 	susfs_my_uname_init();
 }

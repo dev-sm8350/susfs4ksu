@@ -115,13 +115,6 @@ struct st_susfs_sus_memfd {
 	char                    target_pathname[SUSFS_MAX_LEN_MFD_NAME];
 };
 
-struct st_susfs_mnt_id_recorder {
-	int                     target_mnt_id[SUSFS_MAX_SUS_MNTS];
-	int                     spoofed_mnt_id[SUSFS_MAX_SUS_MNTS];
-	int                     spoofed_parent_mnt_id[SUSFS_MAX_SUS_MNTS];
-	int                     count;
-};
-
 struct st_susfs_sus_path_list {
 	struct list_head                        list;
 	struct st_susfs_sus_path                info;
@@ -157,13 +150,6 @@ struct st_susfs_sus_memfd_list {
 	struct st_susfs_sus_memfd               info;
 };
 
-struct st_susfs_mnt_id_recorder_list {
-	struct list_head                        list;
-	int                                     pid;
-	int                                     opened_count;
-	struct st_susfs_mnt_id_recorder         info;
-};
-
 struct st_susfs_uname {
 	char        sysname[__NEW_UTS_LEN+1];
 	char        nodename[__NEW_UTS_LEN+1];
@@ -190,7 +176,7 @@ int susfs_sus_path_by_path(struct path* file, int* errno_to_be_changed, int sysc
 int susfs_sus_path_by_path(const struct path* file, int* errno_to_be_changed, int syscall_family);
 #endif
 int susfs_sus_path_by_filename(struct filename* name, int* errno_to_be_changed, int syscall_family);
-int susfs_sus_mount(struct vfsmount* mnt, struct path* root);
+void susfs_sus_mount(struct mnt_namespace *ns);
 int susfs_sus_ino_for_filldir64(unsigned long ino);
 void susfs_sus_kstat(unsigned long ino, struct stat* out_stat);
 int susfs_sus_maps(unsigned long target_ino, unsigned long target_addr_size,
@@ -204,13 +190,10 @@ int susfs_is_sus_proc_fd_link_list_empty(void);
 int susfs_sus_memfd(char *memfd_name);
 void susfs_try_umount(uid_t target_uid);
 int susfs_spoof_uname(struct new_utsname* tmp);
-void susfs_add_mnt_id_recorder(struct mnt_namespace *ns);
-int susfs_get_fake_mnt_id(int mnt_id, int *out_mnt_id, int *out_parent_mnt_id);
-void susfs_remove_mnt_id_recorder(void);
-
 void susfs_set_log(bool enabled);
 
 void susfs_change_error_no_by_pathname(char* pathname, int* errno_to_be_changed, int syscall_family);
+//void susfs_d_path(struct vfsmount *vfs_mnt, struct dentry *vfs_dentry);
 
 void __init susfs_init(void);
 
