@@ -691,37 +691,6 @@ out_put_mnt_ns:
 	put_mnt_ns(ns);
 }
 
-void susfs_sus_kstat(unsigned long ino, struct stat* out_stat) {
-	struct st_susfs_sus_kstat_list *cursor, *temp;
-
-	if (!uid_matches_suspicious_kstat())
-		return;
-
-	list_for_each_entry_safe(cursor, temp, &LH_SUS_KSTAT_SPOOFER, list) {
-		if (cursor->info.target_ino == ino) {
-			SUSFS_LOGI("spoofing kstat for pathname '%s' for UID %i\n", cursor->info.target_pathname, current_uid().val);
-			out_stat->st_ino = cursor->info.spoofed_ino;
-#if defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64)
-#ifdef CONFIG_MIPS
-			out_stat->st_dev = new_encode_dev(cursor->info.spoofed_dev);
-#else
-			out_stat->st_dev = huge_encode_dev(cursor->info.spoofed_dev);
-#endif /* CONFIG_MIPS */
-#else
-			out_stat->st_dev = old_encode_dev(cursor->info.spoofed_dev);
-#endif /* defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64) */
-			out_stat->st_nlink = cursor->info.spoofed_nlink;
-			out_stat->st_atime = cursor->info.spoofed_atime_tv_sec;
-			out_stat->st_mtime = cursor->info.spoofed_mtime_tv_sec;
-			out_stat->st_ctime = cursor->info.spoofed_ctime_tv_sec;
-			out_stat->st_atime_nsec = cursor->info.spoofed_atime_tv_nsec;
-			out_stat->st_mtime_nsec = cursor->info.spoofed_mtime_tv_nsec;
-			out_stat->st_ctime_nsec = cursor->info.spoofed_ctime_tv_nsec;
-			return;
-		}
-	}
-}
-
 /* for non statically, it only compare with target_ino, and spoof only the ino, dev to the matched entry
  * for staticially, it compares depending on the mode user chooses
  * compare mode:

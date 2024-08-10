@@ -179,7 +179,6 @@ int susfs_sus_path_by_path(const struct path* file, int* errno_to_be_changed, in
 int susfs_sus_path_by_filename(struct filename* name, int* errno_to_be_changed, int syscall_family);
 void susfs_sus_mount(struct mnt_namespace *ns);
 int susfs_sus_ino_for_filldir64(unsigned long ino);
-void susfs_sus_kstat(unsigned long ino, struct stat* out_stat);
 int susfs_sus_maps(unsigned long target_ino, unsigned long target_addr_size,
 					unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags,
 					unsigned long long* pgoff, struct vm_area_struct* vma, char* out_name);
