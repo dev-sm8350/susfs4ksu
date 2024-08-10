@@ -36,10 +36,6 @@
 #define SUSFS_MAX_LEN_MFD_NAME 248
 #define SUSFS_MAX_LEN_MOUNT_TYPE_NAME 32
 
-#ifndef TIME_HAVE_NANOSEC
-#define TIME_HAVE_NANOSEC
-#endif
-
 #ifndef __NEW_UTS_LEN
 #define __NEW_UTS_LEN 64
 #endif
@@ -71,6 +67,7 @@ struct st_susfs_sus_mount {
 };
 
 struct st_susfs_sus_kstat {
+	bool                    is_statically;
 	unsigned long           target_ino; // the ino after bind mounted or overlayed
 	char                    target_pathname[SUSFS_MAX_LEN_PATHNAME];
 	char                    spoofed_pathname[SUSFS_MAX_LEN_PATHNAME];
@@ -80,11 +77,9 @@ struct st_susfs_sus_kstat {
 	long                    spoofed_atime_tv_sec;
 	long                    spoofed_mtime_tv_sec;
 	long                    spoofed_ctime_tv_sec;
-#ifdef TIME_HAVE_NANOSEC
 	long                    spoofed_atime_tv_nsec;
 	long                    spoofed_mtime_tv_nsec;
 	long                    spoofed_ctime_tv_nsec;
-#endif
 };
 
 struct st_susfs_sus_maps {
@@ -343,6 +338,8 @@ int main(int argc, char *argv[]) {
 			log("[-] Failed to get stat from path: '%s'\n", argv[2]);
 			return 1;
 		}
+		
+		info.is_statically = true;
 
 		if (strcmp(argv[3], "default")) {
 			ino = strtoul(argv[3], &endptr, 10);
@@ -434,6 +431,7 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 		strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME-1);
+		info.is_statically = false;
 		info.target_ino = sb.st_ino;
 		copy_stat_to_sus_kstat(&info, &sb);
 		prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_SUS_KSTAT, &info, NULL, &error);
@@ -448,6 +446,7 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 		strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME-1);
+		info.is_statically = false;
 		info.target_ino = sb.st_ino;
 		prctl(KERNEL_SU_OPTION, CMD_SUSFS_UPDATE_SUS_KSTAT, &info, NULL, &error);
 		return error;

@@ -113,6 +113,43 @@ int susfs_add_sus_mount(struct st_susfs_sus_mount* __user user_info) {
 	return 0;
 }
 
+static int susfs_update_kstat_inode(struct st_susfs_sus_kstat* info) {
+	struct file *file;
+	struct inode *inode;
+	mm_segment_t old_fs;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	file = filp_open(info->target_pathname, O_RDONLY, 0);
+	if (IS_ERR(file)) {
+		SUSFS_LOGE("Failed opening file '%s'\n", info->target_pathname);
+		return 1;
+	} else {
+		inode = file->f_inode;
+		inode->is_sus_kstat = true;
+		inode->sus_kstat.ino = info->spoofed_ino;
+		inode->sus_kstat.dev = info->spoofed_dev;
+		inode->sus_kstat.mode = inode->i_mode;
+		inode->sus_kstat.nlink = info->spoofed_nlink;
+		inode->sus_kstat.uid = inode->i_uid;
+		inode->sus_kstat.gid = inode->i_gid;
+		inode->sus_kstat.rdev = inode->i_rdev;
+		inode->sus_kstat.size = i_size_read(inode);
+		inode->sus_kstat.atime.tv_sec = info->spoofed_atime_tv_sec;
+		inode->sus_kstat.atime.tv_nsec = info->spoofed_atime_tv_nsec;
+		inode->sus_kstat.mtime.tv_sec = info->spoofed_mtime_tv_sec;
+		inode->sus_kstat.mtime.tv_nsec = info->spoofed_mtime_tv_nsec;
+		inode->sus_kstat.ctime.tv_sec = info->spoofed_ctime_tv_sec;
+		inode->sus_kstat.ctime.tv_nsec = info->spoofed_ctime_tv_nsec;
+		inode->sus_kstat.blksize = i_blocksize(inode);
+		inode->sus_kstat.blocks = inode->i_blocks;
+	}
+	filp_close(file, NULL);
+	set_fs(old_fs);
+	return 0;
+}
+
 int susfs_add_sus_kstat(struct st_susfs_sus_kstat* __user user_info) {
 	struct st_susfs_sus_kstat_list *cursor, *temp;
 	struct st_susfs_sus_kstat_list *new_list = NULL;
@@ -126,9 +163,9 @@ int susfs_add_sus_kstat(struct st_susfs_sus_kstat* __user user_info) {
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_KSTAT_SPOOFER, list) {
 		if (cursor->info.target_ino == info.target_ino) {
 			if (info.target_pathname[0] != '\0') {
-				SUSFS_LOGE("target_pathname: '%s' is already created in LH_SUS_KSTAT_SPOOFER\n", info.target_pathname);
+				SUSFS_LOGE("is_statically: '%d', target_pathname: '%s' is already created in LH_SUS_KSTAT_SPOOFER\n", info.is_statically, info.target_pathname);
 			} else {
-				SUSFS_LOGE("target_ino: '%lu' is already created in LH_SUS_KSTAT_SPOOFER\n", info.target_ino);
+				SUSFS_LOGE("is_statically: '%d', target_ino: '%lu' is already created in LH_SUS_KSTAT_SPOOFER\n", info.is_statically, info.target_ino);
 			}
 			return 1;
 		}
@@ -156,11 +193,21 @@ int susfs_add_sus_kstat(struct st_susfs_sus_kstat* __user user_info) {
 #else
 	new_list->info.spoofed_dev = old_decode_dev(new_list->info.spoofed_dev);
 #endif /* defined(__ARCH_WANT_STAT64) || defined(__ARCH_WANT_COMPAT_STAT64) */
+
+	if (new_list->info.is_statically && new_list->info.target_pathname[0] != '\0') {
+		if (susfs_update_kstat_inode(&new_list->info)) {
+			kfree(new_list);
+			return 1;
+		}
+	}
+
 	INIT_LIST_HEAD(&new_list->list);
 	spin_lock(&susfs_spin_lock);
 	list_add_tail(&new_list->list, &LH_SUS_KSTAT_SPOOFER);
 	spin_unlock(&susfs_spin_lock);
-	SUSFS_LOGI("target_ino: '%lu', target_pathname: '%s', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_nlink: '%u', spoofed_atime_tv_sec: '%ld', spoofed_mtime_tv_sec: '%ld', spoofed_ctime_tv_sec: '%ld', spoofed_atime_tv_nsec: '%ld', spoofed_mtime_tv_nsec: '%ld', spoofed_ctime_tv_nsec: '%ld', is successfully added to LH_SUS_KSTAT_SPOOFER\n",
+
+	SUSFS_LOGI("is_statically: '%d', target_ino: '%lu', target_pathname: '%s', spoofed_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_nlink: '%u', spoofed_atime_tv_sec: '%ld', spoofed_mtime_tv_sec: '%ld', spoofed_ctime_tv_sec: '%ld', spoofed_atime_tv_nsec: '%ld', spoofed_mtime_tv_nsec: '%ld', spoofed_ctime_tv_nsec: '%ld', is successfully added to LH_SUS_KSTAT_SPOOFER\n",
+		new_list->info.is_statically,
 		new_list->info.target_ino , new_list->info.target_pathname, new_list->info.spoofed_pathname,
 		new_list->info.spoofed_ino, new_list->info.spoofed_dev, new_list->info.spoofed_nlink,
 		new_list->info.spoofed_atime_tv_sec, new_list->info.spoofed_mtime_tv_sec, new_list->info.spoofed_ctime_tv_sec,
@@ -177,14 +224,24 @@ int susfs_update_sus_kstat(struct st_susfs_sus_kstat* __user user_info) {
 		return 1;
 	}
 
+	spin_lock(&susfs_spin_lock);
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_KSTAT_SPOOFER, list) {
 		if (unlikely(!strcmp(info.target_pathname, cursor->info.target_pathname))) {
 			SUSFS_LOGI("updating target_ino from '%lu' to '%lu' for pathname: '%s' in LH_SUS_KSTAT_SPOOFER\n", cursor->info.target_ino, info.target_ino, info.target_pathname);
 			cursor->info.target_ino = info.target_ino;
+			if (cursor->info.target_pathname[0] != '\0') {
+				if (susfs_update_kstat_inode(&cursor->info)) {
+					list_del(&cursor->list);
+					kfree(cursor);
+					spin_unlock(&susfs_spin_lock);
+					return 1;
+				}
+			}
+			spin_unlock(&susfs_spin_lock);
 			return 0;
 		}
 	}
-
+	spin_unlock(&susfs_spin_lock);
 	SUSFS_LOGE("target_pathname: '%s' is not found in LH_SUS_KSTAT_SPOOFER\n", info.target_pathname);
 	return 1;
 }
@@ -657,11 +714,9 @@ void susfs_sus_kstat(unsigned long ino, struct stat* out_stat) {
 			out_stat->st_atime = cursor->info.spoofed_atime_tv_sec;
 			out_stat->st_mtime = cursor->info.spoofed_mtime_tv_sec;
 			out_stat->st_ctime = cursor->info.spoofed_ctime_tv_sec;
-#ifdef _STRUCT_TIMESPEC
 			out_stat->st_atime_nsec = cursor->info.spoofed_atime_tv_nsec;
 			out_stat->st_mtime_nsec = cursor->info.spoofed_mtime_tv_nsec;
 			out_stat->st_ctime_nsec = cursor->info.spoofed_ctime_tv_nsec;
-#endif
 			return;
 		}
 	}

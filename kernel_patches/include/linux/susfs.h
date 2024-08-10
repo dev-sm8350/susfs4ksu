@@ -62,6 +62,7 @@ struct st_susfs_sus_mount {
 };
 
 struct st_susfs_sus_kstat {
+	bool                    is_statically;
 	unsigned long           target_ino; // the ino after bind mounted or overlayed
 	char                    target_pathname[SUSFS_MAX_LEN_PATHNAME];
 	char                    spoofed_pathname[SUSFS_MAX_LEN_PATHNAME];

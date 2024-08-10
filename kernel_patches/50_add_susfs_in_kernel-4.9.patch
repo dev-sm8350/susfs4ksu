@@ -11,6 +11,21 @@ index 0e97f4b85bee4..5ef37c17ee915 100644
  ifeq ($(CONFIG_BLOCK),y)
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
  else
+diff --git a/fs/inode.c b/fs/inode.c
+index 7f37f0d469a25..3da1f46b277d7 100644
+--- a/fs/inode.c
++++ b/fs/inode.c
+@@ -212,6 +212,10 @@ static struct inode *alloc_inode(struct super_block *sb)
+ 	if (!inode)
+ 		return NULL;
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++	inode->is_sus_kstat = false;
++#endif
++
+ 	if (unlikely(inode_init_always(sb, inode))) {
+ 		if (inode->i_sb->s_op->destroy_inode)
+ 			inode->i_sb->s_op->destroy_inode(inode);
 diff --git a/fs/internal.h b/fs/internal.h
 index 3e58863de5144..4fe0133cc4f6e 100644
 --- a/fs/internal.h
@@ -621,10 +636,10 @@ index 1059f2a9be0b2..41e5677c178d7 100644
  			goto efault;
  	}
 diff --git a/fs/stat.c b/fs/stat.c
-index 068fdbcc9e26a..ffb058f2b58f4 100644
+index 068fdbcc9e26a..9ce4b52d46bcb 100644
 --- a/fs/stat.c
 +++ b/fs/stat.c
-@@ -18,6 +18,10 @@
+@@ -18,8 +18,30 @@
  #include <asm/uaccess.h>
  #include <asm/unistd.h>
  
@@ -634,8 +649,28 @@ index 068fdbcc9e26a..ffb058f2b58f4 100644
 +
  void generic_fillattr(struct inode *inode, struct kstat *stat)
  {
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++	if (inode->is_sus_kstat && uid_matches_suspicious_kstat()) {
++		stat->dev = inode->sus_kstat.dev;
++		stat->ino = inode->sus_kstat.ino;
++		stat->mode = inode->sus_kstat.mode;
++		stat->nlink = inode->sus_kstat.nlink;
++		stat->uid = inode->sus_kstat.uid;
++		stat->gid = inode->sus_kstat.gid;
++		stat->rdev = inode->sus_kstat.rdev;
++		stat->size = inode->sus_kstat.size;
++		stat->atime = inode->sus_kstat.atime;
++		stat->mtime = inode->sus_kstat.mtime;
++		stat->ctime = inode->sus_kstat.ctime;
++		stat->blksize = inode->sus_kstat.blksize;
++		stat->blocks = inode->sus_kstat.blocks;
++		return;
++	}
++#endif
  	stat->dev = inode->i_sb->s_dev;
-@@ -66,6 +70,12 @@ int vfs_getattr(struct path *path, struct kstat *stat)
+ 	stat->ino = inode->i_ino;
+ 	stat->mode = inode->i_mode;
+@@ -66,6 +88,12 @@ int vfs_getattr(struct path *path, struct kstat *stat)
  {
  	int retval;
  
@@ -648,16 +683,48 @@ index 068fdbcc9e26a..ffb058f2b58f4 100644
  	retval = security_inode_getattr(path);
  	if (retval)
  		return retval;
-@@ -260,6 +270,9 @@ static int cp_new_stat(struct kstat *stat, struct stat __user *statbuf)
- #endif
- 	tmp.st_blocks = stat->blocks;
- 	tmp.st_blksize = stat->blksize;
-+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
-+	susfs_sus_kstat(tmp.st_ino, &tmp);
-+#endif
- 	return copy_to_user(statbuf,&tmp,sizeof(tmp)) ? -EFAULT : 0;
- }
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index bb94ab942b66c..c1a87891ffec2 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -623,6 +623,24 @@ is_uncached_acl(struct posix_acl *acl)
+ #define IOP_NOFOLLOW	0x0004
+ #define IOP_XATTR	0x0008
  
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++struct sus_kstat {
++	u64                 ino;
++	dev_t               dev;
++	umode_t             mode;
++	unsigned int        nlink;
++	kuid_t              uid;
++	kgid_t              gid;
++	dev_t               rdev;
++	loff_t              size;
++	struct timespec     atime;
++	struct timespec     mtime;
++	struct timespec     ctime;
++	unsigned long       blksize;
++	unsigned long long  blocks;
++};
++#endif
++
+ /*
+  * Keep mostly read-only and often accessed (especially for
+  * the RCU path lookup and 'stat' data) fields at the beginning
+@@ -737,6 +755,12 @@ struct inode {
+ 	struct list_head	i_fsverity_list;	/* Not for upstream */
+ #endif
+ 	void			*i_private; /* fs or device private pointer */
++
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++	struct sus_kstat sus_kstat;
++	bool is_sus_kstat;
++#endif
++
+ };
+ 
+ static inline unsigned int i_blocksize(const struct inode *node)
 diff --git a/kernel/fork.c b/kernel/fork.c
 index a0988fcb62cd6..9aa8e3ffdcc92 100644
 --- a/kernel/fork.c
