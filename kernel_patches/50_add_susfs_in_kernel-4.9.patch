@@ -42,7 +42,7 @@ index 3e58863de5144..4fe0133cc4f6e 100644
   * fs_struct.c
   */
 diff --git a/fs/mount.h b/fs/mount.h
-index 3603884a63ddb..93fbe71441f12 100644
+index 3603884a63ddb..a1e3b2593a486 100644
 --- a/fs/mount.h
 +++ b/fs/mount.h
 @@ -64,6 +64,12 @@ struct mount {
@@ -50,7 +50,7 @@ index 3603884a63ddb..93fbe71441f12 100644
  #endif
  	int mnt_id;			/* mount identifier */
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+	int is_sus_mount;
++	bool is_sus_mount;
 +#endif
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
 +	int fake_mnt_id;

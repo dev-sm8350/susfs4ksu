@@ -673,10 +673,10 @@ void susfs_sus_mount(struct mnt_namespace *ns) {
 			if (unlikely(!strcmp(path, sus_mount_cursor->info.target_pathname))) {
 				SUSFS_LOGI("hiding '%s' from proc mounts\n",
 							sus_mount_cursor->info.target_pathname);
-				mnt_cursor->is_sus_mount = 1;
+				mnt_cursor->is_sus_mount = true;
 				goto out_continue;
 			}
-			mnt_cursor->is_sus_mount = 0;
+			mnt_cursor->is_sus_mount = false;
 		}
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
 out_inc_fake_mnt_id:
