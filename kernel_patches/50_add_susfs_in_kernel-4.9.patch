@@ -448,41 +448,16 @@ index 068fdbcc9e26a..dee9c9a1df51b 100644
  	stat->ino = inode->i_ino;
  	stat->mode = inode->i_mode;
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index bb94ab942b66c..31bdd1b3bec40 100644
+index bb94ab942b66c..48ddc5d56cf05 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
-@@ -623,6 +623,24 @@ is_uncached_acl(struct posix_acl *acl)
- #define IOP_NOFOLLOW	0x0004
- #define IOP_XATTR	0x0008
- 
-+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
-+struct sus_kstat {
-+	u64                 ino;
-+	dev_t               dev;
-+	umode_t             mode;
-+	unsigned int        nlink;
-+	kuid_t              uid;
-+	kgid_t              gid;
-+	dev_t               rdev;
-+	loff_t              size;
-+	struct timespec     atime;
-+	struct timespec     mtime;
-+	struct timespec     ctime;
-+	unsigned long       blksize;
-+	unsigned long long  blocks;
-+};
-+#endif
-+
- /*
-  * Keep mostly read-only and often accessed (especially for
-  * the RCU path lookup and 'stat' data) fields at the beginning
-@@ -737,6 +755,15 @@ struct inode {
+@@ -737,6 +737,15 @@ struct inode {
  	struct list_head	i_fsverity_list;	/* Not for upstream */
  #endif
  	void			*i_private; /* fs or device private pointer */
 +
 +#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
-+	struct sus_kstat sus_kstat;
++	struct kstat sus_kstat;
 +	bool is_sus_kstat;
 +#endif
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH

@@ -55,7 +55,9 @@ static int susfs_update_sus_path_inode(struct st_susfs_sus_path* info) {
 		return 1;
 	} else {
 		inode = file->f_inode;
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 		inode->is_sus_path = true;
+#endif
 		SUSFS_LOGI("file '%s', sus ino: %lu\n", info->target_pathname, inode->i_ino);
 	}
 	filp_close(file, NULL);
@@ -250,6 +252,7 @@ static int susfs_update_kstat_inode(struct st_susfs_sus_kstat* info) {
 		return 1;
 	} else {
 		inode = file->f_inode;
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 		inode->is_sus_kstat = true;
 		inode->sus_kstat.ino = info->spoofed_ino;
 		inode->sus_kstat.dev = info->spoofed_dev;
@@ -267,6 +270,7 @@ static int susfs_update_kstat_inode(struct st_susfs_sus_kstat* info) {
 		inode->sus_kstat.ctime.tv_nsec = info->spoofed_ctime_tv_nsec;
 		inode->sus_kstat.blksize = i_blocksize(inode);
 		inode->sus_kstat.blocks = inode->i_blocks;
+#endif
 	}
 	filp_close(file, NULL);
 	set_fs(old_fs);
