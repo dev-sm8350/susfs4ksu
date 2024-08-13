@@ -40,6 +40,29 @@ bool is_log_enable __read_mostly = true;
 #define SUSFS_LOGE(fmt, ...) 
 #endif
 
+/* sus_path */
+static int susfs_update_sus_path_inode(struct st_susfs_sus_path* info) {
+	struct file *file;
+	struct inode *inode;
+	mm_segment_t old_fs;
+
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	file = filp_open(info->target_pathname, O_RDONLY, 0);
+	if (IS_ERR(file)) {
+		SUSFS_LOGE("Failed opening file '%s'\n", info->target_pathname);
+		return 1;
+	} else {
+		inode = file->f_inode;
+		inode->is_sus_path = true;
+		SUSFS_LOGI("file '%s', sus ino: %lu\n", info->target_pathname, inode->i_ino);
+	}
+	filp_close(file, NULL);
+	set_fs(old_fs);
+	return 0;
+}
+
 int susfs_add_sus_path(struct st_susfs_sus_path* __user user_info) {
 	struct st_susfs_sus_path_list *cursor, *temp;
 	struct st_susfs_sus_path_list *new_list = NULL;
@@ -65,6 +88,11 @@ int susfs_add_sus_path(struct st_susfs_sus_path* __user user_info) {
 
 	memcpy(&new_list->info, &info, sizeof(struct st_susfs_sus_path));
 
+	if (susfs_update_sus_path_inode(&new_list->info)) {
+		kfree(new_list);
+		return 1;
+	}
+
 	INIT_LIST_HEAD(&new_list->list);
 	spin_lock(&susfs_spin_lock);
 	list_add_tail(&new_list->list, &LH_SUS_PATH);
@@ -73,6 +101,21 @@ int susfs_add_sus_path(struct st_susfs_sus_path* __user user_info) {
 	return 0;
 }
 
+int susfs_sus_ino_for_filldir64(unsigned long ino) {
+	struct st_susfs_sus_path_list *cursor, *temp;
+
+	list_for_each_entry_safe(cursor, temp, &LH_SUS_PATH, list) {
+		if (cursor->info.target_ino == ino)
+			return 1;
+	}
+	return 0;
+}
+
+int susfs_is_sus_path_list_empty(void) {
+	return list_empty(&LH_SUS_PATH);
+}
+
+/* sus_mount */
 int susfs_add_sus_mount(struct st_susfs_sus_mount* __user user_info) {
 	struct st_susfs_sus_mount_list *cursor, *temp;
 	struct st_susfs_sus_mount_list *new_list = NULL;
@@ -113,6 +156,86 @@ int susfs_add_sus_mount(struct st_susfs_sus_mount* __user user_info) {
 	return 0;
 }
 
+/* This implementation may not work for newer kernel like 5.4+,
+ * looks like it is caused by mount namespace iteration, need some more investigations.
+ * Don't enable this feature if it causes bootloop or stucking at boot logo for you,
+ * or use the patch version 1.3.8 instead.
+ */
+void susfs_sus_mount(struct mnt_namespace *ns) {
+	struct st_susfs_sus_mount_list *sus_mount_cursor, *sus_mount_temp;
+	struct mount *mnt_cursor, *mnt_temp;
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
+	struct mount *first_mnt_entry;
+	int first_entry_mnt_id = 0;
+#endif
+	struct path mnt_path;
+	char *path = NULL;
+	char *p_path = NULL;
+	char *end = NULL;
+	int res = 0;
+
+	if (!ns)
+		return;
+	get_mnt_ns(ns);
+
+	path = kmalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!path) {
+		SUSFS_LOGE("no enough memory\n");
+		goto out_put_mnt_ns;
+	}
+
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
+	first_mnt_entry = list_first_entry(&ns->list, struct mount, mnt_list);
+	first_entry_mnt_id = first_mnt_entry->mnt_id;
+#endif
+	list_for_each_entry_safe(mnt_cursor, mnt_temp, &ns->list, mnt_list) {
+		mntget(&mnt_cursor->mnt);
+		dget(mnt_cursor->mnt.mnt_root);
+		mnt_path.mnt = &mnt_cursor->mnt;
+		mnt_path.dentry = mnt_cursor->mnt.mnt_root;
+
+		p_path = d_path(&mnt_path, path, PAGE_SIZE);
+		if (IS_ERR(p_path)) {
+			SUSFS_LOGE("d_path() failed\n");
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
+			goto out_inc_fake_mnt_id;
+#else
+			goto out_continue;
+#endif
+		}
+		end = mangle_path(path, p_path, " \t\n\\");
+		if (!end) {
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
+			goto out_inc_fake_mnt_id;
+#else
+			goto out_continue;
+#endif
+		}
+		res = end - path;
+		path[(size_t) res] = '\0';
+
+		list_for_each_entry_safe(sus_mount_cursor, sus_mount_temp, &LH_SUS_MOUNT, list) {
+			if (unlikely(!strcmp(path, sus_mount_cursor->info.target_pathname))) {
+				SUSFS_LOGI("hiding '%s' from proc mounts\n",
+							sus_mount_cursor->info.target_pathname);
+				mnt_cursor->is_sus_mount = true;
+				goto out_continue;
+			}
+		}
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
+out_inc_fake_mnt_id:
+		mnt_cursor->fake_mnt_id = first_entry_mnt_id++;
+#endif
+out_continue:
+		dput(mnt_cursor->mnt.mnt_root);
+		mntput(&mnt_cursor->mnt);
+	}
+	kfree(path);
+out_put_mnt_ns:
+	put_mnt_ns(ns);
+}
+
+/* sus_kstat */
 static int susfs_update_kstat_inode(struct st_susfs_sus_kstat* info) {
 	struct file *file;
 	struct inode *inode;
@@ -246,6 +369,7 @@ int susfs_update_sus_kstat(struct st_susfs_sus_kstat* __user user_info) {
 	return 1;
 }
 
+/* sus_maps */
 int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info) {
 	struct st_susfs_sus_maps_list *cursor, *temp;
 	struct st_susfs_sus_maps_list *new_list = NULL;
@@ -376,319 +500,6 @@ int susfs_update_sus_maps(struct st_susfs_sus_maps* __user user_info) {
 
 	SUSFS_LOGE("target_pathname: '%s' is not found in LH_SUS_MAPS_SPOOFER\n", info.target_pathname);
 	return 1;
-}
-
-int susfs_add_sus_proc_fd_link(struct st_susfs_sus_proc_fd_link* __user user_info) {
-	struct st_susfs_sus_proc_fd_link_list *cursor, *temp;
-	struct st_susfs_sus_proc_fd_link_list *new_list = NULL;
-	struct st_susfs_sus_proc_fd_link info;
-
-	if (copy_from_user(&info, user_info, sizeof(struct st_susfs_sus_proc_fd_link))) {
-		SUSFS_LOGE("failed copying from userspace\n");
-		return 1;
-	}
-
-	list_for_each_entry_safe(cursor, temp, &LH_SUS_PROC_FD_LINK, list) {
-		if (unlikely(!strcmp(info.target_link_name, cursor->info.target_link_name))) {
-			SUSFS_LOGE("target_link_name: '%s' is already created in LH_SUS_PROC_FD_LINK\n", info.target_link_name);
-			return 1;
-		}
-	}
-
-	new_list = kmalloc(sizeof(struct st_susfs_sus_proc_fd_link_list), GFP_KERNEL);
-	if (!new_list) {
-		SUSFS_LOGE("no enough memory\n");
-		return 1;
-	}
-
-	memcpy(&new_list->info, &info, sizeof(struct st_susfs_sus_proc_fd_link));
-
-	INIT_LIST_HEAD(&new_list->list);
-	spin_lock(&susfs_spin_lock);
-	list_add_tail(&new_list->list, &LH_SUS_PROC_FD_LINK);
-	spin_unlock(&susfs_spin_lock);
-	SUSFS_LOGI("target_link_name: '%s', spoofed_link_name: '%s', is successfully added to LH_SUS_PROC_FD_LINK\n",
-				new_list->info.target_link_name, new_list->info.spoofed_link_name);
-	return 0;
-}
-
-int susfs_add_sus_memfd(struct st_susfs_sus_memfd* __user user_info) {
-	struct st_susfs_sus_memfd_list *cursor, *temp;
-	struct st_susfs_sus_memfd_list *new_list = NULL;
-	struct st_susfs_sus_memfd info;
-
-	if (copy_from_user(&info, user_info, sizeof(struct st_susfs_sus_memfd))) {
-		SUSFS_LOGE("failed copying from userspace\n");
-		return 1;
-	}
-
-	list_for_each_entry_safe(cursor, temp, &LH_SUS_MEMFD, list) {
-		if (unlikely(!strcmp(info.target_pathname, cursor->info.target_pathname))) {
-			SUSFS_LOGE("target_pathname: '%s' is already created in LH_SUS_MEMFD\n", info.target_pathname);
-			return 1;
-		}
-	}
-
-	new_list = kmalloc(sizeof(struct st_susfs_sus_memfd_list), GFP_KERNEL);
-	if (!new_list) {
-		SUSFS_LOGE("no enough memory\n");
-		return 1;
-	}
-
-	memcpy(&new_list->info, &info, sizeof(struct st_susfs_sus_memfd));
-
-	INIT_LIST_HEAD(&new_list->list);
-	spin_lock(&susfs_spin_lock);
-	list_add_tail(&new_list->list, &LH_SUS_MEMFD);
-	spin_unlock(&susfs_spin_lock);
-	SUSFS_LOGI("target_pathname: '%s', is successfully added to LH_SUS_MEMFD\n",
-				new_list->info.target_pathname);
-	return 0;
-}
-
-int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info) {
-	struct st_susfs_try_umount_list *cursor, *temp;
-	struct st_susfs_try_umount_list *new_list = NULL;
-	struct st_susfs_try_umount info;
-
-	if (copy_from_user(&info, user_info, sizeof(struct st_susfs_try_umount))) {
-		SUSFS_LOGE("failed copying from userspace\n");
-		return 1;
-	}
-
-	list_for_each_entry_safe(cursor, temp, &LH_TRY_UMOUNT_PATH, list) {
-		if (unlikely(!strcmp(info.target_pathname, cursor->info.target_pathname))) {
-			SUSFS_LOGE("target_pathname: '%s' is already created in LH_TRY_UMOUNT_PATH\n", info.target_pathname);
-			return 1;
-		}
-	}
-
-	new_list = kmalloc(sizeof(struct st_susfs_try_umount_list), GFP_KERNEL);
-	if (!new_list) {
-		SUSFS_LOGE("no enough memory\n");
-		return 1;
-	}
-
-	memcpy(&new_list->info, &info, sizeof(struct st_susfs_try_umount));
-
-	INIT_LIST_HEAD(&new_list->list);
-	spin_lock(&susfs_spin_lock);
-	list_add_tail(&new_list->list, &LH_TRY_UMOUNT_PATH);
-	spin_unlock(&susfs_spin_lock);
-	SUSFS_LOGI("target_pathname: '%s', mnt_mode: %d, is successfully added to LH_TRY_UMOUNT_PATH\n", new_list->info.target_pathname, new_list->info.mnt_mode);
-	return 0;
-}
-
-int susfs_set_uname(struct st_susfs_uname* __user user_info) {
-	struct st_susfs_uname info;
-
-	if (copy_from_user(&info, user_info, sizeof(struct st_susfs_uname))) {
-		SUSFS_LOGE("failed copying from userspace.\n");
-		return 1;
-	}
-
-	spin_lock(&susfs_uname_spin_lock);
-	if (!strcmp(info.sysname, "default")) {
-		strncpy(my_uname.sysname, utsname()->sysname, __NEW_UTS_LEN);
-	} else {
-		strncpy(my_uname.sysname, info.sysname, __NEW_UTS_LEN);
-	}
-	if (!strcmp(info.nodename, "default")) {
-		strncpy(my_uname.nodename, utsname()->nodename, __NEW_UTS_LEN);
-	} else {
-		strncpy(my_uname.nodename, info.nodename, __NEW_UTS_LEN);
-	}
-	if (!strcmp(info.release, "default")) {
-		strncpy(my_uname.release, utsname()->release, __NEW_UTS_LEN);
-	} else {
-		strncpy(my_uname.release, info.release, __NEW_UTS_LEN);
-	}
-	if (!strcmp(info.version, "default")) {
-		strncpy(my_uname.version, utsname()->version, __NEW_UTS_LEN);
-	} else {
-		strncpy(my_uname.version, info.version, __NEW_UTS_LEN);
-	}
-	if (!strcmp(info.machine, "default")) {
-		strncpy(my_uname.machine, utsname()->machine, __NEW_UTS_LEN);
-	} else {
-		strncpy(my_uname.machine, info.machine, __NEW_UTS_LEN);
-	}
-	if (!strcmp(info.domainname, "default")) {
-		strncpy(my_uname.domainname, utsname()->domainname, __NEW_UTS_LEN);
-	} else {
-		strncpy(my_uname.domainname, info.domainname, __NEW_UTS_LEN);
-	}
-	spin_unlock(&susfs_uname_spin_lock);
-	SUSFS_LOGI("setting sysname: '%s', nodename: '%s', release: '%s', version: '%s', machine: '%s', domainname: '%s'\n",
-				my_uname.sysname, my_uname.nodename, my_uname.release, my_uname.version, my_uname.machine, my_uname.domainname);
-	return 0;
-}
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
-int susfs_sus_path_by_path(struct path* file, int* errno_to_be_changed, int syscall_family)
-#else
-int susfs_sus_path_by_path(const struct path* file, int* errno_to_be_changed, int syscall_family)
-#endif
-{
-	int res = 0;
-	int status = 0;
-	char* path = NULL;
-	char* ptr = NULL;
-	char* end = NULL;
-	struct st_susfs_sus_path_list *cursor, *temp;
-
-	if (!uid_matches_suspicious_path() || file == NULL) {
-		return status;
-	}
-
-	path = kmalloc(PAGE_SIZE, GFP_KERNEL);
-	if (path == NULL) {
-		SUSFS_LOGE("no enough memory\n");
-		return status;
-	}
-	ptr = d_path(file, path, PAGE_SIZE);
-	if (IS_ERR(ptr)) {
-		SUSFS_LOGE("d_path() failed\n");
-		goto out_free_path;
-	}
-	end = mangle_path(path, ptr, " \t\n\\");
-	if (!end) {
-		goto out_free_path;
-	}
-	res = end - path;
-	path[(size_t) res] = '\0';
-
-	list_for_each_entry_safe(cursor, temp, &LH_SUS_PATH, list) {
-		if (unlikely(!strcmp(cursor->info.target_pathname, path))) {
-			SUSFS_LOGI("hiding target_pathname: '%s', target_ino: '%lu'\n", cursor->info.target_pathname, cursor->info.target_ino);
-			if (errno_to_be_changed != NULL) {
-				susfs_change_error_no_by_pathname(path, errno_to_be_changed, syscall_family);
-			}
-			status = 1;
-			goto out_free_path;
-		}
-	}
-
-out_free_path:
-	kfree(path);
-	return status;
-}
-
-int susfs_sus_path_by_filename(struct filename* name, int* errno_to_be_changed, int syscall_family) {
-	int status = 0;
-	int ret = 0;
-	struct path path;
-
-	if (IS_ERR(name)) {
-		return status;
-	}
-
-	if (!uid_matches_suspicious_path() || name == NULL) {
-		return status;
-	}
-
-	ret = kern_path(name->name, LOOKUP_FOLLOW, &path);
-
-	if (!ret) {
-		status = susfs_sus_path_by_path(&path, errno_to_be_changed, syscall_family);
-		path_put(&path);
-	}
-
-	return status;
-}
-
-int susfs_sus_ino_for_filldir64(unsigned long ino) {
-	struct st_susfs_sus_path_list *cursor, *temp;
-
-	if (!uid_matches_suspicious_path())
-		return 0;
-	list_for_each_entry_safe(cursor, temp, &LH_SUS_PATH, list) {
-		if (cursor->info.target_ino == ino) {
-			SUSFS_LOGI("hiding target_pathname: '%s', target_ino: '%lu'\n", cursor->info.target_pathname, cursor->info.target_ino);
-			return 1;
-		}
-	}
-	return 0;
-}
-
-/* This implementation may not work for newer kernel like 5.4+,
- * looks like it is caused by mount namespace iteration, need some more investigations.
- * Don't enable this feature if it causes bootloop or stucking at boot logo for you,
- * or use the patch version 1.3.8 instead.
- */
-void susfs_sus_mount(struct mnt_namespace *ns) {
-	struct st_susfs_sus_mount_list *sus_mount_cursor, *sus_mount_temp;
-	struct mount *mnt_cursor, *mnt_temp;
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
-	struct mount *first_mnt_entry;
-	int first_entry_mnt_id = 0;
-#endif
-	struct path mnt_path;
-	char *path = NULL;
-	char *p_path = NULL;
-	char *end = NULL;
-	int res = 0;
-
-	if (!ns)
-		return;
-	get_mnt_ns(ns);
-
-	path = kmalloc(PAGE_SIZE, GFP_KERNEL);
-	if (!path) {
-		SUSFS_LOGE("no enough memory\n");
-		goto out_put_mnt_ns;
-	}
-
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
-	first_mnt_entry = list_first_entry(&ns->list, struct mount, mnt_list);
-	first_entry_mnt_id = first_mnt_entry->mnt_id;
-#endif
-	list_for_each_entry_safe(mnt_cursor, mnt_temp, &ns->list, mnt_list) {
-		mntget(&mnt_cursor->mnt);
-		dget(mnt_cursor->mnt.mnt_root);
-		mnt_path.mnt = &mnt_cursor->mnt;
-		mnt_path.dentry = mnt_cursor->mnt.mnt_root;
-
-		p_path = d_path(&mnt_path, path, PAGE_SIZE);
-		if (IS_ERR(p_path)) {
-			SUSFS_LOGE("d_path() failed\n");
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
-			goto out_inc_fake_mnt_id;
-#else
-			goto out_continue;
-#endif
-		}
-		end = mangle_path(path, p_path, " \t\n\\");
-		if (!end) {
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
-			goto out_inc_fake_mnt_id;
-#else
-			goto out_continue;
-#endif
-		}
-		res = end - path;
-		path[(size_t) res] = '\0';
-
-		list_for_each_entry_safe(sus_mount_cursor, sus_mount_temp, &LH_SUS_MOUNT, list) {
-			if (unlikely(!strcmp(path, sus_mount_cursor->info.target_pathname))) {
-				SUSFS_LOGI("hiding '%s' from proc mounts\n",
-							sus_mount_cursor->info.target_pathname);
-				mnt_cursor->is_sus_mount = true;
-				goto out_continue;
-			}
-			mnt_cursor->is_sus_mount = false;
-		}
-#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
-out_inc_fake_mnt_id:
-		mnt_cursor->fake_mnt_id = first_entry_mnt_id++;
-#endif
-out_continue:
-		dput(mnt_cursor->mnt.mnt_root);
-		mntput(&mnt_cursor->mnt);
-	}
-	kfree(path);
-out_put_mnt_ns:
-	put_mnt_ns(ns);
 }
 
 /* for non statically, it only compare with target_ino, and spoof only the ino, dev to the matched entry
@@ -859,6 +670,11 @@ do_spoof:
 	return 0;
 }
 
+int susfs_is_sus_maps_list_empty(void) {
+	return list_empty(&LH_SUS_MAPS_SPOOFER);
+}
+
+/* sus_map_files */
 /* @ This function only does the following:
  *   1. Spoof the symlink name of a target_ino listed in /proc/self/map_files
  * 
@@ -1045,8 +861,39 @@ do_spoof:
 	return 0;
 }
 
-int susfs_is_sus_maps_list_empty(void) {
-	return list_empty(&LH_SUS_MAPS_SPOOFER);
+/* sus_proc_fd_link */
+int susfs_add_sus_proc_fd_link(struct st_susfs_sus_proc_fd_link* __user user_info) {
+	struct st_susfs_sus_proc_fd_link_list *cursor, *temp;
+	struct st_susfs_sus_proc_fd_link_list *new_list = NULL;
+	struct st_susfs_sus_proc_fd_link info;
+
+	if (copy_from_user(&info, user_info, sizeof(struct st_susfs_sus_proc_fd_link))) {
+		SUSFS_LOGE("failed copying from userspace\n");
+		return 1;
+	}
+
+	list_for_each_entry_safe(cursor, temp, &LH_SUS_PROC_FD_LINK, list) {
+		if (unlikely(!strcmp(info.target_link_name, cursor->info.target_link_name))) {
+			SUSFS_LOGE("target_link_name: '%s' is already created in LH_SUS_PROC_FD_LINK\n", info.target_link_name);
+			return 1;
+		}
+	}
+
+	new_list = kmalloc(sizeof(struct st_susfs_sus_proc_fd_link_list), GFP_KERNEL);
+	if (!new_list) {
+		SUSFS_LOGE("no enough memory\n");
+		return 1;
+	}
+
+	memcpy(&new_list->info, &info, sizeof(struct st_susfs_sus_proc_fd_link));
+
+	INIT_LIST_HEAD(&new_list->list);
+	spin_lock(&susfs_spin_lock);
+	list_add_tail(&new_list->list, &LH_SUS_PROC_FD_LINK);
+	spin_unlock(&susfs_spin_lock);
+	SUSFS_LOGI("target_link_name: '%s', spoofed_link_name: '%s', is successfully added to LH_SUS_PROC_FD_LINK\n",
+				new_list->info.target_link_name, new_list->info.spoofed_link_name);
+	return 0;
 }
 
 int susfs_sus_proc_fd_link(char *pathname, int len) {
@@ -1067,6 +914,41 @@ int susfs_is_sus_proc_fd_link_list_empty(void) {
 	return list_empty(&LH_SUS_PROC_FD_LINK);
 }
 
+/* sus_memfd */
+int susfs_add_sus_memfd(struct st_susfs_sus_memfd* __user user_info) {
+	struct st_susfs_sus_memfd_list *cursor, *temp;
+	struct st_susfs_sus_memfd_list *new_list = NULL;
+	struct st_susfs_sus_memfd info;
+
+	if (copy_from_user(&info, user_info, sizeof(struct st_susfs_sus_memfd))) {
+		SUSFS_LOGE("failed copying from userspace\n");
+		return 1;
+	}
+
+	list_for_each_entry_safe(cursor, temp, &LH_SUS_MEMFD, list) {
+		if (unlikely(!strcmp(info.target_pathname, cursor->info.target_pathname))) {
+			SUSFS_LOGE("target_pathname: '%s' is already created in LH_SUS_MEMFD\n", info.target_pathname);
+			return 1;
+		}
+	}
+
+	new_list = kmalloc(sizeof(struct st_susfs_sus_memfd_list), GFP_KERNEL);
+	if (!new_list) {
+		SUSFS_LOGE("no enough memory\n");
+		return 1;
+	}
+
+	memcpy(&new_list->info, &info, sizeof(struct st_susfs_sus_memfd));
+
+	INIT_LIST_HEAD(&new_list->list);
+	spin_lock(&susfs_spin_lock);
+	list_add_tail(&new_list->list, &LH_SUS_MEMFD);
+	spin_unlock(&susfs_spin_lock);
+	SUSFS_LOGI("target_pathname: '%s', is successfully added to LH_SUS_MEMFD\n",
+				new_list->info.target_pathname);
+	return 0;
+}
+
 int susfs_sus_memfd(char *memfd_name) {
 	struct st_susfs_sus_memfd_list *cursor, *temp;
 
@@ -1079,6 +961,7 @@ int susfs_sus_memfd(char *memfd_name) {
     return 0;
 }
 
+/* try_umount */
 static void umount_mnt(struct path *path, int flags) {
 	int err = path_umount(path, flags);
 	if (err) {
@@ -1126,6 +1009,39 @@ static void try_umount(const char *mnt, bool check_mnt, int flags) {
 	umount_mnt(&path, flags);
 }
 
+int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info) {
+	struct st_susfs_try_umount_list *cursor, *temp;
+	struct st_susfs_try_umount_list *new_list = NULL;
+	struct st_susfs_try_umount info;
+
+	if (copy_from_user(&info, user_info, sizeof(struct st_susfs_try_umount))) {
+		SUSFS_LOGE("failed copying from userspace\n");
+		return 1;
+	}
+
+	list_for_each_entry_safe(cursor, temp, &LH_TRY_UMOUNT_PATH, list) {
+		if (unlikely(!strcmp(info.target_pathname, cursor->info.target_pathname))) {
+			SUSFS_LOGE("target_pathname: '%s' is already created in LH_TRY_UMOUNT_PATH\n", info.target_pathname);
+			return 1;
+		}
+	}
+
+	new_list = kmalloc(sizeof(struct st_susfs_try_umount_list), GFP_KERNEL);
+	if (!new_list) {
+		SUSFS_LOGE("no enough memory\n");
+		return 1;
+	}
+
+	memcpy(&new_list->info, &info, sizeof(struct st_susfs_try_umount));
+
+	INIT_LIST_HEAD(&new_list->list);
+	spin_lock(&susfs_spin_lock);
+	list_add_tail(&new_list->list, &LH_TRY_UMOUNT_PATH);
+	spin_unlock(&susfs_spin_lock);
+	SUSFS_LOGI("target_pathname: '%s', mnt_mode: %d, is successfully added to LH_TRY_UMOUNT_PATH\n", new_list->info.target_pathname, new_list->info.mnt_mode);
+	return 0;
+}
+
 void susfs_try_umount(uid_t target_uid) {
 	struct st_susfs_try_umount_list *cursor, *temp;
 
@@ -1139,6 +1055,56 @@ void susfs_try_umount(uid_t target_uid) {
 	}
 }
 
+/* spoof_uname */
+static void susfs_my_uname_init(void) {
+	memset(&my_uname, 0, sizeof(my_uname));
+}
+
+int susfs_set_uname(struct st_susfs_uname* __user user_info) {
+	struct st_susfs_uname info;
+
+	if (copy_from_user(&info, user_info, sizeof(struct st_susfs_uname))) {
+		SUSFS_LOGE("failed copying from userspace.\n");
+		return 1;
+	}
+
+	spin_lock(&susfs_uname_spin_lock);
+	if (!strcmp(info.sysname, "default")) {
+		strncpy(my_uname.sysname, utsname()->sysname, __NEW_UTS_LEN);
+	} else {
+		strncpy(my_uname.sysname, info.sysname, __NEW_UTS_LEN);
+	}
+	if (!strcmp(info.nodename, "default")) {
+		strncpy(my_uname.nodename, utsname()->nodename, __NEW_UTS_LEN);
+	} else {
+		strncpy(my_uname.nodename, info.nodename, __NEW_UTS_LEN);
+	}
+	if (!strcmp(info.release, "default")) {
+		strncpy(my_uname.release, utsname()->release, __NEW_UTS_LEN);
+	} else {
+		strncpy(my_uname.release, info.release, __NEW_UTS_LEN);
+	}
+	if (!strcmp(info.version, "default")) {
+		strncpy(my_uname.version, utsname()->version, __NEW_UTS_LEN);
+	} else {
+		strncpy(my_uname.version, info.version, __NEW_UTS_LEN);
+	}
+	if (!strcmp(info.machine, "default")) {
+		strncpy(my_uname.machine, utsname()->machine, __NEW_UTS_LEN);
+	} else {
+		strncpy(my_uname.machine, info.machine, __NEW_UTS_LEN);
+	}
+	if (!strcmp(info.domainname, "default")) {
+		strncpy(my_uname.domainname, utsname()->domainname, __NEW_UTS_LEN);
+	} else {
+		strncpy(my_uname.domainname, info.domainname, __NEW_UTS_LEN);
+	}
+	spin_unlock(&susfs_uname_spin_lock);
+	SUSFS_LOGI("setting sysname: '%s', nodename: '%s', release: '%s', version: '%s', machine: '%s', domainname: '%s'\n",
+				my_uname.sysname, my_uname.nodename, my_uname.release, my_uname.version, my_uname.machine, my_uname.domainname);
+	return 0;
+}
+
 int susfs_spoof_uname(struct new_utsname* tmp) {
 	if (unlikely(my_uname.sysname[0] == '\0' || spin_is_locked(&susfs_uname_spin_lock)))
 		return 1;
@@ -1146,6 +1112,7 @@ int susfs_spoof_uname(struct new_utsname* tmp) {
 	return 0;
 }
 
+/* set_log */
 void susfs_set_log(bool enabled) {
 	spin_lock(&susfs_spin_lock);
 	is_log_enable = enabled;
@@ -1157,143 +1124,16 @@ void susfs_set_log(bool enabled) {
 	}
 }
 
-/* For files/directories in /sdcard/ but not in /sdcard/Android/data/, please delete it  
- * by yourself
- */
-void susfs_change_error_no_by_pathname(char* const pathname, int* const errno_to_be_changed, int const syscall_family) {
-	if (!strncmp(pathname, "/system/", 8)||
-		!strncmp(pathname, "/vendor/", 8)) {
-		switch(syscall_family) {
-			case SYSCALL_FAMILY_ALL_ENOENT:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_LINKAT_OLDNAME:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_RENAMEAT2_OLDNAME:
-				*errno_to_be_changed = -EXDEV;
-				return;
-			//case SYSCALL_FAMILY_RENAMEAT2_NEWNAME:
-			//	if (!strncmp(pathname, "/system/", 8)) {
-			//		*errno_to_be_changed = -EROFS;
-			//	} else {
-			//		*errno_to_be_changed = -EXDEV;
-			//	}
-			//	return;
-			default:
-				*errno_to_be_changed = -EROFS;
-				return;
-		}
-	} else if (!strncmp(pathname, "/storage/emulated/0/Android/data/", 33)) {
-		switch(syscall_family) {
-			case SYSCALL_FAMILY_ALL_ENOENT:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_MKNOD:
-				*errno_to_be_changed = -EACCES;
-				return;
-			case SYSCALL_FAMILY_MKDIRAT:
-				*errno_to_be_changed = -EACCES;
-				return;
-			case SYSCALL_FAMILY_RMDIR:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_UNLINKAT:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_SYMLINKAT_NEWNAME:
-				*errno_to_be_changed = -EACCES;
-				return;
-			case SYSCALL_FAMILY_LINKAT_OLDNAME:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_LINKAT_NEWNAME:
-				*errno_to_be_changed = -EXDEV;
-				return;
-			case SYSCALL_FAMILY_RENAMEAT2_OLDNAME:
-				*errno_to_be_changed = -EXDEV;
-				return;
-			case SYSCALL_FAMILY_RENAMEAT2_NEWNAME:
-				*errno_to_be_changed = -EXDEV;
-				return;
-			default:
-				*errno_to_be_changed = -ENOENT;
-				return;
-		}
-	} else if (!strncmp(pathname, "/dev/", 5)) {
-		switch(syscall_family) {
-			case SYSCALL_FAMILY_ALL_ENOENT:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_MKNOD:
-				*errno_to_be_changed = -EACCES;
-				return;
-			case SYSCALL_FAMILY_MKDIRAT:
-				*errno_to_be_changed = -EACCES;
-				return;
-			case SYSCALL_FAMILY_RMDIR:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_UNLINKAT:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_SYMLINKAT_NEWNAME:
-				*errno_to_be_changed = -EACCES;
-				return;
-			case SYSCALL_FAMILY_LINKAT_OLDNAME:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_LINKAT_NEWNAME:
-				*errno_to_be_changed = -EXDEV;
-				return;
-			case SYSCALL_FAMILY_RENAMEAT2_OLDNAME:
-				*errno_to_be_changed = -EXDEV;
-				return;
-			case SYSCALL_FAMILY_RENAMEAT2_NEWNAME:
-				*errno_to_be_changed = -EXDEV;
-				return;
-			default:
-				*errno_to_be_changed = -ENOENT;
-				return;
-		}
-	} else if (!strncmp(pathname, "/data/", 6)) {
-				switch(syscall_family) {
-			case SYSCALL_FAMILY_ALL_ENOENT:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_MKNOD:
-				*errno_to_be_changed = -EACCES;
-				return;
-			case SYSCALL_FAMILY_MKDIRAT:
-				*errno_to_be_changed = -EACCES;
-				return;
-			case SYSCALL_FAMILY_RMDIR:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_UNLINKAT:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_SYMLINKAT_NEWNAME:
-				*errno_to_be_changed = -EACCES;
-				return;
-			case SYSCALL_FAMILY_LINKAT_OLDNAME:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_LINKAT_NEWNAME:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_RENAMEAT2_OLDNAME:
-				*errno_to_be_changed = -ENOENT;
-				return;
-			case SYSCALL_FAMILY_RENAMEAT2_NEWNAME:
-				*errno_to_be_changed = -EXDEV;
-				return;
-			default:
-				*errno_to_be_changed = -ENOENT;
-				return;
-		}
-	}
+/* susfs_init */
+void __init susfs_init(void) {
+	spin_lock_init(&susfs_spin_lock);
+	spin_lock_init(&susfs_uname_spin_lock);
+	susfs_my_uname_init();
 }
+
+/* No module exit is needed becuase it should never be a loadable kernel module */
+//void __init susfs_exit(void)
+
 
 /*
 // For debugging use only 
@@ -1385,16 +1225,3 @@ out_free_path:
 	mntput(mnt_path.mnt);
 }
 */
-
-static void susfs_my_uname_init(void) {
-	memset(&my_uname, 0, sizeof(my_uname));
-}
-
-void __init susfs_init(void) {
-	spin_lock_init(&susfs_spin_lock);
-	spin_lock_init(&susfs_uname_spin_lock);
-	susfs_my_uname_init();
-}
-
-/* No module exit is needed becuase it should never be a loadable kernel module */
-//void __init susfs_exit(void)
