@@ -23,6 +23,7 @@
 #define CMD_SUSFS_ADD_SUS_MAPS 0x55560
 #define CMD_SUSFS_UPDATE_SUS_MAPS 0x55561
 #define CMD_SUSFS_ADD_SUS_MEMFD 0x55562
+#define CMD_SUSFS_TOGGLE_SU 0x55563
 
 #define SUSFS_MAX_LEN_PATHNAME 256 // 256 should address many paths already unless you are doing some strange experimental stuff, then set your own desired length
 #define SUSFS_MAX_LEN_MFD_NAME 248

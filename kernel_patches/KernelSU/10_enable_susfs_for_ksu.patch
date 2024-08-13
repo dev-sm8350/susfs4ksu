@@ -1,8 +1,8 @@
 diff --git a/kernel/Kconfig b/kernel/Kconfig
-index 67f177f4..27cc7b1e 100644
+index 67f177f4..1c767f26 100644
 --- a/kernel/Kconfig
 +++ b/kernel/Kconfig
-@@ -16,4 +16,87 @@ config KSU_DEBUG
+@@ -16,4 +16,94 @@ config KSU_DEBUG
  	help
  	  Enable KernelSU debug mode.
  
@@ -87,6 +87,13 @@ index 67f177f4..27cc7b1e 100644
 +    default y
 +    help
 +      Allow logging susfs log to kernel, uncheck it to completely disable all susfs log
++
++config KSU_SUSFS_TOGGLE_SU
++    bool "Toggle on/off ksu in runtime temporarily"
++    depends on KSU_SUSFS
++    default y
++    help
++      Allow user to enable or disable core ksu kprobes hooks temporarily in runtime
 +endmenu
 +
  endmenu
@@ -139,7 +146,7 @@ index 66929756..d25f36c7 100644
 +
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 429ba330..f016db75 100644
+index 429ba330..aa8b4ccf 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -44,6 +44,10 @@
@@ -153,7 +160,7 @@ index 429ba330..f016db75 100644
  static bool ksu_module_mounted = false;
  
  extern int handle_sepolicy(unsigned long arg3, void __user *arg4);
-@@ -375,6 +379,207 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -375,6 +379,225 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		return 0;
  	}
  
@@ -355,13 +362,31 @@ index 429ba330..f016db75 100644
 +			return 0;
 +		}
 +#endif //#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
++#ifdef CONFIG_KSU_SUSFS_TOGGLE_SU
++		if (arg2 == CMD_SUSFS_TOGGLE_SU) {
++			if (arg3 == 0) {
++				ksu_susfs_toggle_off_su();
++				pr_info("susfs: CMD_SUSFS_TOGGLE_SU -> core kprobe hooks for ksu are disabled!\n", error);
++			} else if (arg3 == 1) {
++				ksu_susfs_toggle_on_su();
++				pr_info("susfs: CMD_SUSFS_TOGGLE_SU -> core kprobe hooks for ksu are enabled!\n", error);
++			} else {
++				pr_err("susfs: CMD_SUSFS_TOGGLE_SU -> arg3 can only be 0 or 1\n");
++				return 0;
++			}
++			error = 0;
++			pr_info("susfs: CMD_SUSFS_TOGGLE_SU -> ret: %d\n", error);
++			copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
++		}
++#endif //#ifdef CONFIG_KSU_SUSFS_TOGGLE_SU
 +	}
 +#endif //#ifdef CONFIG_KSU_SUSFS
 +
  	// all other cmds are for 'root manager'
  	if (!from_manager) {
  		return 0;
-@@ -535,6 +740,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -535,6 +758,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		current->pid);
  #endif
  
@@ -448,3 +473,27 @@ index 1ba6d853..7b24203c 100644
  	rcu_read_unlock();
  }
  
+diff --git a/kernel/sucompat.c b/kernel/sucompat.c
+index 9b45cd0d..b654dca7 100644
+--- a/kernel/sucompat.c
++++ b/kernel/sucompat.c
+@@ -365,3 +365,19 @@ void ksu_sucompat_exit()
+ 	unregister_kprobe(&pts_unix98_lookup_kp);
+ #endif
+ }
++
++#ifdef CONFIG_KSU_SUSFS_TOGGLE_SU
++void ksu_susfs_toggle_off_su() {
++	disable_kprobe(&execve_kp);
++	disable_kprobe(&newfstatat_kp);
++	disable_kprobe(&faccessat_kp);
++	disable_kprobe(&pts_unix98_lookup_kp);
++}
++
++void ksu_susfs_toggle_on_su() {
++	enable_kprobe(&execve_kp);
++	enable_kprobe(&newfstatat_kp);
++	enable_kprobe(&faccessat_kp);
++	enable_kprobe(&pts_unix98_lookup_kp);
++}
++#endif

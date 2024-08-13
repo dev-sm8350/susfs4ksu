@@ -31,6 +31,7 @@
 #define CMD_SUSFS_ADD_SUS_MAPS 0x55560
 #define CMD_SUSFS_UPDATE_SUS_MAPS 0x55561
 #define CMD_SUSFS_ADD_SUS_MEMFD 0x55562
+#define CMD_SUSFS_TOGGLE_SU 0x55563
 
 #define SUSFS_MAX_LEN_PATHNAME 256
 #define SUSFS_MAX_LEN_MFD_NAME 248
@@ -290,6 +291,10 @@ static void print_help(void) {
 	log("\n");
 	log("        enable_log <0|1>\n");
 	log("         |--> 0: disable susfs log in kernel, 1: enable susfs log in kernel\n");
+	log("\n");
+	log("        toggle_su <0|1>\n");
+	log("         |--> 0: disable the core ksu kprobe hooks temporarily in kernel runtime\n");
+	log("         |--> 1: enable the disabled core ksu kprobe hooks in kernel runtime\n");
 	log("\n");
 }
 
@@ -877,6 +882,13 @@ int main(int argc, char *argv[]) {
 			return 1;
 		}
 		prctl(KERNEL_SU_OPTION, CMD_SUSFS_ENABLE_LOG, atoi(argv[2]), NULL, &error);
+		return error;
+	} else if (argc == 3 && !strcmp(argv[1], "toggle_su")) {
+		if (strcmp(argv[2], "0") && strcmp(argv[2], "1")) {
+			print_help();
+			return 1;
+		}
+		prctl(KERNEL_SU_OPTION, CMD_SUSFS_TOGGLE_SU, atoi(argv[2]), NULL, &error);
 		return error;
 	} else {
 		print_help();
