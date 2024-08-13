@@ -12,6 +12,7 @@ The susfs kernel patches may differ for different kernel version or even on the 
 ## Patch Instruction ##
 1. Clone the repo with a tag that has release version, as tag with release version is more stable
 2. Run `cp ./kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch $KERNEL_ROOT/KernelSU/`
+2. Run `cp ./kernel_patches/KernelSU/kernel/sucompat.h $KERNEL_ROOT/KernelSU/kernel/`
 3. Run `cp ./kernel_patches/50_add_susfs_in_kernel-<kernel_version>.patch $KERNEL_ROOT/`
 4. Run `cp ./kernel_patches/fs/susfs.c $KERNEL_ROOT/fs/`
 5. Run `cp ./kernel_patches/include/linux/susfs.h $KERNEL_ROOT/include/linux/`
@@ -32,10 +33,11 @@ It will also copy the ksu_susfs tool to `/data/adb/ksu/bin/` as well when instal
 2. Then run `./build_ksu_module.sh` to build the KernelSU module.
 
 ## Usage of ksu_susfs ##
-- Run ksu_susfs in root shell for usages.
+- Run ksu_susfs in root shell for detailed usages.
 
 ## Known Issues ##
 - mnt_id_reorder feature causes bootloop for non-gki devices, more test is needed.
+- sus_path makes the target path hidden from 'ls' command for process uid < 2000, but it is still accessible.
 
 ## Credits ##
 - KernelSU: https://github.com/tiann/KernelSU
