@@ -1,8 +1,8 @@
 diff --git a/kernel/Kconfig b/kernel/Kconfig
-index 67f177f4..1c767f26 100644
+index 67f177f4..6b49318e 100644
 --- a/kernel/Kconfig
 +++ b/kernel/Kconfig
-@@ -16,4 +16,94 @@ config KSU_DEBUG
+@@ -16,4 +16,119 @@ config KSU_DEBUG
  	help
  	  Enable KernelSU debug mode.
  
@@ -19,14 +19,16 @@ index 67f177f4..1c767f26 100644
 +    depends on KSU_SUSFS
 +    default y
 +    help
-+      Allow hiding the existence of user-defined file/directory from various system calls
++      - Allow hiding the user-defined path and all its sub-paths from various system calls
++      - Effective on process with uid > 2000 only
 +
 +config KSU_SUSFS_SUS_MOUNT
 +    bool "Enable to hide suspicious mounts"
 +    depends on KSU_SUSFS
 +    default y
 +    help
-+      Allow hiding the user-defined mount paths from /proc/self/[mounts|mountinfo|mountstat]
++      - Allow hiding the user-defined mount paths from /proc/self/[mounts|mountinfo|mountstat]
++      - Effective on all processes
 +
 +config KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
 +    bool "Enable to re-order mount id and parent mount id in mountinfo (experimental)"
@@ -38,70 +40,93 @@ index 67f177f4..1c767f26 100644
 +      - You should not enable this if the mnt_id on your device is already not in order by default
 +      - Moreover, be careful this feature may cause unknown system crashes / random reboot / bootloop on different kernels or devices, further testing is needed.
 +      - Requires KSU_SUSFS_SUS_MOUNT to be ON
++      - Effective on all process with uid >= 10000
 +
 +config KSU_SUSFS_SUS_KSTAT
 +    bool "Enable to spoof suspicious kstat"
 +    depends on KSU_SUSFS
 +    default y
 +    help
-+      Allow spoofing the kstat of user-defined file/directory
++      - Allow spoofing the kstat of user-defined file/directory
++      - Effective on all processes
 +
-+config KSU_SUSFS_SUS_MAPS
-+    bool "Enable to spoof suspicious maps"
++config KSU_SUSFS_SUS_KSTATFS
++    bool "Enable to spoof suspicious kstatfs"
 +    depends on KSU_SUSFS
 +    default y
 +    help
-+      Allow spoofing the user-defined mappings in /proc/self/[maps|smaps|map_files]
++      - Allow spoofing the kstatfs of user-defined file/directory
++      - Effective on all processes
++
++config KSU_SUSFS_SUS_MAPS
++    bool "Enable to spoof suspicious maps (experimental)"
++    depends on KSU_SUSFS
++    default n
++    help
++      - Allow spoofing the user-defined mappings in /proc/self/[maps|smaps|map_files]
++      - Effective on all processes
 +
 +config KSU_SUSFS_SUS_PROC_FD_LINK
 +    bool "Enable to spoof suspicous symbolic links (experimental)"
 +    depends on KSU_SUSFS
 +    default n
 +    help
-+      Allow spoofing the user-defined symbolic link in /proc/self/fd/
++      - Allow spoofing the user-defined symbolic link in /proc/self/fd/
++      - Effective on all processes
 +
 +config KSU_SUSFS_SUS_MEMFD
 +    bool "Enable to hide or spoof suspicous memfd (experimental)"
 +    depends on KSU_SUSFS
 +    default n
 +    help
-+      Allow preventing the user-defined memfd name from being created
++      - Allow preventing the user-defined memfd name from being created
++      - Effective on all processes
 +
 +config KSU_SUSFS_TRY_UMOUNT
 +    bool "Enable to use ksu's try_umount"
 +    depends on KSU_SUSFS
 +    default y
 +    help
-+      Allow using ksu's umount to umount other user-defined mount paths prior to ksu's default umount paths
++      - Allow using ksu's umount to umount other user-defined mount paths prior to ksu's default umount paths
++      - Effective on all NO-root-access-granted processes
 +
 +config KSU_SUSFS_SPOOF_UNAME
 +    bool "Enable to spoof uname"
 +    depends on KSU_SUSFS
 +    default y
 +    help
-+      Allow spoofing the string returned by uname syscall to user-defined string
-+
++      - Allow spoofing the string returned by uname syscall to user-defined string
++      - Effective on all processes
++      
 +config KSU_SUSFS_ENABLE_LOG
 +    bool "Enable logging susfs log to kernel"
 +    depends on KSU_SUSFS
 +    default y
 +    help
-+      Allow logging susfs log to kernel, uncheck it to completely disable all susfs log
++      - Allow logging susfs log to kernel, uncheck it to completely disable all susfs log
 +
-+config KSU_SUSFS_TOGGLE_SU
-+    bool "Toggle on/off ksu in runtime temporarily"
++config KSU_SUSFS_SUS_SU
++    bool "Enable SUS-SU in runtime temporarily (experimental)"
 +    depends on KSU_SUSFS
-+    default y
++    depends on OVERLAY_FS
++    default n
 +    help
-+      Allow user to enable or disable core ksu kprobes hooks temporarily in runtime
++      - Allow user to enable or disable core ksu kprobes hooks temporarily in runtime
++      - When enabling sus_su, kprobes of ksu will be disabled, and a fifo driver will be created in /dev/[random_string]
++        (for first time only), then user needs to mount the 'sus_su' to /system/bin/su using overlayfs or whatever techniques,
++        and run 'su' to get root shell from the fifo driver. Or, refer to the method in service.sh from module template
++      - When disabling sus_su, kprobes of ksu will be enabled again, and the fifo driver will be deleted
++      - Only apps with root access granted by ksu manager are allowed to get root.
++      - Also overlayfs is required
++
 +endmenu
 +
  endmenu
 diff --git a/kernel/Makefile b/kernel/Makefile
-index 66929756..d25f36c7 100644
+index 66929756..88b7c32b 100644
 --- a/kernel/Makefile
 +++ b/kernel/Makefile
-@@ -66,4 +66,43 @@ endif
+@@ -66,4 +66,49 @@ endif
  ccflags-y += -Wno-implicit-function-declaration -Wno-strict-prototypes -Wno-int-conversion -Wno-gcc-compat
  ccflags-y += -Wno-declaration-after-statement -Wno-unused-function
  
@@ -121,6 +146,9 @@ index 66929756..d25f36c7 100644
 +ifdef KSU_SUSFS_SUS_KSTAT
 +ccflags-y += -DKSU_SUSFS_SUS_KSTAT
 +endif
++ifdef KSU_SUSFS_SUS_KSTATFS
++ccflags-y += -DKSU_SUSFS_SUS_KSTATFS
++endif
 +ifdef KSU_SUSFS_SUS_MAPS
 +ccflags-y += -DKSU_SUSFS_SUS_MAPS
 +endif
@@ -139,6 +167,9 @@ index 66929756..d25f36c7 100644
 +ifdef KSU_SUSFS_ENABLE_LOG
 +ccflags-y += -DKSU_SUSFS_ENABLE_LOG
 +endif
++ifdef KSU_SUSFS_SUS_SU
++ccflags-y += -DKSU_SUSFS_SUS_SU
++endif
 +else
 +$(info -- You have not integrate susfs in your kernel.)
 +$(info -- Read: https://gitlab.com/simonpunk/susfs4ksu)
@@ -146,26 +177,37 @@ index 66929756..d25f36c7 100644
 +
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 429ba330..aa8b4ccf 100644
+index 429ba330..b3d6484f 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
-@@ -44,6 +44,10 @@
+@@ -44,6 +44,21 @@
  #include "throne_tracker.h"
  #include "kernel_compat.h"
  
 +#ifdef CONFIG_KSU_SUSFS
 +#include <linux/susfs.h>
++#ifdef CONFIG_KSU_SUSFS_SUS_SU
++#include "sucompat.h"
++#endif
++bool susfs_is_allow_su(void)
++{
++	if (is_manager()) {
++		// we are manager, allow!
++		return true;
++	}
++	return ksu_is_allow_uid(current_uid().val);
++}
 +#endif
 +
  static bool ksu_module_mounted = false;
  
  extern int handle_sepolicy(unsigned long arg3, void __user *arg4);
-@@ -375,6 +379,225 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -375,6 +390,239 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		return 0;
  	}
  
 +#ifdef CONFIG_KSU_SUSFS
-+	if (current_uid().val == 0) {
++	if (current_uid_val == 0) {
 +		int error = 0;
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +		if (arg2 == CMD_SUSFS_ADD_SUS_PATH) {
@@ -243,6 +285,22 @@ index 429ba330..aa8b4ccf 100644
 +			return 0;
 +        }
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
++		if (arg2 == CMD_SUSFS_ADD_SUS_KSTATFS) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_kstatfs))) {
++				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTATFS -> arg3 is not accessible\n");
++				return 0;
++			}
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTATFS -> arg5 is not accessible\n");
++				return 0;
++			}
++			error = susfs_add_sus_kstatfs((struct st_susfs_sus_kstatfs __user*)arg3);
++			pr_info("susfs: CMD_SUSFS_ADD_SUS_KSTATFS -> ret: %d\n", error);
++			copy_to_user((void __user*)arg5, &error, sizeof(error));
++			return 0;
++		}
++#endif //#ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
 +#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
 +		if (arg2 == CMD_SUSFS_ADD_SUS_MAPS) {
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
@@ -362,31 +420,29 @@ index 429ba330..aa8b4ccf 100644
 +			return 0;
 +		}
 +#endif //#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
-+#ifdef CONFIG_KSU_SUSFS_TOGGLE_SU
-+		if (arg2 == CMD_SUSFS_TOGGLE_SU) {
-+			if (arg3 == 0) {
-+				ksu_susfs_toggle_off_su();
-+				pr_info("susfs: CMD_SUSFS_TOGGLE_SU -> core kprobe hooks for ksu are disabled!\n", error);
-+			} else if (arg3 == 1) {
-+				ksu_susfs_toggle_on_su();
-+				pr_info("susfs: CMD_SUSFS_TOGGLE_SU -> core kprobe hooks for ksu are enabled!\n", error);
-+			} else {
-+				pr_err("susfs: CMD_SUSFS_TOGGLE_SU -> arg3 can only be 0 or 1\n");
++#ifdef CONFIG_KSU_SUSFS_SUS_SU
++		if (arg2 == CMD_SUSFS_SUS_SU) {
++			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_sus_su))) {
++				pr_err("susfs: CMD_SUSFS_SUS_SU -> arg3 is not accessible\n");
 +				return 0;
 +			}
-+			error = 0;
-+			pr_info("susfs: CMD_SUSFS_TOGGLE_SU -> ret: %d\n", error);
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_SUS_SU -> arg5 is not accessible\n");
++				return 0;
++			}
++			error = susfs_sus_su((struct st_sus_su __user*)arg3);
++			pr_info("susfs: CMD_SUSFS_SUS_SU -> ret: %d\n", error);
 +			copy_to_user((void __user*)arg5, &error, sizeof(error));
 +			return 0;
 +		}
-+#endif //#ifdef CONFIG_KSU_SUSFS_TOGGLE_SU
++#endif //#ifdef CONFIG_KSU_SUSFS_SUS_SU
 +	}
 +#endif //#ifdef CONFIG_KSU_SUSFS
 +
  	// all other cmds are for 'root manager'
  	if (!from_manager) {
  		return 0;
-@@ -535,6 +758,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -535,6 +783,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		current->pid);
  #endif
  
@@ -398,6 +454,20 @@ index 429ba330..aa8b4ccf 100644
  	// fixme: use `collect_mounts` and `iterate_mount` to iterate all mountpoint and
  	// filter the mountpoint whose target is `/data/adb`
  	try_umount("/system", true, 0);
+diff --git a/kernel/core_hook.h b/kernel/core_hook.h
+index 616951e8..ffa3c606 100644
+--- a/kernel/core_hook.h
++++ b/kernel/core_hook.h
+@@ -6,4 +6,9 @@
+ void __init ksu_core_init(void);
+ void ksu_core_exit(void);
+ 
++#ifdef CONFIG_KSU_SUSFS
++bool susfs_is_allow_su(void);
++void escape_to_root(void);
++#endif
++
+ #endif
 diff --git a/kernel/kernel_compat.c b/kernel/kernel_compat.c
 index b242bc63..0ec3df62 100644
 --- a/kernel/kernel_compat.c
@@ -474,7 +544,7 @@ index 1ba6d853..7b24203c 100644
  }
  
 diff --git a/kernel/sucompat.c b/kernel/sucompat.c
-index 9b45cd0d..b654dca7 100644
+index 9b45cd0d..8171420e 100644
 --- a/kernel/sucompat.c
 +++ b/kernel/sucompat.c
 @@ -365,3 +365,19 @@ void ksu_sucompat_exit()
@@ -482,18 +552,18 @@ index 9b45cd0d..b654dca7 100644
  #endif
  }
 +
-+#ifdef CONFIG_KSU_SUSFS_TOGGLE_SU
-+void ksu_susfs_toggle_off_su() {
++#ifdef CONFIG_KSU_SUSFS_SUS_SU
++void ksu_susfs_disable_sus_su(void) {
 +	disable_kprobe(&execve_kp);
 +	disable_kprobe(&newfstatat_kp);
 +	disable_kprobe(&faccessat_kp);
-+	disable_kprobe(&pts_unix98_lookup_kp);
++	//disable_kprobe(&pts_unix98_lookup_kp);
 +}
 +
-+void ksu_susfs_toggle_on_su() {
++void ksu_susfs_enable_sus_su(void) {
 +	enable_kprobe(&execve_kp);
 +	enable_kprobe(&newfstatat_kp);
 +	enable_kprobe(&faccessat_kp);
-+	enable_kprobe(&pts_unix98_lookup_kp);
++	//enable_kprobe(&pts_unix98_lookup_kp);
 +}
 +#endif

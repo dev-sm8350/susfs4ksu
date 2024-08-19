@@ -23,7 +23,8 @@
 #define CMD_SUSFS_ADD_SUS_MAPS 0x55560
 #define CMD_SUSFS_UPDATE_SUS_MAPS 0x55561
 #define CMD_SUSFS_ADD_SUS_MEMFD 0x55562
-#define CMD_SUSFS_TOGGLE_SU 0x55563
+#define CMD_SUSFS_ADD_SUS_KSTATFS 0x55563
+#define CMD_SUSFS_SUS_SU 0x60000
 
 #define SUSFS_MAX_LEN_PATHNAME 256 // 256 should address many paths already unless you are doing some strange experimental stuff, then set your own desired length
 #define SUSFS_MAX_LEN_MFD_NAME 248
@@ -33,36 +34,32 @@
 #define SUSFS_MAP_FILES_ACTION_REMOVE_WRITE_PERM 1
 #define SUSFS_MAP_FILES_ACTION_HIDE_DENTRY 2
 
-/* non shared to userspace ksu_susfs tool */
-#define SYSCALL_FAMILY_ALL_ENOENT 0
-#define SYSCALL_FAMILY_OPENAT 1
-#define SYSCALL_FAMILY_MKNOD 2
-#define SYSCALL_FAMILY_MKDIRAT 3
-#define SYSCALL_FAMILY_RMDIR 4
-#define SYSCALL_FAMILY_UNLINKAT 5
-#define SYSCALL_FAMILY_SYMLINKAT_NEWNAME 6
-#define SYSCALL_FAMILY_LINKAT_OLDNAME 7
-#define SYSCALL_FAMILY_LINKAT_NEWNAME 8
-#define SYSCALL_FAMILY_RENAMEAT2_OLDNAME 9
-#define SYSCALL_FAMILY_RENAMEAT2_NEWNAME 10
-#define SYSCALL_FAMILY_TRUNCATE 11
-#define SYSCALL_FAMILY_FACCESSAT 12
-#define SYSCALL_FAMILY_CHDIR 13
-
 /*********/
 /* MACRO */
 /*********/
 #define getname_safe(name) (name == NULL ? ERR_PTR(-EINVAL) : getname(name))
 #define putname_safe(name) (IS_ERR(name) ? NULL : putname(name))
 
-#define uid_matches_suspicious_path() (current_uid().val >= 2000)
-#define uid_matches_suspicious_kstat() (current_uid().val >= 2000)
+#define uid_matches_suspicious_path() (current_uid().val > 2000)
 #define uid_matches_proc_need_to_reorder_mnt_id() (current_uid().val >= 10000)
 
 /**********/
 /* STRUCT */
 /**********/
 /* sus_path */
+struct st_sus_path_err_retval {
+	int other_syscalls;
+	int mknodat;
+	int mkdirat;
+	int rmdir;
+	int unlinkat;
+	int symlinkat_newname;
+	int linkat_oldname;
+	int linkat_newname;
+	int renameat2_oldname;
+	int renameat2_newname;
+};
+
 struct st_susfs_sus_path {
 	char                    target_pathname[SUSFS_MAX_LEN_PATHNAME];
 	unsigned long           target_ino;
@@ -76,6 +73,7 @@ struct st_susfs_sus_path_list {
 /* sus_mount */
 struct st_susfs_sus_mount {
 	char                    target_pathname[SUSFS_MAX_LEN_PATHNAME];
+	unsigned long           target_dev;
 };
 
 struct st_susfs_sus_mount_list {
@@ -88,21 +86,35 @@ struct st_susfs_sus_kstat {
 	bool                    is_statically;
 	unsigned long           target_ino; // the ino after bind mounted or overlayed
 	char                    target_pathname[SUSFS_MAX_LEN_PATHNAME];
-	char                    spoofed_pathname[SUSFS_MAX_LEN_PATHNAME];
 	unsigned long           spoofed_ino;
 	unsigned long           spoofed_dev;
 	unsigned int            spoofed_nlink;
+	long long               spoofed_size;
 	long                    spoofed_atime_tv_sec;
 	long                    spoofed_mtime_tv_sec;
 	long                    spoofed_ctime_tv_sec;
 	long                    spoofed_atime_tv_nsec;
 	long                    spoofed_mtime_tv_nsec;
 	long                    spoofed_ctime_tv_nsec;
+	unsigned long           spoofed_blksize;
+	unsigned long long      spoofed_blocks;
 };
 
 struct st_susfs_sus_kstat_list {
 	struct list_head                        list;
 	struct st_susfs_sus_kstat               info;
+};
+
+/* sus_kstatfs */
+struct st_susfs_sus_kstatfs {
+	unsigned long           target_ino; // the ino after bind mounted or overlayed
+	char                    target_pathname[SUSFS_MAX_LEN_PATHNAME];
+	char                    spoofed_pathname[SUSFS_MAX_LEN_PATHNAME];
+};
+
+struct st_susfs_sus_kstatfs_list {
+	struct list_head                        list;
+	struct st_susfs_sus_kstatfs             info;
 };
 
 /* sus_maps */
@@ -178,6 +190,13 @@ struct st_susfs_uname {
 	char        domainname[__NEW_UTS_LEN + 1];
 };
 
+/* sus_su */
+struct st_sus_su {
+	bool        enabled;
+	char        drv_path[256];
+	int         maj_dev_num;
+};
+
 /***********************/
 /* FORWARD DECLARATION */
 /***********************/
@@ -191,6 +210,8 @@ void susfs_sus_mount(struct mnt_namespace *ns);
 /* sus_kstat */
 int susfs_add_sus_kstat(struct st_susfs_sus_kstat* __user user_info);
 int susfs_update_sus_kstat(struct st_susfs_sus_kstat* __user user_info);
+/* sus_kstatfs */
+int susfs_add_sus_kstatfs(struct st_susfs_sus_kstatfs* __user user_info);
 /* sus_maps */
 int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info);
 int susfs_update_sus_maps(struct st_susfs_sus_maps* __user user_info);
@@ -216,7 +237,10 @@ int susfs_set_uname(struct st_susfs_uname* __user user_info);
 int susfs_spoof_uname(struct new_utsname* tmp);
 /* set_log */
 void susfs_set_log(bool enabled);
-
+/* sus_su */
+#ifdef CONFIG_KSU_SUSFS_SUS_SU
+int susfs_sus_su(struct st_sus_su* __user user_info);
+#endif
 /* susfs_init */
 void __init susfs_init(void);
 

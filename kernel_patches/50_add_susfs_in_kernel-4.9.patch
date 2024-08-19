@@ -1,12 +1,13 @@
 diff --git a/fs/Makefile b/fs/Makefile
-index 0e97f4b85bee4..5ef37c17ee915 100644
+index 0e97f4b85bee4..610ba6cf0e49c 100644
 --- a/fs/Makefile
 +++ b/fs/Makefile
-@@ -13,6 +13,8 @@ obj-y :=	open.o read_write.o file_table.o super.o \
+@@ -13,6 +13,9 @@ obj-y :=	open.o read_write.o file_table.o super.o \
  		pnode.o splice.o sync.o utimes.o \
  		stack.o fs_struct.o statfs.o fs_pin.o nsfs.o
  
 +obj-$(CONFIG_KSU_SUSFS) += susfs.o
++obj-$(CONFIG_KSU_SUSFS_SUS_SU) += sus_su.o
 +
  ifeq ($(CONFIG_BLOCK),y)
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
@@ -43,62 +44,299 @@ index 3603884a63ddb..a1e3b2593a486 100644
  	int mnt_group_id;		/* peer group identifier */
  	int mnt_expiry_mark;		/* true if marked for expiry */
  	struct hlist_head mnt_pins;
-diff --git a/fs/namespace.c b/fs/namespace.c
-index 532baf2380f78..efb1806782fa9 100644
---- a/fs/namespace.c
-+++ b/fs/namespace.c
-@@ -230,6 +230,10 @@ static struct mount *alloc_vfsmnt(const char *name)
- #endif
- 		mnt->mnt.data = NULL;
+diff --git a/fs/namei.c b/fs/namei.c
+index 0cbf8f5a92f44..df551f11f898e 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -42,6 +42,10 @@
+ #include "internal.h"
+ #include "mount.h"
  
-+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+		mnt->is_sus_mount = false;
++#ifdef CONFIG_KSU_SUSFS
++#include <linux/susfs.h>
 +#endif
 +
- 		INIT_HLIST_NODE(&mnt->mnt_hash);
- 		INIT_LIST_HEAD(&mnt->mnt_child);
- 		INIT_LIST_HEAD(&mnt->mnt_mounts);
-@@ -1711,6 +1715,40 @@ static inline bool may_mandlock(void)
+ /* [Feb-1997 T. Schoebel-Theuer]
+  * Fundamental changes in the pathname lookup mechanisms (namei)
+  * were necessary because of omirr.  The reason is that omirr needs
+@@ -2186,6 +2190,10 @@ static int link_path_walk(const char *name, struct nameidata *nd)
+ 			}
+ 			return -ENOTDIR;
+ 		}
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++		if (!err && unlikely(nd->path.dentry->d_inode->is_sus_path))
++			return 0;
++#endif
+ 	}
  }
- #endif
  
-+static int can_umount(const struct path *path, int flags)
-+{
-+    struct mount *mnt = real_mount(path->mnt);
+@@ -3621,6 +3629,15 @@ struct file *do_filp_open(int dfd, struct filename *pathname,
+ 
+ 	set_nameidata(&nd, dfd, pathname);
+ 	filp = path_openat(&nd, op, flags | LOOKUP_RCU);
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (!IS_ERR(filp)) {
++		if (unlikely(filp->f_inode->is_sus_path && uid_matches_suspicious_path())) {
++			filp = ERR_PTR(filp->f_inode->sus_path_err_retval.other_syscalls);
++			restore_nameidata();
++			return filp;
++		}
++	}
++#endif
+ 	if (unlikely(filp == ERR_PTR(-ECHILD)))
+ 		filp = path_openat(&nd, op, flags);
+ 	if (unlikely(filp == ERR_PTR(-ESTALE)))
+@@ -3827,6 +3844,14 @@ SYSCALL_DEFINE4(mknodat, int, dfd, const char __user *, filename, umode_t, mode,
+ 	if (IS_ERR(dentry))
+ 		return PTR_ERR(dentry);
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		error = path.dentry->d_inode->sus_path_err_retval.mknodat;
++		done_path_create(&path, dentry);
++		return error;
++	}
++#endif
 +
-+    if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))
-+        return -EINVAL;
-+    if (!may_mount())
-+        return -EPERM;
-+    if (path->dentry != path->mnt->mnt_root)
-+        return -EINVAL;
-+    if (!check_mnt(mnt))
-+        return -EINVAL;
-+    if (mnt->mnt.mnt_flags & MNT_LOCKED) /* Check optimistically */
-+        return -EINVAL;
-+    if (flags & MNT_FORCE && !capable(CAP_SYS_ADMIN))
-+        return -EPERM;
-+    return 0;
-+}
+ 	if (!IS_POSIXACL(path.dentry->d_inode))
+ 		mode &= ~current_umask();
+ 	error = security_path_mknod(&path, dentry, mode, dev);
+@@ -3904,6 +3929,13 @@ SYSCALL_DEFINE3(mkdirat, int, dfd, const char __user *, pathname, umode_t, mode)
+ 	if (IS_ERR(dentry))
+ 		return PTR_ERR(dentry);
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		error = path.dentry->d_inode->sus_path_err_retval.mkdirat;
++		done_path_create(&path, dentry);
++		return error;
++	}
++#endif
+ 	if (!IS_POSIXACL(path.dentry->d_inode))
+ 		mode &= ~current_umask();
+ 	error = security_path_mkdir(&path, dentry, mode);
+@@ -3982,6 +4014,14 @@ static long do_rmdir(int dfd, const char __user *pathname)
+ 	if (IS_ERR(name))
+ 		return PTR_ERR(name);
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		error = path.dentry->d_inode->sus_path_err_retval.rmdir;
++		path_put(&path);
++		putname(name);
++		return error;
++	}
++#endif
+ 	switch (type) {
+ 	case LAST_DOTDOT:
+ 		error = -ENOTEMPTY;
+@@ -4118,6 +4158,14 @@ static long do_unlinkat(int dfd, const char __user *pathname)
+ 	if (IS_ERR(name))
+ 		return PTR_ERR(name);
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		error = path.dentry->d_inode->sus_path_err_retval.unlinkat;
++		path_put(&path);
++		putname(name);
++		return error;
++	}
++#endif
+ 	error = -EISDIR;
+ 	if (type != LAST_NORM)
+ 		goto exit1;
+@@ -4235,6 +4283,13 @@ SYSCALL_DEFINE3(symlinkat, const char __user *, oldname,
+ 	if (IS_ERR(dentry))
+ 		goto out_putname;
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		error = path.dentry->d_inode->sus_path_err_retval.symlinkat_newname;
++		done_path_create(&path, dentry);
++		goto out_putname;
++	}
++#endif
+ 	error = security_path_symlink(&path, dentry, from->name);
+ 	if (!error)
+ 		error = vfs_symlink2(path.mnt, path.dentry->d_inode, dentry, from->name);
+@@ -4377,12 +4432,27 @@ SYSCALL_DEFINE5(linkat, int, olddfd, const char __user *, oldname,
+ 	if (error)
+ 		return error;
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(old_path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		error = old_path.dentry->d_inode->sus_path_err_retval.linkat_oldname;
++		goto out;
++	}
++#endif
 +
-+int path_umount(struct path *path, int flags)
-+{
-+    struct mount *mnt = real_mount(path->mnt);
-+    int ret;
+ 	new_dentry = user_path_create(newdfd, newname, &new_path,
+ 					(how & LOOKUP_REVAL));
+ 	error = PTR_ERR(new_dentry);
+ 	if (IS_ERR(new_dentry))
+ 		goto out;
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(new_path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		error = new_path.dentry->d_inode->sus_path_err_retval.linkat_newname;
++		done_path_create(&new_path, new_dentry);
++		goto out;
++	}
++#endif
 +
-+    ret = can_umount(path, flags);
-+    if (!ret)
-+        ret = do_umount(mnt, flags);
+ 	error = -EXDEV;
+ 	if (old_path.mnt != new_path.mnt)
+ 		goto out_dput;
+@@ -4641,6 +4711,15 @@ SYSCALL_DEFINE5(renameat2, int, olddfd, const char __user *, oldname,
+ 		goto exit;
+ 	}
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(old_path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		error = old_path.dentry->d_inode->sus_path_err_retval.renameat2_oldname;
++		path_put(&old_path);
++		putname(from);
++		goto exit;
++	}
++#endif
 +
-+    /* we mustn't call path_put() as that would clear mnt_expiry_mark */
-+    dput(path->dentry);
-+    mntput_no_expire(mnt);
-+    return ret;
-+}
+ 	to = user_path_parent(newdfd, newname,
+ 				&new_path, &new_last, &new_type, lookup_flags);
+ 	if (IS_ERR(to)) {
+@@ -4648,6 +4727,17 @@ SYSCALL_DEFINE5(renameat2, int, olddfd, const char __user *, oldname,
+ 		goto exit1;
+ 	}
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(new_path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		error = new_path.dentry->d_inode->sus_path_err_retval.renameat2_newname;
++		path_put(&new_path);
++		putname(to);
++		path_put(&old_path);
++		putname(from);
++		goto exit;
++	}
++#endif
 +
- /*
-  * Now umount can handle mount points as well as block devices.
-  * This is important for filesystems which use unnamed block devices.
+ 	error = -EXDEV;
+ 	if (old_path.mnt != new_path.mnt)
+ 		goto exit2;
+diff --git a/fs/open.c b/fs/open.c
+index f2b82c462fbba..2916cda07c38c 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -34,6 +34,10 @@
+ 
+ #include "internal.h"
+ 
++#ifdef CONFIG_KSU_SUSFS
++#include <linux/susfs.h>
++#endif
++
+ int do_truncate2(struct vfsmount *mnt, struct dentry *dentry, loff_t length,
+ 		unsigned int time_attrs, struct file *filp)
+ {
+@@ -147,6 +151,13 @@ static long do_sys_truncate(const char __user *pathname, loff_t length)
+ retry:
+ 	error = user_path_at(AT_FDCWD, pathname, lookup_flags, &path);
+ 	if (!error) {
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		error = path.dentry->d_inode->sus_path_err_retval.other_syscalls;
++		path_put(&path);
++		return error;
++	}
++#endif
+ 		error = vfs_truncate(&path, length);
+ 		path_put(&path);
+ 	}
+@@ -415,6 +426,15 @@ SYSCALL_DEFINE3(faccessat, int, dfd, const char __user *, filename, int, mode)
+ 	if (res)
+ 		goto out;
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		res = path.dentry->d_inode->sus_path_err_retval.other_syscalls;
++		path_put(&path);
++		revert_creds(old_cred);
++		put_cred(override_cred);
++		return res;
++	}
++#endif
+ 	inode = d_backing_inode(path.dentry);
+ 	mnt = path.mnt;
+ 
+@@ -471,6 +491,13 @@ SYSCALL_DEFINE1(chdir, const char __user *, filename)
+ 	error = user_path_at(AT_FDCWD, filename, lookup_flags, &path);
+ 	if (error)
+ 		goto out;
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		error = path.dentry->d_inode->sus_path_err_retval.other_syscalls;
++		path_put(&path);
++		return error;
++	}
++#endif
+ 
+ 	error = inode_permission2(path.mnt, path.dentry->d_inode, MAY_EXEC | MAY_CHDIR);
+ 	if (error)
+diff --git a/fs/overlayfs/dir.c b/fs/overlayfs/dir.c
+index 0fa95bc5950aa..04918c3b685f1 100644
+--- a/fs/overlayfs/dir.c
++++ b/fs/overlayfs/dir.c
+@@ -152,6 +152,11 @@ static int ovl_dir_getattr(struct vfsmount *mnt, struct dentry *dentry,
+ 	if (err)
+ 		return err;
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++	if (realpath.dentry->d_inode->is_sus_kstat)
++		goto bypass_orig_flow;
++#endif
++
+ 	stat->dev = dentry->d_sb->s_dev;
+ 	stat->ino = dentry->d_inode->i_ino;
+ 
+@@ -163,6 +168,10 @@ static int ovl_dir_getattr(struct vfsmount *mnt, struct dentry *dentry,
+ 	if (OVL_TYPE_MERGE(type))
+ 		stat->nlink = 1;
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++bypass_orig_flow:
++#endif
++
+ 	return 0;
+ }
+ 
+diff --git a/fs/overlayfs/super.c b/fs/overlayfs/super.c
+index ae1b42489ddd1..ffddbb54b2d42 100644
+--- a/fs/overlayfs/super.c
++++ b/fs/overlayfs/super.c
+@@ -265,17 +265,25 @@ bool ovl_is_whiteout(struct dentry *dentry)
+ 
+ const struct cred *ovl_override_creds(struct super_block *sb)
+ {
++#ifdef CONFIG_KSU_SUSFS
++	return NULL;
++#else
+ 	struct ovl_fs *ofs = sb->s_fs_info;
+ 
+ 	if (!ofs->config.override_creds)
+ 		return NULL;
+ 	return override_creds(ofs->creator_cred);
++#endif
+ }
+ 
+ void ovl_revert_creds(const struct cred *old_cred)
+ {
++#ifdef CONFIG_KSU_SUSFS
++	return;
++#else
+ 	if (old_cred)
+ 		revert_creds(old_cred);
++#endif
+ }
+ 
+ static bool ovl_is_opaquedir(struct dentry *dentry)
 diff --git a/fs/proc/base.c b/fs/proc/base.c
 index b6959f6dae5b3..9665ef85f7780 100644
 --- a/fs/proc/base.c
@@ -268,7 +506,7 @@ index b6959f6dae5b3..9665ef85f7780 100644
  	}
  	if (fa)
 diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
-index f4a77817ad74c..c2b36c3b317a1 100644
+index f4a77817ad74c..147e75d2a88b6 100644
 --- a/fs/proc/task_mmu.c
 +++ b/fs/proc/task_mmu.c
 @@ -22,6 +22,10 @@
@@ -282,7 +520,7 @@ index f4a77817ad74c..c2b36c3b317a1 100644
  void task_mem(struct seq_file *m, struct mm_struct *mm)
  {
  	unsigned long text, lib, swap, ptes, pmds, anon, file, shmem;
-@@ -358,6 +362,10 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
+@@ -358,9 +362,26 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
  	unsigned long start, end;
  	dev_t dev = 0;
  	const char *name = NULL;
@@ -293,7 +531,23 @@ index f4a77817ad74c..c2b36c3b317a1 100644
  
  	if (file) {
  		struct inode *inode = file_inode(vma->vm_file);
-@@ -369,8 +377,28 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
++#if defined(CONFIG_KSU_SUSFS_SUS_KSTAT) && !defined(CONFIG_KSU_SUSFS_SUS_MAPS)
++		// when sus_kstat is used but sus_maps is disabled, sus_kstat should take care the ino & dev of the spoofed inode in maps as well
++		// when both sus_kstat and sus_maps is enabled, user should use both to spoof the ino & dev of the target file
++		if (unlikely(inode->is_sus_kstat)) {
++			dev = inode->sus_kstat.dev;
++			ino = inode->sus_kstat.ino;
++			pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
++			start = vma->vm_start;
++			end = vma->vm_end;
++			show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
++			goto kstat_bypass_orig_flow;
++		}
++#endif
+ 		dev = inode->i_sb->s_dev;
+ 		ino = inode->i_ino;
+ 		pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
+@@ -369,12 +390,35 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
  	/* We don't show the stack guard page in /proc/maps */
  	start = vma->vm_start;
  	end = vma->vm_end;
@@ -322,6 +576,13 @@ index f4a77817ad74c..c2b36c3b317a1 100644
  	/*
  	 * Print the dentry name for named mappings, and a
  	 * special [heap] marker for the heap:
+ 	 */
++#if defined(CONFIG_KSU_SUSFS_SUS_KSTAT) && !defined(CONFIG_KSU_SUSFS_SUS_MAPS)
++kstat_bypass_orig_flow:
++#endif
+ 	if (file) {
+ 		seq_pad(m, ' ');
+ 		seq_file_path(m, file, "\n");
 diff --git a/fs/proc_namespace.c b/fs/proc_namespace.c
 index 6863773aff252..dd9e021dc1f22 100644
 --- a/fs/proc_namespace.c
@@ -386,7 +647,7 @@ index 6863773aff252..dd9e021dc1f22 100644
  	if (sb->s_op->show_devname) {
  		seq_puts(m, "device ");
 diff --git a/fs/readdir.c b/fs/readdir.c
-index 1059f2a9be0b2..288ba4cfbd79b 100644
+index 1059f2a9be0b2..4f011a77cdb2e 100644
 --- a/fs/readdir.c
 +++ b/fs/readdir.c
 @@ -21,6 +21,10 @@
@@ -400,23 +661,25 @@ index 1059f2a9be0b2..288ba4cfbd79b 100644
  int iterate_dir(struct file *file, struct dir_context *ctx)
  {
  	struct inode *inode = file_inode(file);
-@@ -301,6 +305,11 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
+@@ -301,6 +305,13 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
  	buf->error = -EINVAL;	/* only used if we fail.. */
  	if (reclen > buf->count)
  		return -EINVAL;
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +	if (!susfs_is_sus_path_list_empty() && uid_matches_suspicious_path()) {
 +		if (unlikely(susfs_sus_ino_for_filldir64(ino))) {
 +			return 0;
 +		}
 +	}
++#endif
  	dirent = buf->previous;
  	if (dirent) {
  		if (signal_pending(current))
 diff --git a/fs/stat.c b/fs/stat.c
-index 068fdbcc9e26a..dee9c9a1df51b 100644
+index 068fdbcc9e26a..5018f4074b41c 100644
 --- a/fs/stat.c
 +++ b/fs/stat.c
-@@ -18,8 +18,30 @@
+@@ -18,6 +18,10 @@
  #include <asm/uaccess.h>
  #include <asm/unistd.h>
  
@@ -426,8 +689,22 @@ index 068fdbcc9e26a..dee9c9a1df51b 100644
 +
  void generic_fillattr(struct inode *inode, struct kstat *stat)
  {
+ 	stat->dev = inode->i_sb->s_dev;
+@@ -64,11 +68,33 @@ EXPORT_SYMBOL(vfs_getattr_nosec);
+ 
+ int vfs_getattr(struct path *path, struct kstat *stat)
+ {
 +#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
-+	if (unlikely(inode->is_sus_kstat && uid_matches_suspicious_kstat())) {
++	struct inode *inode;
++#endif
+ 	int retval;
+ 
+ 	retval = security_inode_getattr(path);
+ 	if (retval)
+ 		return retval;
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++	inode = path->dentry->d_inode;
++	if (unlikely(inode->is_sus_kstat)) {
 +		stat->dev = inode->sus_kstat.dev;
 +		stat->ino = inode->sus_kstat.ino;
 +		stat->mode = inode->sus_kstat.mode;
@@ -441,29 +718,161 @@ index 068fdbcc9e26a..dee9c9a1df51b 100644
 +		stat->ctime = inode->sus_kstat.ctime;
 +		stat->blksize = inode->sus_kstat.blksize;
 +		stat->blocks = inode->sus_kstat.blocks;
-+		return;
++		return 0;
 +	}
 +#endif
- 	stat->dev = inode->i_sb->s_dev;
- 	stat->ino = inode->i_ino;
- 	stat->mode = inode->i_mode;
+ 	return vfs_getattr_nosec(path, stat);
+ }
+ 
+@@ -80,6 +106,13 @@ int vfs_fstat(unsigned int fd, struct kstat *stat)
+ 	int error = -EBADF;
+ 
+ 	if (f.file) {
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(f.file->f_inode->is_sus_path && uid_matches_suspicious_path())) {
++		error = f.file->f_inode->sus_path_err_retval.other_syscalls;
++		fdput(f);
++		return error;
++	}
++#endif
+ 		error = vfs_getattr(&f.file->f_path, stat);
+ 		fdput(f);
+ 	}
+@@ -106,6 +139,13 @@ int vfs_fstatat(int dfd, const char __user *filename, struct kstat *stat,
+ 	error = user_path_at(dfd, filename, lookup_flags, &path);
+ 	if (error)
+ 		goto out;
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		error = path.dentry->d_inode->sus_path_err_retval.other_syscalls;
++		path_put(&path);
++		return error;
++	}
++#endif
+ 
+ 	error = vfs_getattr(&path, stat);
+ 	path_put(&path);
+@@ -328,6 +368,13 @@ SYSCALL_DEFINE4(readlinkat, int, dfd, const char __user *, pathname,
+ 	if (!error) {
+ 		struct inode *inode = d_backing_inode(path.dentry);
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++		if (unlikely(inode->is_sus_path && uid_matches_suspicious_path())) {
++			error = inode->sus_path_err_retval.other_syscalls;
++			path_put(&path);
++			return error;
++		}
++#endif
+ 		error = empty ? -ENOENT : -EINVAL;
+ 		if (inode->i_op->readlink) {
+ 			error = security_inode_readlink(path.dentry);
+diff --git a/fs/statfs.c b/fs/statfs.c
+index 083dc0ac91408..68eaf37310900 100644
+--- a/fs/statfs.c
++++ b/fs/statfs.c
+@@ -57,7 +57,22 @@ static int statfs_by_dentry(struct dentry *dentry, struct kstatfs *buf)
+ 	retval = security_sb_statfs(dentry);
+ 	if (retval)
+ 		return retval;
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (unlikely(dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++		return dentry->d_inode->sus_path_err_retval.other_syscalls;
++	}
++#endif
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
++	if (unlikely(dentry->d_inode->is_sus_kstatfs)) {
++		memcpy(buf, &dentry->d_inode->sus_kstatfs, sizeof(struct kstatfs));
++		retval = 0;
++		goto bypass_orig_flow;
++	}
++#endif
+ 	retval = dentry->d_sb->s_op->statfs(dentry, buf);
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
++bypass_orig_flow:
++#endif
+ 	if (retval == 0 && buf->f_frsize == 0)
+ 		buf->f_frsize = buf->f_bsize;
+ 	return retval;
+@@ -68,8 +83,16 @@ int vfs_statfs(struct path *path, struct kstatfs *buf)
+ 	int error;
+ 
+ 	error = statfs_by_dentry(path->dentry, buf);
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
++	if (!error) {
++		if (unlikely(path->dentry->d_inode->is_sus_kstatfs))
++			return error;
++		buf->f_flags = calculate_f_flags(path->mnt);
++	}
++#else
+ 	if (!error)
+ 		buf->f_flags = calculate_f_flags(path->mnt);
++#endif
+ 	return error;
+ }
+ EXPORT_SYMBOL(vfs_statfs);
+@@ -82,6 +105,13 @@ int user_statfs(const char __user *pathname, struct kstatfs *st)
+ retry:
+ 	error = user_path_at(AT_FDCWD, pathname, lookup_flags, &path);
+ 	if (!error) {
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++		if (unlikely(path.dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
++			error = path.dentry->d_inode->sus_path_err_retval.other_syscalls;
++			path_put(&path);
++			return error;
++		}
++#endif
+ 		error = vfs_statfs(&path, st);
+ 		path_put(&path);
+ 		if (retry_estale(error, lookup_flags)) {
+@@ -97,6 +127,13 @@ int fd_statfs(int fd, struct kstatfs *st)
+ 	struct fd f = fdget_raw(fd);
+ 	int error = -EBADF;
+ 	if (f.file) {
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++		if (unlikely(f.file->f_inode->is_sus_path && uid_matches_suspicious_path())) {
++			error = f.file->f_inode->sus_path_err_retval.other_syscalls;
++			fdput(f);
++			return error;
++		}
++#endif
+ 		error = vfs_statfs(&f.file->f_path, st);
+ 		fdput(f);
+ 	}
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index bb94ab942b66c..48ddc5d56cf05 100644
+index bb94ab942b66c..0a2f1efc75648 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
-@@ -737,6 +737,15 @@ struct inode {
+@@ -38,6 +38,13 @@
+ #include <asm/byteorder.h>
+ #include <uapi/linux/fs.h>
+ 
++#ifdef CONFIG_KSU_SUSFS
++#include <linux/susfs.h>
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
++#include <linux/statfs.h>
++#endif // CONFIG_KSU_SUSFS_SUS_KSTATFS
++#endif // CONFIG_KSU_SUSFS
++
+ struct backing_dev_info;
+ struct bdi_writeback;
+ struct export_operations;
+@@ -737,6 +744,19 @@ struct inode {
  	struct list_head	i_fsverity_list;	/* Not for upstream */
  #endif
  	void			*i_private; /* fs or device private pointer */
 +
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	bool is_sus_path;
++	struct st_sus_path_err_retval sus_path_err_retval;
++#endif
 +#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 +	struct kstat sus_kstat;
 +	bool is_sus_kstat;
 +#endif
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	bool is_sus_path;
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
++	struct kstatfs sus_kstatfs;
++	bool is_sus_kstatfs;
 +#endif
-+
  };
  
  static inline unsigned int i_blocksize(const struct inode *node)
@@ -562,296 +971,3 @@ index 9cb863a19d074..f91b4b4595ca2 100644
  	fd = get_unused_fd_flags((flags & MFD_CLOEXEC) ? O_CLOEXEC : 0);
  	if (fd < 0) {
  		error = fd;
-diff --git a/security/security.c b/security/security.c
-index fa7c5d750a437..f684d2b7944a3 100644
---- a/security/security.c
-+++ b/security/security.c
-@@ -28,6 +28,10 @@
- #include <linux/backing-dev.h>
- #include <net/flow.h>
- 
-+#ifdef CONFIG_KSU_SUSFS
-+#include <linux/susfs.h>
-+#endif
-+
- #define MAX_LSM_EVM_XATTR	2
- 
- /* Maximum number of letters for an LSM name string */
-@@ -347,6 +351,12 @@ EXPORT_SYMBOL(security_sb_parse_opts_str);
- int security_inode_alloc(struct inode *inode)
- {
- 	inode->i_security = NULL;
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	inode->is_sus_path = false;
-+#endif
-+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
-+	inode->is_sus_kstat = false;
-+#endif
- 	return call_int_hook(inode_alloc_security, 0, inode);
- }
- 
-@@ -440,39 +450,94 @@ EXPORT_SYMBOL(security_path_mkdir);
- 
- int security_path_rmdir(const struct path *dir, struct dentry *dentry)
- {
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	int ret;
-+#endif
- 	if (unlikely(IS_PRIVATE(d_backing_inode(dir->dentry))))
- 		return 0;
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	ret = call_int_hook(path_rmdir, 0, dir, dentry);
-+	if (!ret) {
-+		if (unlikely(dir->dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
-+			return -ENOENT;
-+		}
-+	}
-+	return ret;
-+#else
- 	return call_int_hook(path_rmdir, 0, dir, dentry);
-+#endif
- }
- 
- int security_path_unlink(const struct path *dir, struct dentry *dentry)
- {
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	int ret;
-+#endif
- 	if (unlikely(IS_PRIVATE(d_backing_inode(dir->dentry))))
- 		return 0;
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	ret = call_int_hook(path_unlink, 0, dir, dentry);
-+	if (!ret) {
-+		if (unlikely(dir->dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
-+			return -ENOENT;
-+		}
-+	}
-+	return ret;
-+#else
- 	return call_int_hook(path_unlink, 0, dir, dentry);
-+#endif
- }
- EXPORT_SYMBOL(security_path_unlink);
- 
- int security_path_symlink(const struct path *dir, struct dentry *dentry,
- 			  const char *old_name)
- {
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	int ret;
-+#endif
- 	if (unlikely(IS_PRIVATE(d_backing_inode(dir->dentry))))
- 		return 0;
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	ret = call_int_hook(path_symlink, 0, dir, dentry, old_name);
-+	if (!ret) {
-+		if (unlikely(dir->dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
-+			return -ENOENT;
-+		}
-+	}
-+	return ret;
-+#else
- 	return call_int_hook(path_symlink, 0, dir, dentry, old_name);
-+#endif
- }
- 
- int security_path_link(struct dentry *old_dentry, const struct path *new_dir,
- 		       struct dentry *new_dentry)
- {
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	int ret;
-+#endif
- 	if (unlikely(IS_PRIVATE(d_backing_inode(old_dentry))))
- 		return 0;
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	ret = call_int_hook(path_link, 0, old_dentry, new_dir, new_dentry);
-+	if (!ret) {
-+		if (unlikely(old_dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
-+			return -ENOENT;
-+		}
-+	}
-+	return ret;
-+#else
- 	return call_int_hook(path_link, 0, old_dentry, new_dir, new_dentry);
-+#endif
- }
- 
- int security_path_rename(const struct path *old_dir, struct dentry *old_dentry,
- 			 const struct path *new_dir, struct dentry *new_dentry,
- 			 unsigned int flags)
- {
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	int ret;
-+#endif
- 	if (unlikely(IS_PRIVATE(d_backing_inode(old_dentry)) ||
- 		     (d_is_positive(new_dentry) && IS_PRIVATE(d_backing_inode(new_dentry)))))
- 		return 0;
-@@ -484,30 +549,80 @@ int security_path_rename(const struct path *old_dir, struct dentry *old_dentry,
- 			return err;
- 	}
- 
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	ret = call_int_hook(path_rename, 0, old_dir, old_dentry, new_dir,
-+				new_dentry);
-+	if (!ret) {
-+		if (unlikely(old_dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
-+			return -ENOENT;
-+		}
-+	}
-+	return ret;
-+#else
- 	return call_int_hook(path_rename, 0, old_dir, old_dentry, new_dir,
- 				new_dentry);
-+#endif
- }
- EXPORT_SYMBOL(security_path_rename);
- 
- int security_path_truncate(const struct path *path)
- {
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	int ret;
-+#endif
- 	if (unlikely(IS_PRIVATE(d_backing_inode(path->dentry))))
- 		return 0;
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	ret = call_int_hook(path_truncate, 0, path);
-+	if (!ret) {
-+		if (unlikely(path->dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
-+			return -ENOENT;
-+		}
-+	}
-+	return ret;
-+#else
- 	return call_int_hook(path_truncate, 0, path);
-+#endif
- }
- 
- int security_path_chmod(const struct path *path, umode_t mode)
- {
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	int ret;
-+#endif
- 	if (unlikely(IS_PRIVATE(d_backing_inode(path->dentry))))
- 		return 0;
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	ret = call_int_hook(path_chmod, 0, path, mode);
-+	if (!ret) {
-+		if (unlikely(path->dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
-+			return -ENOENT;
-+		}
-+	}
-+	return ret;
-+#else
- 	return call_int_hook(path_chmod, 0, path, mode);
-+#endif
- }
- 
- int security_path_chown(const struct path *path, kuid_t uid, kgid_t gid)
- {
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	int ret;
-+#endif
- 	if (unlikely(IS_PRIVATE(d_backing_inode(path->dentry))))
- 		return 0;
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	ret = call_int_hook(path_chown, 0, path, uid, gid);
-+	if (!ret) {
-+		if (unlikely(path->dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
-+			return -ENOENT;
-+		}
-+	}
-+	return ret;
-+#else
- 	return call_int_hook(path_chown, 0, path, uid, gid);
-+#endif
- }
- EXPORT_SYMBOL(security_path_chown);
- 
-@@ -614,9 +729,22 @@ int security_inode_follow_link(struct dentry *dentry, struct inode *inode,
- 
- int security_inode_permission(struct inode *inode, int mask)
- {
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	int ret;
-+#endif
- 	if (unlikely(IS_PRIVATE(inode)))
- 		return 0;
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	ret = call_int_hook(inode_permission, 0, inode, mask);
-+	if (!ret) {
-+		if (unlikely(inode->is_sus_path && uid_matches_suspicious_path())) {
-+			return -ENOENT;
-+		}
-+	}
-+	return ret;
-+#else
- 	return call_int_hook(inode_permission, 0, inode, mask);
-+#endif
- }
- 
- int security_inode_setattr(struct dentry *dentry, struct iattr *attr)
-@@ -634,9 +762,22 @@ EXPORT_SYMBOL_GPL(security_inode_setattr);
- 
- int security_inode_getattr(const struct path *path)
- {
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	int ret;
-+#endif
- 	if (unlikely(IS_PRIVATE(d_backing_inode(path->dentry))))
- 		return 0;
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	ret = call_int_hook(inode_getattr, 0, path);
-+	if (!ret) {
-+		if (unlikely(path->dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
-+			return -ENOENT;
-+		}
-+	}
-+	return ret;
-+#else
- 	return call_int_hook(inode_getattr, 0, path);
-+#endif
- }
- 
- int security_inode_setxattr(struct dentry *dentry, const char *name,
-@@ -674,16 +815,42 @@ void security_inode_post_setxattr(struct dentry *dentry, const char *name,
- 
- int security_inode_getxattr(struct dentry *dentry, const char *name)
- {
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	int ret;
-+#endif
- 	if (unlikely(IS_PRIVATE(d_backing_inode(dentry))))
- 		return 0;
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	ret = call_int_hook(inode_getxattr, 0, dentry, name);
-+	if (!ret) {
-+		if (unlikely(dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
-+			return -ENOENT;
-+		}
-+	}
-+	return ret;
-+#else
- 	return call_int_hook(inode_getxattr, 0, dentry, name);
-+#endif
- }
- 
- int security_inode_listxattr(struct dentry *dentry)
- {
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	int ret;
-+#endif
- 	if (unlikely(IS_PRIVATE(d_backing_inode(dentry))))
- 		return 0;
-+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	ret = call_int_hook(inode_listxattr, 0, dentry);
-+	if (!ret) {
-+		if (unlikely(dentry->d_inode->is_sus_path && uid_matches_suspicious_path())) {
-+			return -ENOENT;
-+		}
-+	}
-+	return ret;
-+#else
- 	return call_int_hook(inode_listxattr, 0, dentry);
-+#endif
- }
- 
- int security_inode_removexattr(struct dentry *dentry, const char *name)
