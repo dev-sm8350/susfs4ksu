@@ -261,7 +261,9 @@ void susfs_sus_mount(struct mnt_namespace *ns) {
 	struct mount *mnt_cursor, *mnt_temp;
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
 	struct mount *first_mnt_entry;
-	int first_entry_mnt_id = 0;
+	int first_entry_mnt_id;
+	int first_entry_mnt_master_group_id = 1;
+	int last_mnt_master_group_id = 0;
 #endif
 
 	if (unlikely(!ns))
@@ -284,6 +286,14 @@ void susfs_sus_mount(struct mnt_namespace *ns) {
 		}
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
 		mnt_cursor->fake_mnt_id = first_entry_mnt_id++;
+		if (mnt_cursor->mnt_master) {
+			if (likely(last_mnt_master_group_id != mnt_cursor->mnt_master->mnt_group_id)) {
+				mnt_cursor->fake_mnt_master_group_id = first_entry_mnt_master_group_id++;
+			} else {
+				mnt_cursor->fake_mnt_master_group_id = first_entry_mnt_master_group_id;
+			}
+			last_mnt_master_group_id = mnt_cursor->fake_mnt_master_group_id;
+		}
 #endif
 out_continue:
 		mntput(&mnt_cursor->mnt);

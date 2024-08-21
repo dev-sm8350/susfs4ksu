@@ -1,8 +1,8 @@
 diff --git a/kernel/Kconfig b/kernel/Kconfig
-index 67f177f4..6b49318e 100644
+index 67f177f4..b3a2ddca 100644
 --- a/kernel/Kconfig
 +++ b/kernel/Kconfig
-@@ -16,4 +16,119 @@ config KSU_DEBUG
+@@ -16,4 +16,120 @@ config KSU_DEBUG
  	help
  	  Enable KernelSU debug mode.
  
@@ -35,10 +35,11 @@ index 67f177f4..6b49318e 100644
 +    depends on KSU_SUSFS_SUS_MOUNT
 +    default n
 +    help
-+      - Enable this option will automatically and completely re-order the mount id and parent mount id in /proc/self/mountinfo
-+      - The actual mnt_id/parent_mnt_id is not changed in kernel, only reflects on /proc/self/mountinfo
-+      - You should not enable this if the mnt_id on your device is already not in order by default
-+      - Moreover, be careful this feature may cause unknown system crashes / random reboot / bootloop on different kernels or devices, further testing is needed.
++      - Enable this option will automatically and completely re-order the mount id, parent mount id, and mnt_group_id
++        in /proc/self/mountinfo
++      - The actual mnt_id,parent_mnt_id,mnt_group_id are not actually changed in kernel, only reflects on /proc/self/mountinfo
++      - Be careful this feature may cause unknown system crashes / random reboot / bootloop on different kernels or devices (likely 5.4+),
++        further testing is needed.
 +      - Requires KSU_SUSFS_SUS_MOUNT to be ON
 +      - Effective on all process with uid >= 10000
 +

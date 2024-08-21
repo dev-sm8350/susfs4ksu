@@ -28,10 +28,10 @@ index 3e58863de5144..4fe0133cc4f6e 100644
   * fs_struct.c
   */
 diff --git a/fs/mount.h b/fs/mount.h
-index 3603884a63ddb..a1e3b2593a486 100644
+index 3603884a63ddb..e654136a7e9e5 100644
 --- a/fs/mount.h
 +++ b/fs/mount.h
-@@ -64,6 +64,12 @@ struct mount {
+@@ -64,6 +64,13 @@ struct mount {
  	__u32 mnt_fsnotify_mask;
  #endif
  	int mnt_id;			/* mount identifier */
@@ -40,6 +40,7 @@ index 3603884a63ddb..a1e3b2593a486 100644
 +#endif
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
 +	int fake_mnt_id;
++	int fake_mnt_master_group_id;
 +#endif
  	int mnt_group_id;		/* peer group identifier */
  	int mnt_expiry_mark;		/* true if marked for expiry */
@@ -584,7 +585,7 @@ index f4a77817ad74c..147e75d2a88b6 100644
  		seq_pad(m, ' ');
  		seq_file_path(m, file, "\n");
 diff --git a/fs/proc_namespace.c b/fs/proc_namespace.c
-index 6863773aff252..dd9e021dc1f22 100644
+index 6863773aff252..c980aed358a97 100644
 --- a/fs/proc_namespace.c
 +++ b/fs/proc_namespace.c
 @@ -15,6 +15,10 @@
@@ -634,7 +635,23 @@ index 6863773aff252..dd9e021dc1f22 100644
  	if (sb->s_op->show_path) {
  		err = sb->s_op->show_path(m, mnt->mnt_root);
  		if (err)
-@@ -199,6 +223,11 @@ static int show_vfsstat(struct seq_file *m, struct vfsmount *mnt)
+@@ -158,11 +182,15 @@ static int show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
+ 	if (IS_MNT_SHARED(r))
+ 		seq_printf(m, " shared:%i", r->mnt_group_id);
+ 	if (IS_MNT_SLAVE(r)) {
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
++		seq_printf(m, " master:%i", r->fake_mnt_master_group_id);
++#else
+ 		int master = r->mnt_master->mnt_group_id;
+ 		int dom = get_dominating_id(r, &p->root);
+ 		seq_printf(m, " master:%i", master);
+ 		if (dom && dom != master)
+ 			seq_printf(m, " propagate_from:%i", dom);
++#endif
+ 	}
+ 	if (IS_MNT_UNBINDABLE(r))
+ 		seq_puts(m, " unbindable");
+@@ -199,6 +227,11 @@ static int show_vfsstat(struct seq_file *m, struct vfsmount *mnt)
  	struct super_block *sb = mnt_path.dentry->d_sb;
  	int err;
  
