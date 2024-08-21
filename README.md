@@ -12,14 +12,16 @@
 ## Patch Instruction ##
 1. Clone the repo with a tag that has release version, as tag with release version is more stable
 2. Run `cp ./kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch $KERNEL_ROOT/KernelSU/`
-2. Run `cp ./kernel_patches/KernelSU/kernel/sucompat.h $KERNEL_ROOT/KernelSU/kernel/`
-3. Run `cp ./kernel_patches/50_add_susfs_in_kernel-<kernel_version>.patch $KERNEL_ROOT/`
-4. Run `cp ./kernel_patches/fs/susfs.c $KERNEL_ROOT/fs/`
-5. Run `cp ./kernel_patches/include/linux/susfs.h $KERNEL_ROOT/include/linux/`
-6. Run `cd $KERNEL_ROOT/KernelSU` and then `patch -p1 < 10_enable_susfs_for_ksu.patch`
-7. Run `cd $KERNEL_ROOT` and then `patch -p1 < 50_add_susfs_in_kernel.patch`, **if there are failed patches, you may try to patch them manually by yourself.**
-8. Make sure again to have `CONFIG_KSU` and `CONFIG_KSU_SUSFS` enabled before building the kernel, some other SUSFS feature are disabled by default, you may turn it on via menuconfig or change it in ksu Kconfig or kernel defconfig.
-9. Build and flash the kernel.
+3. Run `cp ./kernel_patches/KernelSU/kernel/sucompat.h $KERNEL_ROOT/KernelSU/kernel/`
+4. Run `cp ./kernel_patches/50_add_susfs_in_kernel-<kernel_version>.patch $KERNEL_ROOT/`
+5. Run `cp ./kernel_patches/fs/susfs.c $KERNEL_ROOT/fs/`
+6. Run `cp ./kernel_patches/include/linux/susfs.h $KERNEL_ROOT/include/linux/`
+7. Run `cp ./kernel_patches/fs/sus_su.c $KERNEL_ROOT/fs/`
+8. Run `cp ./kernel_patches/include/linux/sus_su.h $KERNEL_ROOT/include/linux/`
+9. Run `cd $KERNEL_ROOT/KernelSU` and then `patch -p1 < 10_enable_susfs_for_ksu.patch`
+10. Run `cd $KERNEL_ROOT` and then `patch -p1 < 50_add_susfs_in_kernel.patch`, **if there are failed patches, you may try to patch them manually by yourself.**
+11. Make sure again to have `CONFIG_KSU` and `CONFIG_KSU_SUSFS` enabled before building the kernel, some other SUSFS feature are disabled by default, you may turn it on via menuconfig or change it in ksu Kconfig or kernel defconfig.
+12. Build and flash the kernel.
 
 ## Build ksu_susfs userspace tool ##
 1. Run `./build_ksu_susfs_tool.sh` to build the userspace tool `ksu_susfs`, and the arm64 and arm binary will be copied to `ksu_module_susfs/tools/` as well.
@@ -48,7 +50,7 @@
 
 ## Known Issues ##
 - Version 1.4.0 can only apply on 4.9 kernel right now, other kernels need to be tested.
-- mnt_id_reorder feature causes bootloop for non-gki devices, more test is needed.
+- mnt_id_reorder feature causes bootloop for gki devices, more tests are needed.
 
 ## Credits ##
 - KernelSU: https://github.com/tiann/KernelSU
