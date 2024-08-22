@@ -1235,16 +1235,6 @@ int susfs_set_uname(struct st_susfs_uname* __user user_info) {
 	}
 
 	spin_lock(&susfs_uname_spin_lock);
-	if (!strcmp(info.sysname, "default")) {
-		strncpy(my_uname.sysname, utsname()->sysname, __NEW_UTS_LEN);
-	} else {
-		strncpy(my_uname.sysname, info.sysname, __NEW_UTS_LEN);
-	}
-	if (!strcmp(info.nodename, "default")) {
-		strncpy(my_uname.nodename, utsname()->nodename, __NEW_UTS_LEN);
-	} else {
-		strncpy(my_uname.nodename, info.nodename, __NEW_UTS_LEN);
-	}
 	if (!strcmp(info.release, "default")) {
 		strncpy(my_uname.release, utsname()->release, __NEW_UTS_LEN);
 	} else {
@@ -1255,26 +1245,21 @@ int susfs_set_uname(struct st_susfs_uname* __user user_info) {
 	} else {
 		strncpy(my_uname.version, info.version, __NEW_UTS_LEN);
 	}
-	if (!strcmp(info.machine, "default")) {
-		strncpy(my_uname.machine, utsname()->machine, __NEW_UTS_LEN);
-	} else {
-		strncpy(my_uname.machine, info.machine, __NEW_UTS_LEN);
-	}
-	if (!strcmp(info.domainname, "default")) {
-		strncpy(my_uname.domainname, utsname()->domainname, __NEW_UTS_LEN);
-	} else {
-		strncpy(my_uname.domainname, info.domainname, __NEW_UTS_LEN);
-	}
 	spin_unlock(&susfs_uname_spin_lock);
-	SUSFS_LOGI("setting sysname: '%s', nodename: '%s', release: '%s', version: '%s', machine: '%s', domainname: '%s'\n",
-				my_uname.sysname, my_uname.nodename, my_uname.release, my_uname.version, my_uname.machine, my_uname.domainname);
+	SUSFS_LOGI("setting spoofed release: '%s', version: '%s'\n",
+				my_uname.release, my_uname.version);
 	return 0;
 }
 
 int susfs_spoof_uname(struct new_utsname* tmp) {
-	if (unlikely(my_uname.sysname[0] == '\0' || spin_is_locked(&susfs_uname_spin_lock)))
+	if (unlikely(my_uname.release[0] == '\0' || spin_is_locked(&susfs_uname_spin_lock)))
 		return 1;
-	memcpy(tmp, &my_uname, sizeof(my_uname));
+	strncpy(tmp->sysname, utsname()->sysname, __NEW_UTS_LEN);
+	strncpy(tmp->nodename, utsname()->nodename, __NEW_UTS_LEN);
+	strncpy(tmp->release, my_uname.release, __NEW_UTS_LEN);
+	strncpy(tmp->version, my_uname.version, __NEW_UTS_LEN);
+	strncpy(tmp->machine, utsname()->machine, __NEW_UTS_LEN);
+	strncpy(tmp->domainname, utsname()->domainname, __NEW_UTS_LEN);
 	return 0;
 }
 

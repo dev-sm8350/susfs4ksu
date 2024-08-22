@@ -182,12 +182,8 @@ struct st_susfs_sus_memfd_list {
 
 /* spoof_uname */
 struct st_susfs_uname {
-	char        sysname[__NEW_UTS_LEN+1];
-	char        nodename[__NEW_UTS_LEN+1];
 	char        release[__NEW_UTS_LEN+1];
 	char        version[__NEW_UTS_LEN+1];
-	char        machine[__NEW_UTS_LEN+1];
-	char        domainname[__NEW_UTS_LEN + 1];
 };
 
 /* sus_su */
