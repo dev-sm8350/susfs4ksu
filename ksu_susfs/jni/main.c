@@ -485,23 +485,23 @@ int main(int argc, char *argv[]) {
 			}
 			sb.st_ctimensec = ctime_nsec;
 		}
-		/* blksize */
-		if (strcmp(argv[13], "default")) {
-			blksize = strtoul(argv[13], &endptr, 10);
-			if (*endptr != '\0') {
-				print_help();
-				return 1;
-			}
-			sb.st_blksize = blksize;
-		}
 		/* blocks */
-		if (strcmp(argv[14], "default")) {
-			blocks = strtoul(argv[14], &endptr, 10);
+		if (strcmp(argv[13], "default")) {
+			blocks = strtoul(argv[13], &endptr, 10);
 			if (*endptr != '\0') {
 				print_help();
 				return 1;
 			}
 			sb.st_blocks = blocks;
+		}
+		/* blksize */
+		if (strcmp(argv[14], "default")) {
+			blksize = strtoul(argv[14], &endptr, 10);
+			if (*endptr != '\0') {
+				print_help();
+				return 1;
+			}
+			sb.st_blksize = blksize;
 		}
 		strncpy(info.target_pathname, argv[2], SUSFS_MAX_LEN_PATHNAME-1);
 		copy_stat_to_sus_kstat(&info, &sb);

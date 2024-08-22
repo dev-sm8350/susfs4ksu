@@ -38,8 +38,8 @@ spinlock_t susfs_uname_spin_lock;
 
 bool is_log_enable __read_mostly = true;
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
-#define SUSFS_LOGI(fmt, ...) if (is_log_enable) pr_info("susfs:[%u][%u][%s] " fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
-#define SUSFS_LOGE(fmt, ...) if (is_log_enable) pr_err("susfs:[%u][%u][%s]" fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
+#define SUSFS_LOGI(fmt, ...) if (is_log_enable) pr_info("susfs:[%u][%d][%s] " fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
+#define SUSFS_LOGE(fmt, ...) if (is_log_enable) pr_err("susfs:[%u][%d][%s]" fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
 #else
 #define SUSFS_LOGI(fmt, ...) 
 #define SUSFS_LOGE(fmt, ...) 
@@ -371,7 +371,7 @@ int susfs_add_sus_kstat(struct st_susfs_sus_kstat* __user user_info) {
 			spin_unlock(&susfs_spin_lock);
 			if (susfs_update_sus_kstat_inode(&cursor->info))
 				return 1;
-			SUSFS_LOGI("is_statically: '%d', target_ino: '%lu', target_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_nlink: '%u', spoofed_size: '%u', spoofed_atime_tv_sec: '%ld', spoofed_mtime_tv_sec: '%ld', spoofed_ctime_tv_sec: '%ld', spoofed_atime_tv_nsec: '%ld', spoofed_mtime_tv_nsec: '%ld', spoofed_ctime_tv_nsec: '%ld', spoofed_blksize: '%u', spoofed_blocks: '%lu', is successfully updated to LH_SUS_KSTAT_SPOOFER\n",
+			SUSFS_LOGI("is_statically: '%d', target_ino: '%lu', target_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_nlink: '%u', spoofed_size: '%u', spoofed_atime_tv_sec: '%ld', spoofed_mtime_tv_sec: '%ld', spoofed_ctime_tv_sec: '%ld', spoofed_atime_tv_nsec: '%ld', spoofed_mtime_tv_nsec: '%ld', spoofed_ctime_tv_nsec: '%ld', spoofed_blksize: '%lu', spoofed_blocks: '%llu', is successfully updated to LH_SUS_KSTAT_SPOOFER\n",
 				cursor->info.is_statically, cursor->info.target_ino, cursor->info.target_pathname,
 				cursor->info.spoofed_ino, cursor->info.spoofed_dev,
 				cursor->info.spoofed_nlink, cursor->info.spoofed_size,
@@ -402,7 +402,7 @@ int susfs_add_sus_kstat(struct st_susfs_sus_kstat* __user user_info) {
 	list_add_tail(&new_list->list, &LH_SUS_KSTAT_SPOOFER);
 	spin_unlock(&susfs_spin_lock);
 
-	SUSFS_LOGI("is_statically: '%d', target_ino: '%lu', target_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_nlink: '%u', spoofed_size: '%u', spoofed_atime_tv_sec: '%ld', spoofed_mtime_tv_sec: '%ld', spoofed_ctime_tv_sec: '%ld', spoofed_atime_tv_nsec: '%ld', spoofed_mtime_tv_nsec: '%ld', spoofed_ctime_tv_nsec: '%ld', spoofed_blksize: '%u', spoofed_blocks: '%lu', is successfully added to LH_SUS_KSTAT_SPOOFER\n",
+	SUSFS_LOGI("is_statically: '%d', target_ino: '%lu', target_pathname: '%s', spoofed_ino: '%lu', spoofed_dev: '%lu', spoofed_nlink: '%u', spoofed_size: '%u', spoofed_atime_tv_sec: '%ld', spoofed_mtime_tv_sec: '%ld', spoofed_ctime_tv_sec: '%ld', spoofed_atime_tv_nsec: '%ld', spoofed_mtime_tv_nsec: '%ld', spoofed_ctime_tv_nsec: '%ld', spoofed_blksize: '%lu', spoofed_blocks: '%llu', is successfully added to LH_SUS_KSTAT_SPOOFER\n",
 		new_list->info.is_statically, new_list->info.target_ino, new_list->info.target_pathname,
 		new_list->info.spoofed_ino, new_list->info.spoofed_dev,
 		new_list->info.spoofed_nlink, new_list->info.spoofed_size,

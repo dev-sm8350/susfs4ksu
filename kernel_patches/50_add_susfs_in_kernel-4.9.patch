@@ -339,7 +339,7 @@ index ae1b42489ddd1..ffddbb54b2d42 100644
  
  static bool ovl_is_opaquedir(struct dentry *dentry)
 diff --git a/fs/proc/base.c b/fs/proc/base.c
-index b6959f6dae5b3..9665ef85f7780 100644
+index b6959f6dae5b3..81bcf0d0b4af3 100644
 --- a/fs/proc/base.c
 +++ b/fs/proc/base.c
 @@ -97,6 +97,10 @@
@@ -453,31 +453,19 @@ index b6959f6dae5b3..9665ef85f7780 100644
  	if (vma->vm_file)
  		result = proc_map_files_instantiate(dir, dentry, task,
  				(void *)(unsigned long)vma->vm_file->f_mode);
-@@ -2322,6 +2391,10 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
- 	struct map_files_info *p;
- 	int ret;
- 
-+#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
-+	int susfs_ret = 0;
-+#endif
-+
- 	ret = -ENOENT;
- 	task = get_proc_task(file_inode(file));
- 	if (!task)
-@@ -2380,6 +2453,12 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
+@@ -2380,6 +2449,11 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
  			info.len = snprintf(info.name,
  					sizeof(info.name), "%lx-%lx",
  					vma->vm_start, vma->vm_end);
 +
 +#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
-+			susfs_ret = susfs_sus_map_files_instantiate(vma);
-+			info.susfs_action = susfs_ret;
++			info.susfs_action = susfs_sus_map_files_instantiate(vma);
 +#endif
 +
  			if (flex_array_put(fa, i++, &info, GFP_KERNEL))
  				BUG();
  		}
-@@ -2388,12 +2467,28 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
+@@ -2388,12 +2462,28 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
  
  	for (i = 0; i < nr_files; i++) {
  		p = flex_array_get(fa, i);
@@ -784,7 +772,7 @@ index 068fdbcc9e26a..5018f4074b41c 100644
  		if (inode->i_op->readlink) {
  			error = security_inode_readlink(path.dentry);
 diff --git a/fs/statfs.c b/fs/statfs.c
-index 083dc0ac91408..68eaf37310900 100644
+index 083dc0ac91408..b448d02f553c8 100644
 --- a/fs/statfs.c
 +++ b/fs/statfs.c
 @@ -57,7 +57,22 @@ static int statfs_by_dentry(struct dentry *dentry, struct kstatfs *buf)
@@ -810,24 +798,7 @@ index 083dc0ac91408..68eaf37310900 100644
  	if (retval == 0 && buf->f_frsize == 0)
  		buf->f_frsize = buf->f_bsize;
  	return retval;
-@@ -68,8 +83,16 @@ int vfs_statfs(struct path *path, struct kstatfs *buf)
- 	int error;
- 
- 	error = statfs_by_dentry(path->dentry, buf);
-+#ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
-+	if (!error) {
-+		if (unlikely(path->dentry->d_inode->is_sus_kstatfs))
-+			return error;
-+		buf->f_flags = calculate_f_flags(path->mnt);
-+	}
-+#else
- 	if (!error)
- 		buf->f_flags = calculate_f_flags(path->mnt);
-+#endif
- 	return error;
- }
- EXPORT_SYMBOL(vfs_statfs);
-@@ -82,6 +105,13 @@ int user_statfs(const char __user *pathname, struct kstatfs *st)
+@@ -82,6 +97,13 @@ int user_statfs(const char __user *pathname, struct kstatfs *st)
  retry:
  	error = user_path_at(AT_FDCWD, pathname, lookup_flags, &path);
  	if (!error) {
@@ -841,7 +812,7 @@ index 083dc0ac91408..68eaf37310900 100644
  		error = vfs_statfs(&path, st);
  		path_put(&path);
  		if (retry_estale(error, lookup_flags)) {
-@@ -97,6 +127,13 @@ int fd_statfs(int fd, struct kstatfs *st)
+@@ -97,6 +119,13 @@ int fd_statfs(int fd, struct kstatfs *st)
  	struct fd f = fdget_raw(fd);
  	int error = -EBADF;
  	if (f.file) {
