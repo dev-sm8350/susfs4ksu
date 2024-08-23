@@ -46,8 +46,8 @@ bool is_log_enable __read_mostly = true;
 #endif
 
 /* sus_path */
-static void susfs_sus_path_inode_err_retval(struct inode *inode, char *pathname) {
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
+static void susfs_sus_path_inode_err_retval(struct inode *inode, char *pathname) {
 	inode->sus_path_err_retval.other_syscalls = -ENOENT;
 	inode->sus_path_err_retval.mknodat = -ENOENT;
 	inode->sus_path_err_retval.mkdirat = -ENOENT;
@@ -106,7 +106,6 @@ static void susfs_sus_path_inode_err_retval(struct inode *inode, char *pathname)
 		inode->sus_path_err_retval.renameat2_oldname = -ENOENT;
 		inode->sus_path_err_retval.renameat2_newname = -ENOENT;
 	}
-#endif
 }
 
 static int susfs_update_sus_path_inode(struct st_susfs_sus_path* info) {
@@ -125,9 +124,7 @@ static int susfs_update_sus_path_inode(struct st_susfs_sus_path* info) {
 		goto out_set_fs;
 	}
 	inode = file->f_inode;
-#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 	inode->is_sus_path = true;
-#endif
 	filp_close(file, NULL);
 
 out_set_fs:
@@ -194,8 +191,10 @@ int susfs_sus_ino_for_filldir64(unsigned long ino) {
 int susfs_is_sus_path_list_empty(void) {
 	return list_empty(&LH_SUS_PATH);
 }
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_PATH
 
 /* sus_mount */
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 int susfs_add_sus_mount(struct st_susfs_sus_mount* __user user_info) {
 	struct st_susfs_sus_mount_list *cursor, *temp;
 	struct st_susfs_sus_mount_list *new_list = NULL;
@@ -300,8 +299,10 @@ out_continue:
 	}
 	put_mnt_ns(ns);
 }
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 
 /* sus_kstat */
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 static int susfs_update_sus_kstat_inode(struct st_susfs_sus_kstat* info) {
 	struct file *file;
 	struct inode *inode;
@@ -319,7 +320,6 @@ static int susfs_update_sus_kstat_inode(struct st_susfs_sus_kstat* info) {
 	}
 	
 	inode = file->f_inode;
-#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 	inode->is_sus_kstat = true;
 	inode->sus_kstat.ino = info->spoofed_ino;
 	inode->sus_kstat.dev = info->spoofed_dev;
@@ -337,7 +337,6 @@ static int susfs_update_sus_kstat_inode(struct st_susfs_sus_kstat* info) {
 	inode->sus_kstat.ctime.tv_nsec = info->spoofed_ctime_tv_nsec;
 	inode->sus_kstat.blksize = info->spoofed_blksize;
 	inode->sus_kstat.blocks = info->spoofed_blocks;
-#endif
 	filp_close(file, NULL);
 out_set_fs:
 	set_fs(old_fs);
@@ -442,8 +441,10 @@ int susfs_update_sus_kstat(struct st_susfs_sus_kstat* __user user_info) {
 	SUSFS_LOGE("target_pathname: '%s' is not found in LH_SUS_KSTAT_SPOOFER\n", info.target_pathname);
 	return 1;
 }
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 
 /* sus_kstatfs */
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
 static int susfs_update_kstatfs_inode(struct st_susfs_sus_kstatfs* info) {
 	struct file *target_file, *spoofed_file;
 	struct inode *target_inode;
@@ -532,8 +533,10 @@ int susfs_add_sus_kstatfs(struct st_susfs_sus_kstatfs* __user user_info) {
 		new_list->info.target_ino, new_list->info.target_pathname, new_list->info.spoofed_pathname);
 	return 0;
 }
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
 
 /* sus_maps */
+#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
 int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info) {
 	struct st_susfs_sus_maps_list *cursor, *temp;
 	struct st_susfs_sus_maps_list *new_list = NULL;
@@ -1022,8 +1025,10 @@ do_spoof:
 	}
 	return 0;
 }
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MAPS
 
 /* sus_proc_fd_link */
+#ifdef CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK
 int susfs_add_sus_proc_fd_link(struct st_susfs_sus_proc_fd_link* __user user_info) {
 	struct st_susfs_sus_proc_fd_link_list *cursor, *temp;
 	struct st_susfs_sus_proc_fd_link_list *new_list = NULL;
@@ -1079,8 +1084,10 @@ int susfs_sus_proc_fd_link(char *pathname, int len) {
 int susfs_is_sus_proc_fd_link_list_empty(void) {
 	return list_empty(&LH_SUS_PROC_FD_LINK);
 }
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK
 
 /* sus_memfd */
+#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
 int susfs_add_sus_memfd(struct st_susfs_sus_memfd* __user user_info) {
 	struct st_susfs_sus_memfd_list *cursor, *temp;
 	struct st_susfs_sus_memfd_list *new_list = NULL;
@@ -1126,8 +1133,10 @@ int susfs_sus_memfd(char *memfd_name) {
 	}
     return 0;
 }
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
 
 /* try_umount */
+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 static void umount_mnt(struct path *path, int flags) {
 	int err = path_umount(path, flags);
 	if (err) {
@@ -1220,8 +1229,10 @@ void susfs_try_umount(uid_t target_uid) {
 		}
 	}
 }
+#endif // #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 
 /* spoof_uname */
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
 static void susfs_my_uname_init(void) {
 	memset(&my_uname, 0, sizeof(my_uname));
 }
@@ -1262,8 +1273,10 @@ int susfs_spoof_uname(struct new_utsname* tmp) {
 	strncpy(tmp->domainname, utsname()->domainname, __NEW_UTS_LEN);
 	return 0;
 }
+#endif // #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
 
 /* set_log */
+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
 void susfs_set_log(bool enabled) {
 	spin_lock(&susfs_spin_lock);
 	is_log_enable = enabled;
@@ -1274,6 +1287,7 @@ void susfs_set_log(bool enabled) {
 		pr_info("susfs: disable logging to kernel");
 	}
 }
+#endif // #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
 
 /* sus_su */
 #ifdef CONFIG_KSU_SUSFS_SUS_SU
@@ -1309,13 +1323,15 @@ int susfs_sus_su(struct st_sus_su* __user user_info) {
 	}
 	return 1;
 }
-#endif
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_SU
 
 /* susfs_init */
 void __init susfs_init(void) {
 	spin_lock_init(&susfs_spin_lock);
 	spin_lock_init(&susfs_uname_spin_lock);
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
 	susfs_my_uname_init();
+#endif
 }
 
 /* No module exit is needed becuase it should never be a loadable kernel module */

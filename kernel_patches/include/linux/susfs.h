@@ -197,42 +197,61 @@ struct st_sus_su {
 /* FORWARD DECLARATION */
 /***********************/
 /* sus_path */
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 int susfs_add_sus_path(struct st_susfs_sus_path* __user user_info);
 int susfs_sus_ino_for_filldir64(unsigned long ino);
 int susfs_is_sus_path_list_empty(void);
+#endif
 /* sus_mount */
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 int susfs_add_sus_mount(struct st_susfs_sus_mount* __user user_info);
 void susfs_sus_mount(struct mnt_namespace *ns);
+#endif
 /* sus_kstat */
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 int susfs_add_sus_kstat(struct st_susfs_sus_kstat* __user user_info);
 int susfs_update_sus_kstat(struct st_susfs_sus_kstat* __user user_info);
+#endif
 /* sus_kstatfs */
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
 int susfs_add_sus_kstatfs(struct st_susfs_sus_kstatfs* __user user_info);
+#endif
 /* sus_maps */
+#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
 int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info);
 int susfs_update_sus_maps(struct st_susfs_sus_maps* __user user_info);
 int susfs_sus_maps(unsigned long target_ino, unsigned long target_addr_size,
 					unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags,
 					unsigned long long* pgoff, struct vm_area_struct* vma, char* out_name);
 int susfs_is_sus_maps_list_empty(void);
-/* sus_map_files */
 void susfs_sus_map_files_readlink(unsigned long target_ino, char* pathname);
 int susfs_sus_map_files_instantiate(struct vm_area_struct* vma);
+#endif
 /* sus_proc_fd_link */
+#ifdef CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK
 int susfs_add_sus_proc_fd_link(struct st_susfs_sus_proc_fd_link* __user user_info);
 int susfs_sus_proc_fd_link(char *pathname, int len);
 int susfs_is_sus_proc_fd_link_list_empty(void);
+#endif
 /* sus_memfd */
+#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
 int susfs_add_sus_memfd(struct st_susfs_sus_memfd* __user user_info);
 int susfs_sus_memfd(char *memfd_name);
+#endif
 /* try_umount */
+#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info);
 void susfs_try_umount(uid_t target_uid);
+#endif
 /* spoof_uname */
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
 int susfs_set_uname(struct st_susfs_uname* __user user_info);
 int susfs_spoof_uname(struct new_utsname* tmp);
+#endif
 /* set_log */
+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
 void susfs_set_log(bool enabled);
+#endif
 /* sus_su */
 #ifdef CONFIG_KSU_SUSFS_SUS_SU
 int susfs_sus_su(struct st_sus_su* __user user_info);

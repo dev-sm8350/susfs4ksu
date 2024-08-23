@@ -178,7 +178,7 @@ index 66929756..88b7c32b 100644
 +
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 429ba330..b3d6484f 100644
+index 429ba330..47733d0a 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -44,6 +44,21 @@
@@ -203,15 +203,15 @@ index 429ba330..b3d6484f 100644
  static bool ksu_module_mounted = false;
  
  extern int handle_sepolicy(unsigned long arg3, void __user *arg4);
-@@ -375,6 +390,239 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -375,6 +390,253 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		return 0;
  	}
  
 +#ifdef CONFIG_KSU_SUSFS
 +	if (current_uid_val == 0) {
-+		int error = 0;
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +		if (arg2 == CMD_SUSFS_ADD_SUS_PATH) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_path))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_PATH -> arg3 is not accessible\n");
 +				return 0;
@@ -228,6 +228,7 @@ index 429ba330..b3d6484f 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 +		if (arg2 == CMD_SUSFS_ADD_SUS_MOUNT) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_mount))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MOUNT -> arg3 is not accessible\n");
 +				return 0;
@@ -244,6 +245,7 @@ index 429ba330..b3d6484f 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 +#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 +		if (arg2 == CMD_SUSFS_ADD_SUS_KSTAT) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT -> arg3 is not accessible\n");
 +				return 0;
@@ -258,6 +260,7 @@ index 429ba330..b3d6484f 100644
 +			return 0;
 +		}
 +		if (arg2 == CMD_SUSFS_UPDATE_SUS_KSTAT) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
 +				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_KSTAT -> arg3 is not accessible\n");
 +				return 0;
@@ -272,6 +275,7 @@ index 429ba330..b3d6484f 100644
 +			return 0;
 +		}
 +		if (arg2 == CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_kstat))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY -> arg3 is not accessible\n");
 +				return 0;
@@ -288,6 +292,7 @@ index 429ba330..b3d6484f 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 +#ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
 +		if (arg2 == CMD_SUSFS_ADD_SUS_KSTATFS) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_kstatfs))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_KSTATFS -> arg3 is not accessible\n");
 +				return 0;
@@ -304,6 +309,7 @@ index 429ba330..b3d6484f 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
 +#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
 +		if (arg2 == CMD_SUSFS_ADD_SUS_MAPS) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS -> arg3 is not accessible\n");
 +				return 0;
@@ -318,6 +324,7 @@ index 429ba330..b3d6484f 100644
 +			return 0;
 +		}
 +		if (arg2 == CMD_SUSFS_UPDATE_SUS_MAPS) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
 +				pr_err("susfs: CMD_SUSFS_UPDATE_SUS_MAPS -> arg3 is not accessible\n");
 +				return 0;
@@ -332,6 +339,7 @@ index 429ba330..b3d6484f 100644
 +			return 0;
 +		}
 +		if (arg2 == CMD_SUSFS_ADD_SUS_MAPS_STATICALLY) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_maps))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MAPS_STATICALLY -> arg3 is not accessible\n");
 +				return 0;
@@ -348,6 +356,7 @@ index 429ba330..b3d6484f 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_MAPS
 +#ifdef CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK
 +		if (arg2 == CMD_SUSFS_ADD_SUS_PROC_FD_LINK) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_proc_fd_link))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_PROC_FD_LINK -> arg3 is not accessible\n");
 +				return 0;
@@ -364,6 +373,7 @@ index 429ba330..b3d6484f 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK
 +#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
 +		if (arg2 == CMD_SUSFS_ADD_SUS_MEMFD) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_sus_memfd))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_SUS_MEMFD -> arg3 is not accessible\n");
 +				return 0;
@@ -380,6 +390,7 @@ index 429ba330..b3d6484f 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
 +#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 +		if (arg2 == CMD_SUSFS_ADD_TRY_UMOUNT) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_try_umount))) {
 +				pr_err("susfs: CMD_SUSFS_ADD_TRY_UMOUNT -> arg3 is not accessible\n");
 +				return 0;
@@ -396,6 +407,7 @@ index 429ba330..b3d6484f 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 +#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
 +		if (arg2 == CMD_SUSFS_SET_UNAME) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_susfs_uname))) {
 +				pr_err("susfs: CMD_SUSFS_SET_UNAME -> arg3 is not accessible\n");
 +				return 0;
@@ -412,6 +424,7 @@ index 429ba330..b3d6484f 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
 +#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
 +		if (arg2 == CMD_SUSFS_ENABLE_LOG) {
++			int error = 0;
 +			if (arg3 != 0 && arg3 != 1) {
 +				pr_err("susfs: CMD_SUSFS_ENABLE_LOG -> arg3 can only be 0 or 1\n");
 +				return 0;
@@ -423,6 +436,7 @@ index 429ba330..b3d6484f 100644
 +#endif //#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
 +#ifdef CONFIG_KSU_SUSFS_SUS_SU
 +		if (arg2 == CMD_SUSFS_SUS_SU) {
++			int error = 0;
 +			if (!ksu_access_ok((void __user*)arg3, sizeof(struct st_sus_su))) {
 +				pr_err("susfs: CMD_SUSFS_SUS_SU -> arg3 is not accessible\n");
 +				return 0;
@@ -443,7 +457,7 @@ index 429ba330..b3d6484f 100644
  	// all other cmds are for 'root manager'
  	if (!from_manager) {
  		return 0;
-@@ -535,6 +783,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -535,6 +797,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		current->pid);
  #endif
  
