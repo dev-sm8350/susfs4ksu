@@ -178,7 +178,7 @@ index 66929756..88b7c32b 100644
 +
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 429ba330..47733d0a 100644
+index 429ba330..7d51197e 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -44,6 +44,21 @@
@@ -457,7 +457,19 @@ index 429ba330..47733d0a 100644
  	// all other cmds are for 'root manager'
  	if (!from_manager) {
  		return 0;
-@@ -535,6 +797,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -459,7 +721,11 @@ static int ksu_umount_mnt(struct path *path, int flags)
+ #endif
+ }
+ 
++#ifdef CONFIG_KSU_SUSFS
++void try_umount(const char *mnt, bool check_mnt, int flags)
++#else
+ static void try_umount(const char *mnt, bool check_mnt, int flags)
++#endif
+ {
+ 	struct path path;
+ 	int err = kern_path(mnt, 0, &path);
+@@ -535,6 +801,11 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		current->pid);
  #endif
  
@@ -470,16 +482,17 @@ index 429ba330..47733d0a 100644
  	// filter the mountpoint whose target is `/data/adb`
  	try_umount("/system", true, 0);
 diff --git a/kernel/core_hook.h b/kernel/core_hook.h
-index 616951e8..ffa3c606 100644
+index 616951e8..e80ce4a9 100644
 --- a/kernel/core_hook.h
 +++ b/kernel/core_hook.h
-@@ -6,4 +6,9 @@
+@@ -6,4 +6,10 @@
  void __init ksu_core_init(void);
  void ksu_core_exit(void);
  
 +#ifdef CONFIG_KSU_SUSFS
 +bool susfs_is_allow_su(void);
 +void escape_to_root(void);
++void try_umount(const char *mnt, bool check_mnt, int flags);
 +#endif
 +
  #endif

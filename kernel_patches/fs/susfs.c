@@ -18,6 +18,7 @@
 #include "internal.h"
 #include "mount.h"
 #include <linux/susfs.h>
+#include "../drivers/kernelsu/core_hook.h"
 #ifdef CONFIG_KSU_SUSFS_SUS_SU
 #include <linux/sus_su.h>
 #endif
@@ -1137,53 +1138,6 @@ int susfs_sus_memfd(char *memfd_name) {
 
 /* try_umount */
 #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
-static void umount_mnt(struct path *path, int flags) {
-	int err = path_umount(path, flags);
-	if (err) {
-		SUSFS_LOGI("umount %s failed: %d\n", path->dentry->d_iname, err);
-	}
-}
-
-static bool should_umount(struct path *path)
-{
-	if (!path) {
-		return false;
-	}
-
-	if (current->nsproxy->mnt_ns == init_nsproxy.mnt_ns) {
-		SUSFS_LOGI("ignore global mnt namespace process: %d\n",
-			current_uid().val);
-		return false;
-	}
-
-	if (path->mnt && path->mnt->mnt_sb && path->mnt->mnt_sb->s_type) {
-		const char *fstype = path->mnt->mnt_sb->s_type->name;
-		return strcmp(fstype, "overlay") == 0;
-	}
-	return false;
-}
-
-static void try_umount(const char *mnt, bool check_mnt, int flags) {
-	struct path path;
-	int err = kern_path(mnt, 0, &path);
-
-	if (err) {
-		return;
-	}
-
-	if (path.dentry != path.mnt->mnt_root) {
-		// it is not root mountpoint, maybe umounted by others already.
-		return;
-	}
-
-	// we are only interest in some specific mounts
-	if (check_mnt && !should_umount(&path)) {
-		return;
-	}
-	
-	umount_mnt(&path, flags);
-}
-
 int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info) {
 	struct st_susfs_try_umount_list *cursor, *temp;
 	struct st_susfs_try_umount_list *new_list = NULL;
