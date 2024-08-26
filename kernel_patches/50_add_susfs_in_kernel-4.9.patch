@@ -28,7 +28,7 @@ index 3e58863de5144..4fe0133cc4f6e 100644
   * fs_struct.c
   */
 diff --git a/fs/mount.h b/fs/mount.h
-index 3603884a63ddb..e654136a7e9e5 100644
+index 3603884a63ddb..9abbcf873447c 100644
 --- a/fs/mount.h
 +++ b/fs/mount.h
 @@ -64,6 +64,13 @@ struct mount {
@@ -36,7 +36,7 @@ index 3603884a63ddb..e654136a7e9e5 100644
  #endif
  	int mnt_id;			/* mount identifier */
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+	bool is_sus_mount;
++	int is_sus_mount;
 +#endif
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
 +	int fake_mnt_id;
@@ -827,7 +827,7 @@ index 083dc0ac91408..b448d02f553c8 100644
  		fdput(f);
  	}
 diff --git a/include/linux/fs.h b/include/linux/fs.h
-index bb94ab942b66c..0a2f1efc75648 100644
+index bb94ab942b66c..6d7518a2af42c 100644
 --- a/include/linux/fs.h
 +++ b/include/linux/fs.h
 @@ -38,6 +38,13 @@
@@ -844,22 +844,21 @@ index bb94ab942b66c..0a2f1efc75648 100644
  struct backing_dev_info;
  struct bdi_writeback;
  struct export_operations;
-@@ -737,6 +744,19 @@ struct inode {
+@@ -737,6 +744,18 @@ struct inode {
  	struct list_head	i_fsverity_list;	/* Not for upstream */
  #endif
  	void			*i_private; /* fs or device private pointer */
-+
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	bool is_sus_path;
++	int is_sus_path;
 +	struct st_sus_path_err_retval sus_path_err_retval;
 +#endif
 +#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++	int is_sus_kstat;
 +	struct kstat sus_kstat;
-+	bool is_sus_kstat;
 +#endif
 +#ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
++	int is_sus_kstatfs;
 +	struct kstatfs sus_kstatfs;
-+	bool is_sus_kstatfs;
 +#endif
  };
  
