@@ -32,13 +32,16 @@ LIST_HEAD(LH_SUS_PROC_FD_LINK);
 LIST_HEAD(LH_SUS_MEMFD);
 LIST_HEAD(LH_TRY_UMOUNT_PATH);
 
-struct st_susfs_uname my_uname;
 
 spinlock_t susfs_spin_lock;
-spinlock_t susfs_uname_spin_lock;
 
-bool is_log_enable __read_mostly = true;
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+spinlock_t susfs_uname_spin_lock;
+struct st_susfs_uname my_uname;
+#endif
+
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+bool is_log_enable __read_mostly = true;
 #define SUSFS_LOGI(fmt, ...) if (is_log_enable) pr_info("susfs:[%u][%d][%s] " fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
 #define SUSFS_LOGE(fmt, ...) if (is_log_enable) pr_err("susfs:[%u][%d][%s]" fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
 #else
@@ -110,8 +113,8 @@ static void susfs_sus_path_inode_err_retval(struct inode *inode, char *pathname)
 }
 
 static int susfs_update_sus_path_inode(struct st_susfs_sus_path* info) {
-	struct file *file;
-	struct inode *inode;
+	struct file *file = NULL;
+	struct inode *inode = NULL;
 	mm_segment_t old_fs;
 	int err = 0;
 
@@ -135,7 +138,7 @@ out_set_fs:
 }
 
 int susfs_add_sus_path(struct st_susfs_sus_path* __user user_info) {
-	struct st_susfs_sus_path_list *cursor, *temp;
+	struct st_susfs_sus_path_list *cursor = NULL, *temp = NULL;
 	struct st_susfs_sus_path_list *new_list = NULL;
 	struct st_susfs_sus_path info;
 
@@ -180,7 +183,7 @@ int susfs_add_sus_path(struct st_susfs_sus_path* __user user_info) {
 }
 
 int susfs_sus_ino_for_filldir64(unsigned long ino) {
-	struct st_susfs_sus_path_list *cursor, *temp;
+	struct st_susfs_sus_path_list *cursor = NULL, *temp = NULL;
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_PATH, list) {
 		if (cursor->info.target_ino == ino)
@@ -197,7 +200,7 @@ int susfs_is_sus_path_list_empty(void) {
 /* sus_mount */
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 int susfs_add_sus_mount(struct st_susfs_sus_mount* __user user_info) {
-	struct st_susfs_sus_mount_list *cursor, *temp;
+	struct st_susfs_sus_mount_list *cursor = NULL, *temp = NULL;
 	struct st_susfs_sus_mount_list *new_list = NULL;
 	struct st_susfs_sus_mount info;
 	int list_count = 0;
@@ -257,10 +260,10 @@ int susfs_add_sus_mount(struct st_susfs_sus_mount* __user user_info) {
  * or use the patch version 1.3.8 instead.
  */
 void susfs_sus_mount(struct mnt_namespace *ns) {
-	struct st_susfs_sus_mount_list *sus_mount_cursor, *sus_mount_temp;
-	struct mount *mnt_cursor, *mnt_temp;
+	struct st_susfs_sus_mount_list *sus_mount_cursor = NULL, *sus_mount_temp = NULL;
+	struct mount *mnt_cursor, *mnt_temp = NULL;
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT_MNT_ID_REORDER
-	struct mount *first_mnt_entry;
+	struct mount *first_mnt_entry = NULL;
 	int first_entry_mnt_id;
 	int first_entry_mnt_master_group_id = 1;
 	int last_mnt_master_group_id = 0;
@@ -305,8 +308,8 @@ out_continue:
 /* sus_kstat */
 #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 static int susfs_update_sus_kstat_inode(struct st_susfs_sus_kstat* info) {
-	struct file *file;
-	struct inode *inode;
+	struct file *file = NULL;
+	struct inode *inode = NULL;
 	mm_segment_t old_fs;
 	int err = 0;
 
@@ -345,7 +348,7 @@ out_set_fs:
 }
 
 int susfs_add_sus_kstat(struct st_susfs_sus_kstat* __user user_info) {
-	struct st_susfs_sus_kstat_list *cursor, *temp;
+	struct st_susfs_sus_kstat_list *cursor = NULL, *temp = NULL;
 	struct st_susfs_sus_kstat_list *new_list = NULL;
 	struct st_susfs_sus_kstat info;
 
@@ -413,7 +416,7 @@ int susfs_add_sus_kstat(struct st_susfs_sus_kstat* __user user_info) {
 }
 
 int susfs_update_sus_kstat(struct st_susfs_sus_kstat* __user user_info) {
-	struct st_susfs_sus_kstat_list *cursor, *temp;
+	struct st_susfs_sus_kstat_list *cursor = NULL, *temp = NULL;
 	struct st_susfs_sus_kstat info;
 
 	if (copy_from_user(&info, user_info, sizeof(info))) {
@@ -447,8 +450,8 @@ int susfs_update_sus_kstat(struct st_susfs_sus_kstat* __user user_info) {
 /* sus_kstatfs */
 #ifdef CONFIG_KSU_SUSFS_SUS_KSTATFS
 static int susfs_update_kstatfs_inode(struct st_susfs_sus_kstatfs* info) {
-	struct file *target_file, *spoofed_file;
-	struct inode *target_inode;
+	struct file *target_file = NULL, *spoofed_file = NULL;
+	struct inode *target_inode = NULL;
 	struct kstatfs spoofed_buf;
 	mm_segment_t old_fs;
 	int err = 0;
@@ -490,7 +493,7 @@ out_set_fs:
 }
 
 int susfs_add_sus_kstatfs(struct st_susfs_sus_kstatfs* __user user_info) {
-	struct st_susfs_sus_kstatfs_list *cursor, *temp;
+	struct st_susfs_sus_kstatfs_list *cursor = NULL, *temp = NULL;
 	struct st_susfs_sus_kstatfs_list *new_list = NULL;
 	struct st_susfs_sus_kstatfs info;
 
@@ -539,7 +542,7 @@ int susfs_add_sus_kstatfs(struct st_susfs_sus_kstatfs* __user user_info) {
 /* sus_maps */
 #ifdef CONFIG_KSU_SUSFS_SUS_MAPS
 int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info) {
-	struct st_susfs_sus_maps_list *cursor, *temp;
+	struct st_susfs_sus_maps_list *cursor = NULL, *temp = NULL;
 	struct st_susfs_sus_maps_list *new_list = NULL;
 	struct st_susfs_sus_maps info;
 	int list_count = 0;
@@ -643,7 +646,7 @@ int susfs_add_sus_maps(struct st_susfs_sus_maps* __user user_info) {
 }
 
 int susfs_update_sus_maps(struct st_susfs_sus_maps* __user user_info) {
-	struct st_susfs_sus_maps_list *cursor, *temp;
+	struct st_susfs_sus_maps_list *cursor = NULL, *temp = NULL;
 	struct st_susfs_sus_maps info;
 
 	if (copy_from_user(&info, user_info, sizeof(info))) {
@@ -674,8 +677,8 @@ int susfs_update_sus_maps(struct st_susfs_sus_maps* __user user_info) {
  *  4 -> target_ino is 'zero' or 'non-zero', all entries match with [is_file,target_addr_size,target_prot,target_pgoff,target_dev] will be spoofed with user defined entry
  */
 int susfs_sus_maps(unsigned long target_ino, unsigned long target_addr_size, unsigned long* orig_ino, dev_t* orig_dev, vm_flags_t* flags, unsigned long long* pgoff, struct vm_area_struct* vma, char* out_name) {
-	struct st_susfs_sus_maps_list *cursor, *temp;
-	struct inode *tmp_inode, *tmp_inode_prev, *tmp_inode_next;
+	struct st_susfs_sus_maps_list *cursor = NULL, *temp = NULL;
+	struct inode *tmp_inode = NULL, *tmp_inode_prev = NULL, *tmp_inode_next = NULL;
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_MAPS_SPOOFER, list) {
 		// if it is NOT statically
@@ -855,7 +858,7 @@ int susfs_is_sus_maps_list_empty(void) {
  *     otherwise there will be inconsistent entries between maps and map_files.
  */
 void susfs_sus_map_files_readlink(unsigned long target_ino, char* pathname) {
-	struct st_susfs_sus_maps_list *cursor, *temp;
+	struct st_susfs_sus_maps_list *cursor = NULL, *temp = NULL;
 
 	if (!pathname)
 		return;
@@ -897,8 +900,8 @@ int susfs_sus_map_files_instantiate(struct vm_area_struct* vma) {
 	unsigned long long target_pgoff = ((loff_t)vma->vm_pgoff) << PAGE_SHIFT;
 	unsigned long target_addr_size = vma->vm_end - vma->vm_start;
 	vm_flags_t target_flags = vma->vm_flags;
-	struct st_susfs_sus_maps_list *cursor, *temp;
-	struct inode *tmp_inode, *tmp_inode_prev, *tmp_inode_next;
+	struct st_susfs_sus_maps_list *cursor = NULL, *temp = NULL;
+	struct inode *tmp_inode = NULL, *tmp_inode_prev = NULL, *tmp_inode_next = NULL;
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_MAPS_SPOOFER, list) {
 		// We are only interested in statically
@@ -1031,7 +1034,7 @@ do_spoof:
 /* sus_proc_fd_link */
 #ifdef CONFIG_KSU_SUSFS_SUS_PROC_FD_LINK
 int susfs_add_sus_proc_fd_link(struct st_susfs_sus_proc_fd_link* __user user_info) {
-	struct st_susfs_sus_proc_fd_link_list *cursor, *temp;
+	struct st_susfs_sus_proc_fd_link_list *cursor = NULL, *temp = NULL;
 	struct st_susfs_sus_proc_fd_link_list *new_list = NULL;
 	struct st_susfs_sus_proc_fd_link info;
 
@@ -1069,7 +1072,7 @@ int susfs_add_sus_proc_fd_link(struct st_susfs_sus_proc_fd_link* __user user_inf
 }
 
 int susfs_sus_proc_fd_link(char *pathname, int len) {
-	struct st_susfs_sus_proc_fd_link_list *cursor, *temp;
+	struct st_susfs_sus_proc_fd_link_list *cursor = NULL, *temp = NULL;
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_PROC_FD_LINK, list) {
 		if (unlikely(!strcmp(pathname, cursor->info.target_link_name))) {
@@ -1090,7 +1093,7 @@ int susfs_is_sus_proc_fd_link_list_empty(void) {
 /* sus_memfd */
 #ifdef CONFIG_KSU_SUSFS_SUS_MEMFD
 int susfs_add_sus_memfd(struct st_susfs_sus_memfd* __user user_info) {
-	struct st_susfs_sus_memfd_list *cursor, *temp;
+	struct st_susfs_sus_memfd_list *cursor = NULL, *temp = NULL;
 	struct st_susfs_sus_memfd_list *new_list = NULL;
 	struct st_susfs_sus_memfd info;
 
@@ -1124,7 +1127,7 @@ int susfs_add_sus_memfd(struct st_susfs_sus_memfd* __user user_info) {
 }
 
 int susfs_sus_memfd(char *memfd_name) {
-	struct st_susfs_sus_memfd_list *cursor, *temp;
+	struct st_susfs_sus_memfd_list *cursor = NULL, *temp = NULL;
 
 	list_for_each_entry_safe(cursor, temp, &LH_SUS_MEMFD, list) {
 		if (unlikely(!strcmp(memfd_name, cursor->info.target_pathname))) {
@@ -1139,7 +1142,7 @@ int susfs_sus_memfd(char *memfd_name) {
 /* try_umount */
 #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info) {
-	struct st_susfs_try_umount_list *cursor, *temp;
+	struct st_susfs_try_umount_list *cursor = NULL, *temp = NULL;
 	struct st_susfs_try_umount_list *new_list = NULL;
 	struct st_susfs_try_umount info;
 
@@ -1172,7 +1175,7 @@ int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info) {
 }
 
 void susfs_try_umount(uid_t target_uid) {
-	struct st_susfs_try_umount_list *cursor, *temp;
+	struct st_susfs_try_umount_list *cursor = NULL, *temp = NULL;
 
 	list_for_each_entry_safe(cursor, temp, &LH_TRY_UMOUNT_PATH, list) {
 		SUSFS_LOGI("umounting '%s' for uid: %d\n", cursor->info.target_pathname, target_uid);
@@ -1282,10 +1285,11 @@ int susfs_sus_su(struct st_sus_su* __user user_info) {
 /* susfs_init */
 void __init susfs_init(void) {
 	spin_lock_init(&susfs_spin_lock);
-	spin_lock_init(&susfs_uname_spin_lock);
 #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+	spin_lock_init(&susfs_uname_spin_lock);
 	susfs_my_uname_init();
 #endif
+	SUSFS_LOGI("susfs is initialized!\n");
 }
 
 /* No module exit is needed becuase it should never be a loadable kernel module */
