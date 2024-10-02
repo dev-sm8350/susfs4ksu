@@ -7,7 +7,7 @@
 #include <sys/wait.h>
 
 #define FIFO_SIZE 1024
-#define EXTRA_PATH_ENV "/data/adb/ksu/bin"
+#define EXTRA_PATH_ENV "/data/adb/ksu/bin:/data/data/com.termux/files/usr/bin"
 #define SUS_SU_CONF_FILE "/system/bin/sus_su_drv_path"
 
 static const char *sus_su_token = "!@#$SU_IS_SUS$#@!-pRE6W9BKXrJr1hEKyvDq0CvWziVKbatT8yzq06fhtrEGky2tVS7Q2QTjhtMfVMGV";

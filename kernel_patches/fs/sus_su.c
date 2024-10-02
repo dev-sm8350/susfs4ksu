@@ -59,7 +59,10 @@ static ssize_t fifo_write(struct file *file, const char __user *buf, size_t len,
         return 0;
     }
 
-    copy_from_user(fifo_buffer, buf, sus_su_token_len+1);
+    if (copy_from_user(fifo_buffer, buf, sus_su_token_len+1)) {
+        SUSFS_LOGE("copy_from_user() failed, uid: '%d', pid: '%d'\n", cur_uid, cur_pid);
+        return 0;
+    }
 
     if (!memcmp(fifo_buffer, sus_su_token, sus_su_token_len+1)) {
         SUSFS_LOGI("granting root access for uid: '%d', pid: '%d'\n", cur_uid, cur_pid);
