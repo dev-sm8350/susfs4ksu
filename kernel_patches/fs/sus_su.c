@@ -6,11 +6,16 @@
 #include <linux/random.h>
 #include <linux/sus_su.h>
 
+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
 extern bool is_log_enable __read_mostly;
-
-#define FIFO_SIZE 1024
 #define SUSFS_LOGI(fmt, ...) if (is_log_enable) pr_info("susfs_sus_su:[%u][%u][%s] " fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
 #define SUSFS_LOGE(fmt, ...) if (is_log_enable) pr_err("susfs_sus_su:[%u][%u][%s]" fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
+#else
+#define SUSFS_LOGI(fmt, ...)
+#define SUSFS_LOGE(fmt, ...)
+#endif
+
+#define FIFO_SIZE 1024
 #define MAX_DRV_NAME 255
 
 static int cur_maj_dev_num = -1;
@@ -50,25 +55,23 @@ static ssize_t fifo_read(struct file *file, char __user *buf, size_t len, loff_t
 }
 
 static ssize_t fifo_write(struct file *file, const char __user *buf, size_t len, loff_t *offset) {
-    unsigned int cur_pid = current->pid;
-    unsigned int cur_uid = current_uid().val;
     int sus_su_token_len = strlen(sus_su_token);
 
     if (!susfs_is_allow_su()) {
-        SUSFS_LOGE("root is not allowed for uid: '%d', pid: '%d'\n", cur_uid, cur_pid);
+        SUSFS_LOGE("root is not allowed for uid: '%d', pid: '%d'\n", current_uid().val, current->pid);
         return 0;
     }
 
     if (copy_from_user(fifo_buffer, buf, sus_su_token_len+1)) {
-        SUSFS_LOGE("copy_from_user() failed, uid: '%d', pid: '%d'\n", cur_uid, cur_pid);
+        SUSFS_LOGE("copy_from_user() failed, uid: '%d', pid: '%d'\n", current_uid().val, current->pid);
         return 0;
     }
 
     if (!memcmp(fifo_buffer, sus_su_token, sus_su_token_len+1)) {
-        SUSFS_LOGI("granting root access for uid: '%d', pid: '%d'\n", cur_uid, cur_pid);
+        SUSFS_LOGI("granting root access for uid: '%d', pid: '%d'\n", current_uid().val, current->pid);
         escape_to_root();
     } else {
-        SUSFS_LOGI("wrong token! deny root access for uid: '%d', pid: '%d'\n", cur_uid, cur_pid);
+        SUSFS_LOGI("wrong token! deny root access for uid: '%d', pid: '%d'\n", current_uid().val, current->pid);
     }
     memset(fifo_buffer, 0, FIFO_SIZE);
     return 0;
