@@ -4,6 +4,7 @@
 #include <linux/uaccess.h>
 #include <linux/cdev.h>
 #include <linux/random.h>
+#include <linux/cred.h>
 #include <linux/sus_su.h>
 
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
