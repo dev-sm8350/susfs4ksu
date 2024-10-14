@@ -32,19 +32,18 @@
  * inode->super_block->android_kabi_reserved3 => storing fake i_blocks
  * mount->vfsmount->android_kabi_reserved1 => storing fake mnt id
  * mount->vfsmount->android_kabi_reserved2 => storing fake mnt group id (peer id)
- * mnt_namespace->user_namespace->android_kabi_reserved1 => storing flag 'NS_KABI'
- * mnt_namespace->user_namespace->android_kabi_reserved2 => storing last fake mnt id after copy_mnt_ns();
- * task_struct->cred->user_struct->android_kabi_reserved1 => storing flag 'USER_STRUCT_'
+ * task_struct->android_kabi_reserved1 => storing flag 'TASK_STRUCT_KABI1_'
+ * task_struct->android_kabi_reserved2 => record last valid fake mnt_id to zygote pid
+ * user_struct->android_kabi_reserved1 => storing flag 'USER_STRUCT_KABI1_'
  */
 
 #define INODE_STATE_SUS_PATH 16777216 // 1 << 24
 #define INODE_STATE_SUS_MOUNT 33554432 // 1 << 25
 #define INODE_STATE_SUS_KSTAT 67108864 // 1 << 26
 
-#define NS_KABI1_IS_ZYGOTE 1 // 1 << 0
-#define NS_KABI2_IS_COPY_MNT_NS_DONE 8 // 1 << 3
+#define TASK_STRUCT_KABI1_IS_ZYGOTE 1 // 1 << 0
 
-#define USER_STRUCT_NON_ROOT_USER_APP_PROFILE 16777216 // 1 << 24
+#define USER_STRUCT_KABI1_NON_ROOT_USER_APP_PROFILE 16777216 // 1 << 24, for distinguishing root/no-root granted user app process
 
 /*********/
 /* MACRO */

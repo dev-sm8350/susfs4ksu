@@ -324,17 +324,18 @@ index 48c57bf25591..979f63a0692d 100644
  	}
  
 diff --git a/fs/namespace.c b/fs/namespace.c
-index 5782cd55dfdb..49e0fa8cb866 100644
+index 5782cd55dfdb..e2a97eb13cf9 100644
 --- a/fs/namespace.c
 +++ b/fs/namespace.c
-@@ -950,6 +950,14 @@ struct vfsmount *vfs_create_mount(struct fs_context *fc)
+@@ -950,6 +950,15 @@ struct vfsmount *vfs_create_mount(struct fs_context *fc)
  	mnt->mnt_mountpoint	= mnt->mnt.mnt_root;
  	mnt->mnt_parent		= mnt;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 +	// here we reorder the mounts that are added after copy_mnt_ns();
-+	if (mnt->mnt.mnt_sb->s_user_ns->android_kabi_reserved1 & 8) {
-+		mnt->mnt.android_kabi_reserved1 = mnt->mnt.mnt_sb->s_user_ns->android_kabi_reserved2++;
++	// make sure it is zygote process
++	if (likely(current->android_kabi_reserved1 & 1)) {
++		mnt->mnt.android_kabi_reserved1 = current->android_kabi_reserved2++;
 +	}
 +	// Seems no need to reorder the mnt group id for mounts after copy_mnt_ns();
 +#endif
@@ -342,38 +343,30 @@ index 5782cd55dfdb..49e0fa8cb866 100644
  	lock_mount_hash();
  	list_add_tail(&mnt->mnt_instance, &mnt->mnt.mnt_sb->s_mounts);
  	unlock_mount_hash();
-@@ -1043,6 +1051,15 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
+@@ -1043,6 +1052,22 @@ static struct mount *clone_mnt(struct mount *old, struct dentry *root,
  	mnt->mnt.mnt_root = dget(root);
  	mnt->mnt_mountpoint = mnt->mnt.mnt_root;
  	mnt->mnt_parent = mnt;
 +
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+	// here we reorder the mounts that are cloned after copy_mnt_ns();
-+	if (mnt->mnt.mnt_sb->s_user_ns->android_kabi_reserved1 & 8) {
-+			mnt->mnt.android_kabi_reserved1 = mnt->mnt.mnt_sb->s_user_ns->android_kabi_reserved2++;
++	// here we reorder the mounts that are added after copy_mnt_ns();
++	// make sure it is zygote process
++	if (likely(current->android_kabi_reserved1 & 1)) {
++		mnt->mnt.android_kabi_reserved1 = current->android_kabi_reserved2++;
 +	}
 +	// Seems no need to reorder the mnt group id for mounts after copy_mnt_ns();
++
++	// Make all our sus mounts to be cloned private, so that propagation won't happen when they are being umounted,
++	// and let try_umount() to decide what to umount for matched process.
++	if (unlikely(mnt->mnt.mnt_root->d_inode->i_state & 33554432)) {
++		flag &= (~CL_SLAVE | ~CL_SHARED_TO_SLAVE | ~CL_MAKE_SHARED | CL_PRIVATE);
++	}
 +#endif
 +
  	lock_mount_hash();
  	list_add_tail(&mnt->mnt_instance, &sb->s_mounts);
  	unlock_mount_hash();
-@@ -2844,6 +2861,14 @@ static int do_new_mount(struct path *path, const char *fstype, int sb_flags,
- 	if (!err)
- 		err = do_new_mount_fc(fc, path, mnt_flags);
- 
-+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+	if (!err) {
-+		if (unlikely(path->dentry->d_inode->i_state & 33554432)) {
-+			fc->root->d_inode->i_state |= 33554432;
-+		}
-+	}
-+#endif
-+
- 	put_fs_context(fc);
- 	return err;
- }
-@@ -3239,6 +3264,11 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
+@@ -3239,6 +3294,11 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
  	struct mount *old;
  	struct mount *new;
  	int copy_flags;
@@ -385,20 +378,20 @@ index 5782cd55dfdb..49e0fa8cb866 100644
  
  	BUG_ON(!ns);
  
-@@ -3299,6 +3329,36 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
+@@ -3299,6 +3359,36 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
  		while (p->mnt.mnt_root != q->mnt.mnt_root)
  			p = next_mnt(p, old);
  	}
++
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++	// current->android_kabi_reserved1 -> check if current process is zygote 
++	// current->android_kabi_reserved2 -> to record last valid fake mnt id to zygote pid
 +	// q->mnt.android_kabi_reserved1 -> fake mnt id
 +	// q->mnt.android_kabi_reserved2 -> fake mnt group id (peer id)
-+	// new_ns->user_ns->android_kabi_reserved1 -> mnt ns flag for sus_mount
-+	// new_ns->user_ns->android_kabi_reserved2 -> to record last valid fake mnt id,
-+	//     for the use of app process adding/cloning new mounts after its namespace is cloned by zygote
 +
 +	// Here We are only interested in processes of which original mnt namespace belongs to zygote 
 +	// Also we just make use of existing 'p' and 'q' mount pointer, no need to delcare extra mount pointer
-+	if (likely(ns->user_ns->android_kabi_reserved1 & 1)) {
++	if (likely(current->android_kabi_reserved1 & 1)) {
 +		first_entry_mnt_id = list_first_entry(&new_ns->list, struct mount, mnt_list)->mnt_id;
 +		list_for_each_entry(q, &new_ns->list, mnt_list) {
 +			if (unlikely(q->mnt.mnt_root->d_inode->i_state & 33554432))
@@ -414,10 +407,10 @@ index 5782cd55dfdb..49e0fa8cb866 100644
 +			}
 +		}
 +	}
-+	// lastly we set the flag NS_IS_COPY_MNT_NS_DONE and assign the last fake mnt id to
-+	//     new_ns->user_ns->android_kabi_reserved2 for later use
-+	new_ns->user_ns->android_kabi_reserved1 |= 8;
-+	new_ns->user_ns->android_kabi_reserved2 = first_entry_mnt_id;
++	// Assign the last fake mnt_id to current->android_kabi_reserved2 for later use.
++	// should be fine here assuming zygote is forking/unsharing app in one single thread.
++	// Or should we put a lock here?
++	current->android_kabi_reserved2 = first_entry_mnt_id;
 +#endif
  	namespace_unlock();
  
