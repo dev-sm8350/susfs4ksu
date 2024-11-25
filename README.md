@@ -49,11 +49,11 @@
 2. Now you can also push the compiled `ksu_susfs` tool to `/data/adb/ksu/bin/` so that you can run it directly in adb root shell or termux root shell, as well as in your own ksu modules.
 
 ## Build sus_su userspace tool ##
-** Important Notes ##
+**--Important Notes--**
 - sus_su is now providing 2 modes, 1st mode requires sus_su userspace tool and overlayfs to work, 2nd mode requires no extra tools or mounts in userspace but literally just the same non-kprobe hooks su implementation for non-gki kernel.
 - Newer xiaomi devices are found to have a root detection service running which is named "mrmd" and it is spawned by init process, and since sus_su mounted by overlayfs can't be umounted for process spawned by init process, so 1st mode will get detected unless there is a better umount scheme for init spawned process, that's why it is strongly suggested to use 2nd mode only.
 
-** Instruction for 1st mode **
+**--Instruction for 1st mode--**
 - sus_su userspace tool is an executable aimed to get a root shell by sending a request to a susfs fifo driver, this is exclusive for **"kprobe hook enabled KSU"** only, **DO NOT** use it if your KernelSU has kprobe **disabled**.
 - Only apps with root access granted by ksu manager are allow to run 'su'.
 - For best compatibility, sus_su requires overlayfs to allow all other 3rd party apps to execute 'su' to get root shell.
@@ -63,7 +63,7 @@
 2. Uncomment the line `#enable_sus_su` in service.sh to enable sus_su
 3. Run `./build_ksu_module.sh` to build the module and flash again.
 
-** Instruction for 2nd mode ##
+**--Instruction for 2nd mode--**
 - Just run `ksu_susfs sus_su 2` to disable core kprobe hooks and enable inline hooks su.
 
 
