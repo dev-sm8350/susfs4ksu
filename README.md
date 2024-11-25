@@ -49,15 +49,23 @@
 2. Now you can also push the compiled `ksu_susfs` tool to `/data/adb/ksu/bin/` so that you can run it directly in adb root shell or termux root shell, as well as in your own ksu modules.
 
 ## Build sus_su userspace tool ##
-- sus_su is an executable aimed to get a root shell by sending a request to a susfs fifo driver, this is exclusive for **"kprobe hook enabled KSU"** only, **DO NOT** use it if your KernelSU has kprobe **disabled**.
+** Important Notes ##
+- sus_su is now providing 2 modes, 1st mode requires sus_su userspace tool and overlayfs to work, 2nd mode requires no extra tools or mounts in userspace but literally just the same non-kprobe hooks su implementation for non-gki kernel.
+- Newer xiaomi devices are found to have a root detection service running which is named "mrmd" and it is spawned by init process, and since sus_su mounted by overlayfs can't be umounted for process spawned by init process, so 1st mode will get detected unless there is a better umount scheme for init spawned process, that's why it is strongly suggested to use 2nd mode only.
+
+** Instruction for 1st mode **
+- sus_su userspace tool is an executable aimed to get a root shell by sending a request to a susfs fifo driver, this is exclusive for **"kprobe hook enabled KSU"** only, **DO NOT** use it if your KernelSU has kprobe **disabled**.
 - Only apps with root access granted by ksu manager are allow to run 'su'.
 - For best compatibility, sus_su requires overlayfs to allow all other 3rd party apps to execute 'su' to get root shell.
 - See `service.sh` in module templete for more details.
 
-1. Make sure you have `CONFIG_KSU_SUSFS_SUS_SU` option enabled in Kconfig when building the kernel, it is disabled by default.
-2. Run `./build_sus_su_tool.sh` to build the sus_su executable, the arm64 and arm binary will be copied to `ksu_module_susfs/tools/`.
-3. Uncomment the line `#enable_sus_su` in service.sh to enable sus_su
-4. Run `./build_ksu_module.sh` to build the module and flash again.
+1. Run `./build_sus_su_tool.sh` to build the sus_su executable, the arm64 and arm binary will be copied to `ksu_module_susfs/tools/`.
+2. Uncomment the line `#enable_sus_su` in service.sh to enable sus_su
+3. Run `./build_ksu_module.sh` to build the module and flash again.
+
+** Instruction for 2nd mode ##
+- Just run `ksu_susfs sus_su 2` to disable core kprobe hooks and enable inline hooks su.
+
 
 ## Build susfs4ksu module ##
 - The ksu module here is just a demo to show how to use it.
