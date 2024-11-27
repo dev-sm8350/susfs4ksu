@@ -4,8 +4,8 @@
 #include <linux/version.h>
 #include <linux/types.h>
 #include <linux/utsname.h>
-#include <linux/mount.h>
 #include <linux/hashtable.h>
+#include <linux/path.h>
 
 /********/
 /* ENUM */
@@ -19,31 +19,33 @@
 #define CMD_SUSFS_ADD_TRY_UMOUNT 0x55580
 #define CMD_SUSFS_SET_UNAME 0x55590
 #define CMD_SUSFS_ENABLE_LOG 0x555a0
+#define CMD_SUSFS_SET_BOOTCONFIG 0x555b0
+#define CMD_SUSFS_ADD_OPEN_REDIRECT 0x555c0
+#define CMD_SUSFS_RUN_UMOUNT_FOR_CURRENT_MNT_NS 0x555d0
 #define CMD_SUSFS_SUS_SU 0x60000
 
 #define SUSFS_MAX_LEN_PATHNAME 256 // 256 should address many paths already unless you are doing some strange experimental stuff, then set your own desired length
+#define SUSFS_FAKE_BOOT_CONFIG_SIZE 4096
+
+#define TRY_UMOUNT_DEFAULT 0
+#define TRY_UMOUNT_DETACH 1
+
+#define SUS_SU_WITH_OVERLAY 1
+#define SUS_SU_WITH_HOOKS 2
 
 /*
  * inode->i_state => storing flag 'INODE_STATE_'
- * inode->android_kabi_reserved1 => storing fake i_ino
- * inode->android_kabi_reserved2 => storing fake i_dev
- * inode->super_block->android_kabi_reserved1 => storing fake i_nlink
- * inode->super_block->android_kabi_reserved2 => storing fake i_size
- * inode->super_block->android_kabi_reserved3 => storing fake i_blocks
- * mount->vfsmount->android_kabi_reserved1 => storing fake mnt id
- * mount->vfsmount->android_kabi_reserved2 => storing fake mnt group id (peer id)
- * task_struct->android_kabi_reserved1 => storing flag 'TASK_STRUCT_KABI1_'
- * task_struct->android_kabi_reserved2 => record last valid fake mnt_id to zygote pid
- * user_struct->android_kabi_reserved1 => storing flag 'USER_STRUCT_KABI1_'
+ * mount->mnt.android_kabi_reserved4 => storing original mnt_id
+ * task_struct->android_kabi_reserved8 => storing last valid fake mnt_id
+ * user_struct->android_kabi_reserved2 => storing flag 'USER_STRUCT_KABI2_'
  */
 
 #define INODE_STATE_SUS_PATH 16777216 // 1 << 24
 #define INODE_STATE_SUS_MOUNT 33554432 // 1 << 25
 #define INODE_STATE_SUS_KSTAT 67108864 // 1 << 26
+#define INODE_STATE_OPEN_REDIRECT 134217728 // 1 << 27
 
-#define TASK_STRUCT_KABI1_IS_ZYGOTE 1 // 1 << 0
-
-#define USER_STRUCT_KABI1_NON_ROOT_USER_APP_PROFILE 16777216 // 1 << 24, for distinguishing root/no-root granted user app process
+#define USER_STRUCT_KABI2_NON_ROOT_USER_APP_PROFILE 16777216 // 1 << 24, for distinguishing root/no-root granted user app process
 
 /*********/
 /* MACRO */
@@ -101,9 +103,10 @@ struct st_susfs_sus_kstat {
 	unsigned long long      spoofed_blocks;
 };
 
-struct st_susfs_sus_kstat_list {
-	struct list_head                        list;
+struct st_susfs_sus_kstat_hlist {
+	unsigned long                           target_ino;
 	struct st_susfs_sus_kstat               info;
+	struct hlist_node                       node;
 };
 #endif
 
@@ -128,10 +131,26 @@ struct st_susfs_uname {
 };
 #endif
 
+/* open_redirect */
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+struct st_susfs_open_redirect {
+	unsigned long                    target_ino;
+	char                             target_pathname[SUSFS_MAX_LEN_PATHNAME];
+	char                             redirected_pathname[SUSFS_MAX_LEN_PATHNAME];
+};
+
+struct st_susfs_open_redirect_hlist {
+	unsigned long                    target_ino;
+	char                             target_pathname[SUSFS_MAX_LEN_PATHNAME];
+	char                             redirected_pathname[SUSFS_MAX_LEN_PATHNAME];
+	struct hlist_node                node;
+};
+#endif
+
 /* sus_su */
 #ifdef CONFIG_KSU_SUSFS_SUS_SU
 struct st_sus_su {
-	bool        enabled;
+	int         mode;
 	char        drv_path[256];
 	int         maj_dev_num;
 };
@@ -148,16 +167,29 @@ int susfs_sus_ino_for_filldir64(unsigned long ino);
 /* sus_mount */
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 int susfs_add_sus_mount(struct st_susfs_sus_mount* __user user_info);
-#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
+int susfs_auto_add_sus_bind_mount(const char *pathname, struct path *path_target);
+#endif // #ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
+void susfs_auto_add_sus_ksu_default_mount(const char __user *to_pathname);
+#endif // #ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+
 /* sus_kstat */
 #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 int susfs_add_sus_kstat(struct st_susfs_sus_kstat* __user user_info);
+int susfs_update_sus_kstat(struct st_susfs_sus_kstat* __user user_info);
+void susfs_sus_ino_for_generic_fillattr(unsigned long ino, struct kstat *stat);
+void susfs_sus_ino_for_show_map_vma(unsigned long ino, dev_t *out_dev, unsigned long *out_ino);
 #endif
 /* try_umount */
 #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info);
 void susfs_try_umount(uid_t target_uid);
-#endif
+#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
+void susfs_auto_add_try_umount_for_bind_mount(struct path *path);
+#endif // #ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
+#endif // #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
 /* spoof_uname */
 #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
 int susfs_set_uname(struct st_susfs_uname* __user user_info);
@@ -167,10 +199,21 @@ int susfs_spoof_uname(struct new_utsname* tmp);
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
 void susfs_set_log(bool enabled);
 #endif
+/* spoof_bootconfig */
+#ifdef CONFIG_KSU_SUSFS_SPOOF_BOOTCONFIG
+int susfs_set_bootconfig(char* __user user_fake_boot_config);
+int susfs_spoof_bootconfig(struct seq_file *m);
+#endif
+/* open_redirect */
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+int susfs_add_open_redirect(struct st_susfs_open_redirect* __user user_info);
+struct filename* susfs_get_redirected_path(unsigned long ino);
+#endif
 /* sus_su */
 #ifdef CONFIG_KSU_SUSFS_SUS_SU
 int susfs_sus_su(struct st_sus_su* __user user_info);
 #endif
+
 /* susfs_init */
 void susfs_init(void);
 

@@ -26,6 +26,9 @@ static const char *sus_su_token = "!@#$SU_IS_SUS$#@!-pRE6W9BKXrJr1hEKyvDq0CvWziV
 static char rand_drv_path[MAX_DRV_NAME+1] = "/dev/";
 static bool is_sus_su_enabled_before = false;
 
+extern bool susfs_is_allow_su(void);
+extern void escape_to_root(void);
+
 static void gen_rand_drv_name(char *buffer, size_t min_length, size_t max_length) {
     const char *symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-+@#:=";
     size_t symbols_length = strlen(symbols);

@@ -95,4 +95,55 @@ cat <<EOF >/dev/null
 ${SUSFS_BIN} set_uname '5.15.137-android14-11-gb572b1fac135-ab11919372' '#1 SMP PREEMPT Mon Jun 3 16:35:10 UTC 2024'
 EOF
 
+#### Redirect path  ####
+# redirect hosts file to other hosts file somewhere else #
+cat <<EOF >/dev/null
+# plesae be reminded that only process with uid < 2000 is effective #
+# and before doing that, make sure you setup proper permission and selinux for your redirected file #
+susfs_clone_perm '/data/local/tmp/my_hosts' '/system/etc/hosts'
+${SUSFS_BIN} add_path_redirect '/system/etc/hosts' '/data/local/tmp/my_hosts'
+EOF
 
+#### Spoof /proc/bootconfig ####
+# No root process detects it for now, and this spoofing won't help much actually #
+cat <<EOF >/dev/null
+FAKE_BOOTCONFIG=${MODDIR}/fake_bootconfig.txt
+cat /proc/bootconfig > ./fake_bootconfig.txt
+sed -i 's/^androidboot.bootreason.*$/androidboot.bootreason = "reboot"/g' ${FAKE_BOOTCONFIG}
+sed -i 's/^androidboot.vbmeta.device_state.*$/androidboot.vbmeta.device_state = "locked"/g' ${FAKE_BOOTCONFIG}
+sed -i 's/^androidboot.verifiedbootstate.*$/androidboot.verifiedbootstate = "green"/g' ${FAKE_BOOTCONFIG}
+sed -i '/androidboot.verifiedbooterror/d' ${FAKE_BOOTCONFIG}
+sed -i '/androidboot.verifyerrorpart/d' ${FAKE_BOOTCONFIG}
+${SUSFS_BIN} set_bootconfig /data/adb/modules/susfs4ksu/fake_bootconfig.txt
+EOF
+
+#### Enable sus_su ####
+cat <<EOF >/dev/null
+enable_sus_su_mode_1(){
+	## Here we manually create an system overlay an copy the sus_su and sus_su_drv_path to ${MODDIR}/system/bin after sus_su is enabled,
+	## as ksu overlay script is executed after all post-fs-data.sh scripts are finished
+
+	rm -rf ${MODDIR}/system 2>/dev/null
+	# Enable sus_su or abort the function if sus_su is not supported #
+	if ! ${SUSFS_BIN} sus_su 1; then
+		return
+	fi
+	mkdir -p ${MODDIR}/system/bin 2>/dev/null
+	# Copy the new generated sus_su_drv_path and 'sus_su' to /system/bin/ and rename 'sus_su' to 'su' #
+	cp -f /data/adb/ksu/bin/sus_su ${MODDIR}/system/bin/su
+	cp -f /data/adb/ksu/bin/sus_su_drv_path ${MODDIR}/system/bin/sus_su_drv_path
+}
+# uncomment it below to enable sus_su with mode 1 #
+#enable_sus_su_mode_1
+
+# uncomment it below to enable sus_su with mode 2 #
+#${SUSFS_BIN} sus_su 2
+EOF
+
+#### Hiding the exposed /proc interface of ext4 loop and jdb2 when mounting modules.img using sus_path ####
+cat <<EOF >/dev/null
+for device in $(ls -Ld /proc/fs/jbd2/loop*8 | sed 's|/proc/fs/jbd2/||; s|-8||'); do
+	${SUSFS_BIN} add_sus_path /proc/fs/jbd2/${device}-8
+	${SUSFS_BIN} add_sus_path /proc/fs/ext4/${device}
+done
+EOF
