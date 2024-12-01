@@ -71,7 +71,7 @@ index 4f25015aa534..2938aa2a808e 100644
  		return NULL;
  	return dentry->d_fsdata;
 diff --git a/fs/exec.c b/fs/exec.c
-index 4fd9cefb56b5..41bbb1d9f2fd 100644
+index 4fd9cefb56b5..95b89337e562 100644
 --- a/fs/exec.c
 +++ b/fs/exec.c
 @@ -1919,11 +1919,21 @@ static int __do_execve_file(int fd, struct filename *filename,
@@ -80,7 +80,7 @@ index 4fd9cefb56b5..41bbb1d9f2fd 100644
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_SU
 +extern bool susfs_is_sus_su_hooks_enabled __read_mostly;
-+extern int ksu_handle_execveat(int *fd, struct filename **filename_ptr, void *argv,
++extern int ksu_handle_execveat_sucompat(int *fd, struct filename **filename_ptr, void *argv,
 +				void *envp, int *flags);
 +#endif
 +
@@ -91,7 +91,7 @@ index 4fd9cefb56b5..41bbb1d9f2fd 100644
  {
 +#ifdef CONFIG_KSU_SUSFS_SUS_SU
 +	if (susfs_is_sus_su_hooks_enabled)
-+		ksu_handle_execveat(&fd, &filename, &argv, &envp, &flags);
++		ksu_handle_execveat_sucompat(&fd, &filename, &argv, &envp, &flags);
 +#endif
  	return __do_execve_file(fd, filename, argv, envp, flags, NULL);
  }
