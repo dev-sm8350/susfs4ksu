@@ -5,6 +5,10 @@ SUSFS_BIN=/data/adb/ksu/bin/ksu_susfs
 
 source ${MODDIR}/utils.sh
 
+# NOTE: sus_su 2 should be run in service.sh #
+# uncomment it below to enable sus_su with mode 2 #
+#${SUSFS_BIN} sus_su 2
+
 ## Disable susfs kernel log ##
 #${SUSFS_BIN} enable_log 0
 

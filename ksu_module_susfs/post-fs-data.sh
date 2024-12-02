@@ -133,11 +133,9 @@ enable_sus_su_mode_1(){
 	cp -f /data/adb/ksu/bin/sus_su ${MODDIR}/system/bin/su
 	cp -f /data/adb/ksu/bin/sus_su_drv_path ${MODDIR}/system/bin/sus_su_drv_path
 }
+# NOTE: mode 1 has to be run in post-fs-data.sh stage as it needs ksu default overlay mount scheme to mount the su overlay #
 # uncomment it below to enable sus_su with mode 1 #
 #enable_sus_su_mode_1
-
-# uncomment it below to enable sus_su with mode 2 #
-#${SUSFS_BIN} sus_su 2
 EOF
 
 #### Hiding the exposed /proc interface of ext4 loop and jdb2 when mounting modules.img using sus_path ####
