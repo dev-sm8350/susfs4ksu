@@ -107,7 +107,6 @@ EOF
 #### Spoof /proc/cmdline ####
 # No root process detects it for now, and this spoofing won't help much actually #
 cat <<EOF >/dev/null
-## Spoof /proc/bootconfig ##
 FAKE_PROC_CMDLINE_FILE=${MODDIR}/fake_proc_cmdline.txt
 cat /proc/cmdline > ${FAKE_PROC_CMDLINE_FILE}
 sed -i 's/androidboot.verifiedbootstate=orange/androidboot.verifiedbootstate=green/g' ${FAKE_PROC_CMDLINE_FILE}
