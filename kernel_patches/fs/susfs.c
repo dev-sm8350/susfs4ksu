@@ -17,7 +17,9 @@
 #ifdef CONFIG_KSU_SUSFS_SUS_SU
 #include <linux/sus_su.h>
 #endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 #include "pnode.h"
+#endif
 
 spinlock_t susfs_spin_lock;
 
@@ -767,6 +769,7 @@ int susfs_sus_su(struct st_sus_su* __user user_info) {
 		}
 		SUSFS_LOGI("core kprobe hooks for ksu are disabled!\n");
 		SUSFS_LOGI("sus_su driver '%s' is enabled!\n", info.drv_path);
+		SUSFS_LOGI("sus_su mode: SUS_SU_WITH_OVERLAY\n");
 		if (copy_to_user(user_info, &info, sizeof(info)))
 			SUSFS_LOGE("copy_to_user() failed\n");
 		return 0;
@@ -801,7 +804,7 @@ void susfs_init(void) {
 	spin_lock_init(&susfs_uname_spin_lock);
 	susfs_my_uname_init();
 #endif
-	SUSFS_LOGI("susfs is initialized!\n");
+	SUSFS_LOGI("susfs is initialized! version: " SUSFS_VERSION " \n");
 }
 
 /* No module exit is needed becuase it should never be a loadable kernel module */

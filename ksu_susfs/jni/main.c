@@ -31,6 +31,9 @@
 #define CMD_SUSFS_SET_BOOTCONFIG 0x555b0
 #define CMD_SUSFS_ADD_OPEN_REDIRECT 0x555c0
 #define CMD_SUSFS_RUN_UMOUNT_FOR_CURRENT_MNT_NS 0x555d0
+#define CMD_SUSFS_SHOW_VERSION 0x555e1
+#define CMD_SUSFS_SHOW_ENABLED_FEATURES 0x555e2
+#define CMD_SUSFS_SHOW_VARIANT 0x555e3
 #define CMD_SUSFS_SUS_SU 0x60000
 
 #define SUSFS_MAX_LEN_PATHNAME 256
@@ -224,6 +227,11 @@ static void print_help(void) {
 	log("\n");
 	log("        add_open_redirect </target/path> </redirected/path>\n");
 	log("         |--> Redirect the target path to be opened with user defined path\n");
+	log("\n");
+	log("        show <version|enabled_features|variant>\n");
+	log("         |--> version: show the current susfs version implemented in kernel\n");
+	log("         |--> enabled_features: show the current implemented susfs features in kernel\n");
+	log("         |--> variant: show the current variant: GKI or NON-GKI\n");
 	log("\n");
 	log("        sus_su <0|1|2>\n");
 	log("         |--> NOTE-1:\n");
@@ -577,6 +585,108 @@ int main(int argc, char *argv[]) {
 		info.target_ino = sb.st_ino;
 		prctl(KERNEL_SU_OPTION, CMD_SUSFS_ADD_OPEN_REDIRECT, &info, NULL, &error);
 		PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_ADD_OPEN_REDIRECT);
+		return error;
+	// show
+	} else if (argc == 3 && !strcmp(argv[1], "show")) {
+		if (!strcmp(argv[2], "version")) {
+			char version[16];
+			prctl(KERNEL_SU_OPTION, CMD_SUSFS_SHOW_VERSION, version, NULL, &error);
+			PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SHOW_VERSION);
+			if (!error)
+				printf("%s\n", version);
+		} else if (!strcmp(argv[2], "enabled_features")) {
+			char *enabled_features_buf = malloc(getpagesize()*2);
+			char *ptr_buf;
+			unsigned long enabled_features;
+			int str_len;
+			if (!enabled_features_buf) {
+				perror("malloc");
+				return -ENOMEM;
+			}
+			ptr_buf = enabled_features_buf;
+			prctl(KERNEL_SU_OPTION, CMD_SUSFS_SHOW_ENABLED_FEATURES, &enabled_features, NULL, &error);
+			PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SHOW_ENABLED_FEATURES);
+			if (!error) {
+				if (enabled_features & (1 << 0)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_SUS_PATH\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_SUS_PATH\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 1)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_SUS_MOUNT\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_SUS_MOUNT\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 2)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 3)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 4)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_SUS_KSTAT\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_SUS_KSTAT\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 5)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_SUS_OVERLAYFS\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_SUS_OVERLAYFS\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 6)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_TRY_UMOUNT\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_TRY_UMOUNT\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 7)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 8)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_SPOOF_UNAME\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_SPOOF_UNAME\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 9)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_ENABLE_LOG\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_ENABLE_LOG\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 10)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 11)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_SPOOF_BOOTCONFIG\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_SPOOF_BOOTCONFIG\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 12)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_OPEN_REDIRECT\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_OPEN_REDIRECT\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 13)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_SUS_SU\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_SUS_SU\n", str_len);
+					ptr_buf += str_len;
+				}
+				printf("%s", enabled_features_buf);
+				free(enabled_features_buf);
+			}
+		} else if (!strcmp(argv[2], "variant")) {
+			char variant[16];
+			prctl(KERNEL_SU_OPTION, CMD_SUSFS_SHOW_VARIANT, variant, NULL, &error);
+			PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SHOW_VARIANT);
+			if (!error)
+				printf("%s\n", variant);
+		}
 		return error;
 	// sus_su
 	} else if (argc == 3 && !strcmp(argv[1], "sus_su")) {
