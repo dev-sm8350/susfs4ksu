@@ -750,9 +750,14 @@ struct filename* susfs_get_redirected_path(unsigned long ino) {
 /* sus_su */
 #ifdef CONFIG_KSU_SUSFS_SUS_SU
 bool susfs_is_sus_su_hooks_enabled __read_mostly = false;
-int susfs_sus_su_working_mode = 0;
+static int susfs_sus_su_working_mode = 0;
 extern void ksu_susfs_enable_sus_su(void);
 extern void ksu_susfs_disable_sus_su(void);
+
+int susfs_get_sus_su_working_mode(void) {
+	return susfs_sus_su_working_mode;
+}
+
 int susfs_sus_su(struct st_sus_su* __user user_info) {
 	struct st_sus_su info;
 

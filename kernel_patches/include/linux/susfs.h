@@ -222,6 +222,7 @@ struct filename* susfs_get_redirected_path(unsigned long ino);
 #endif
 /* sus_su */
 #ifdef CONFIG_KSU_SUSFS_SUS_SU
+int susfs_get_sus_su_working_mode(void);
 int susfs_sus_su(struct st_sus_su* __user user_info);
 #endif
 /* susfs_init */
