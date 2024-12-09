@@ -148,7 +148,7 @@ index 67f177f4..076c61dd 100644
 +
  endmenu
 diff --git a/kernel/Makefile b/kernel/Makefile
-index 9fec3ef3..cb65211e 100644
+index 9fec3ef3..814ed691 100644
 --- a/kernel/Makefile
 +++ b/kernel/Makefile
 @@ -29,6 +29,14 @@ $(warning "KSU_GIT_VERSION not defined! It is better to make KernelSU a git subm
@@ -226,9 +226,9 @@ index 9fec3ef3..cb65211e 100644
  ccflags-y += -Wno-declaration-after-statement -Wno-unused-function
  
 +ifeq ($(shell test -e $(srctree)/fs/susfs.c; echo $$?),0)
-+ifdef KSU_SUSFS
 +$(eval SUSFS_VERSION=$(shell cat $(srctree)/include/linux/susfs.h | grep -E '^#define SUSFS_VERSION' | cut -d' ' -f3 | sed 's/"//g'))
 +$(info -- SUSFS_VERSION: $(SUSFS_VERSION))
++ifdef KSU_SUSFS
 +ccflags-y += -DKSU_SUSFS
 +endif
 +ifdef KSU_SUSFS_SUS_PATH
