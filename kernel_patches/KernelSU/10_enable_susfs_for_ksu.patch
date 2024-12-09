@@ -148,10 +148,10 @@ index 67f177f4..879e1f2a 100644
 +
  endmenu
 diff --git a/kernel/Makefile b/kernel/Makefile
-index 66929756..f4722bcc 100644
+index 66929756..e686fad3 100644
 --- a/kernel/Makefile
 +++ b/kernel/Makefile
-@@ -56,14 +56,110 @@ $(info -- KernelSU Manager signature hash: $(KSU_EXPECTED_HASH))
+@@ -56,14 +56,112 @@ $(info -- KernelSU Manager signature hash: $(KSU_EXPECTED_HASH))
  ccflags-y += -DEXPECTED_SIZE=$(KSU_EXPECTED_SIZE)
  ccflags-y += -DEXPECTED_HASH=\"$(KSU_EXPECTED_HASH)\"
  
@@ -215,6 +215,8 @@ index 66929756..f4722bcc 100644
  ccflags-y += -Wno-declaration-after-statement -Wno-unused-function
  
 +ifeq ($(shell test -e $(srctree)/fs/susfs.c; echo $$?),0)
++$(eval SUSFS_VERSION=$(shell cat $(srctree)/include/linux/susfs.h | grep -E '^#define SUSFS_VERSION' | cut -d' ' -f3 | sed 's/"//g'))
++$(info -- SUSFS_VERSION: $(SUSFS_VERSION))
 +ifdef KSU_SUSFS
 +ccflags-y += -DKSU_SUSFS
 +endif
@@ -267,7 +269,7 @@ index 66929756..f4722bcc 100644
 +
  # Keep a new line here!! Because someone may append config
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 009216ef..f669476d 100644
+index 009216ef..a03c82f2 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -33,6 +33,10 @@
@@ -302,7 +304,7 @@ index 009216ef..f669476d 100644
  static bool ksu_module_mounted = false;
  
  extern int handle_sepolicy(unsigned long arg3, void __user *arg4);
-@@ -376,6 +394,205 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -376,6 +394,300 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		return 0;
  	}
  
@@ -502,13 +504,108 @@ index 009216ef..f669476d 100644
 +			return 0;
 +		}
 +#endif //#ifdef CONFIG_KSU_SUSFS_SUS_SU
++		if (arg2 == CMD_SUSFS_SHOW_VERSION) {
++			int error = 0;
++			int len_of_susfs_version = strlen(SUSFS_VERSION);
++			char *susfs_version = SUSFS_VERSION;
++			if (!ksu_access_ok((void __user*)arg3, len_of_susfs_version+1)) {
++				pr_err("susfs: CMD_SUSFS_SHOW_VERSION -> arg3 is not accessible\n");
++				return 0;
++			}
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_SHOW_VERSION -> arg5 is not accessible\n");
++				return 0;
++			}
++			error = copy_to_user((void __user*)arg3, (void*)susfs_version, len_of_susfs_version+1);
++			pr_info("susfs: CMD_SUSFS_SHOW_VERSION -> ret: %d\n", error);
++			if (copy_to_user((void __user*)arg5, &error, sizeof(error)))
++				pr_info("susfs: copy_to_user() failed\n");
++			return 0;
++		}
++		if (arg2 == CMD_SUSFS_SHOW_ENABLED_FEATURES) {
++			int error = 0;
++			u64 enabled_features = 0;
++			if (!ksu_access_ok((void __user*)arg3, sizeof(u64))) {
++				pr_err("susfs: CMD_SUSFS_SHOW_ENABLED_FEATURES -> arg3 is not accessible\n");
++				return 0;
++			}
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_SHOW_ENABLED_FEATURES -> arg5 is not accessible\n");
++				return 0;
++			}
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++			enabled_features |= (1 << 0);
++#endif
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++			enabled_features |= (1 << 1);
++#endif
++#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT
++			enabled_features |= (1 << 2);
++#endif
++#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT
++			enabled_features |= (1 << 3);
++#endif
++#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
++			enabled_features |= (1 << 4);
++#endif
++#ifdef CONFIG_KSU_SUSFS_SUS_OVERLAYFS
++			enabled_features |= (1 << 5);
++#endif
++#ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
++			enabled_features |= (1 << 6);
++#endif
++#ifdef CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT
++			enabled_features |= (1 << 7);
++#endif
++#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
++			enabled_features |= (1 << 8);
++#endif
++#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
++			enabled_features |= (1 << 9);
++#endif
++#ifdef CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS
++			enabled_features |= (1 << 10);
++#endif
++#ifdef CONFIG_KSU_SUSFS_SPOOF_BOOTCONFIG
++			enabled_features |= (1 << 11);
++#endif
++#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
++			enabled_features |= (1 << 12);
++#endif
++#ifdef CONFIG_KSU_SUSFS_SUS_SU
++			enabled_features |= (1 << 13);
++#endif
++			error = copy_to_user((void __user*)arg3, (void*)&enabled_features, sizeof(enabled_features));
++			pr_info("susfs: CMD_SUSFS_SHOW_ENABLED_FEATURES -> ret: %d\n", error);
++			if (copy_to_user((void __user*)arg5, &error, sizeof(error)))
++				pr_info("susfs: copy_to_user() failed\n");
++			return 0;
++		}
++		if (arg2 == CMD_SUSFS_SHOW_VARIANT) {
++			int error = 0;
++			int len_of_variant = strlen(SUSFS_VARIANT);
++			char *susfs_variant = SUSFS_VARIANT;
++			if (!ksu_access_ok((void __user*)arg3, len_of_variant+1)) {
++				pr_err("susfs: CMD_SUSFS_SHOW_VARIANT -> arg3 is not accessible\n");
++				return 0;
++			}
++			if (!ksu_access_ok((void __user*)arg5, sizeof(error))) {
++				pr_err("susfs: CMD_SUSFS_SHOW_VARIANT -> arg5 is not accessible\n");
++				return 0;
++			}
++			error = copy_to_user((void __user*)arg3, (void*)susfs_variant, len_of_variant+1);
++			pr_info("susfs: CMD_SUSFS_SHOW_VARIANT -> ret: %d\n", error);
++			if (copy_to_user((void __user*)arg5, &error, sizeof(error)))
++				pr_info("susfs: copy_to_user() failed\n");
++			return 0;
++		}
 +	}
 +#endif //#ifdef CONFIG_KSU_SUSFS
 +
  	// all other cmds are for 'root manager'
  	if (!from_manager) {
  		return 0;
-@@ -460,7 +677,11 @@ static int ksu_umount_mnt(struct path *path, int flags)
+@@ -460,7 +772,11 @@ static int ksu_umount_mnt(struct path *path, int flags)
  #endif
  }
  
@@ -520,7 +617,7 @@ index 009216ef..f669476d 100644
  {
  	struct path path;
  	int err = kern_path(mnt, 0, &path);
-@@ -484,6 +705,18 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
+@@ -484,6 +800,18 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
  	}
  }
  
@@ -539,7 +636,7 @@ index 009216ef..f669476d 100644
  int ksu_handle_setuid(struct cred *new, const struct cred *old)
  {
  	// this hook is used for umounting overlayfs for some uid, if there isn't any module mounted, just ignore it!
-@@ -503,6 +736,17 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -503,6 +831,17 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		return 0;
  	}
  
@@ -557,7 +654,7 @@ index 009216ef..f669476d 100644
  	if (!is_appuid(new_uid) || is_unsupported_uid(new_uid.val)) {
  		// pr_info("handle setuid ignore non application or isolated uid: %d\n", new_uid.val);
  		return 0;
-@@ -512,6 +756,12 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -512,6 +851,12 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		// pr_info("handle setuid ignore allowed application: %d\n", new_uid.val);
  		return 0;
  	}
@@ -570,7 +667,7 @@ index 009216ef..f669476d 100644
  
  	if (!ksu_uid_should_umount(new_uid.val)) {
  		return 0;
-@@ -521,21 +771,31 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -521,21 +866,31 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  #endif
  	}
  
@@ -602,7 +699,7 @@ index 009216ef..f669476d 100644
  	// fixme: use `collect_mounts` and `iterate_mount` to iterate all mountpoint and
  	// filter the mountpoint whose target is `/data/adb`
  	try_umount("/system", true, 0);
-@@ -546,6 +806,7 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -546,6 +901,7 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  	// try umount ksu temp path
  	try_umount("/debug_ramdisk", false, MNT_DETACH);
  	try_umount("/sbin", false, MNT_DETACH);

@@ -7,6 +7,13 @@
 #include <linux/hashtable.h>
 #include <linux/path.h>
 
+#define SUSFS_VERSION "v1.5.2"
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,0,0)
+#define SUSFS_VARIANT "NON-GKI"
+#else
+#define SUSFS_VARIANT "GKI"
+#endif
+
 /********/
 /* ENUM */
 /********/
@@ -22,6 +29,9 @@
 #define CMD_SUSFS_SET_PROC_CMDLINE 0x555b0
 #define CMD_SUSFS_ADD_OPEN_REDIRECT 0x555c0
 #define CMD_SUSFS_RUN_UMOUNT_FOR_CURRENT_MNT_NS 0x555d0
+#define CMD_SUSFS_SHOW_VERSION 0x555e1
+#define CMD_SUSFS_SHOW_ENABLED_FEATURES 0x555e2
+#define CMD_SUSFS_SHOW_VARIANT 0x555e3
 #define CMD_SUSFS_SUS_SU 0x60000
 
 #define SUSFS_MAX_LEN_PATHNAME 256 // 256 should address many paths already unless you are doing some strange experimental stuff, then set your own desired length
