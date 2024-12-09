@@ -34,6 +34,7 @@
 #define CMD_SUSFS_SHOW_VERSION 0x555e1
 #define CMD_SUSFS_SHOW_ENABLED_FEATURES 0x555e2
 #define CMD_SUSFS_SHOW_VARIANT 0x555e3
+#define CMD_SUSFS_SHOW_SUS_SU_WORKING_MODE 0x555e4
 #define CMD_SUSFS_SUS_SU 0x60000
 
 #define SUSFS_MAX_LEN_PATHNAME 256
@@ -233,7 +234,7 @@ static void print_help(void) {
 	log("         |--> enabled_features: show the current implemented susfs features in kernel\n");
 	log("         |--> variant: show the current variant: GKI or NON-GKI\n");
 	log("\n");
-	log("        sus_su <0|1|2>\n");
+	log("        sus_su <0|1|2|show_working_mode>\n");
 	log("         |--> NOTE-1:\n");
 	log("              - For mode 1: It disables kprobe hooks made by ksu, and instead,\n");
 	log("                a sus_su character device driver with random name will be created, and user\n");
@@ -248,6 +249,7 @@ static void print_help(void) {
 	log("         |--> 0: enable core ksu kprobe hooks and disable sus_su driver\n");
 	log("         |--> 1: disable the core ksu kprobe hooks and enable sus_su fifo driver\n");
 	log("         |--> 2: disable the core ksu kprobe hooks and enable sus_su just with non-kprobe hooks\n");
+	log("         |--> show_working_mode: show the current sus_su working mode, [0,1,2]\n");
 	log("\n");
 }
 
@@ -663,8 +665,8 @@ int main(int argc, char *argv[]) {
 					ptr_buf += str_len;
 				}
 				if (enabled_features & (1 << 11)) {
-					str_len = strlen("CONFIG_KSU_SUSFS_SPOOF_BOOTCONFIG\n");
-					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_SPOOF_BOOTCONFIG\n", str_len);
+					str_len = strlen("CONFIG_KSU_SUSFS_SPOOF_PROC_CMDLINE\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_SPOOF_PROC_CMDLINE\n", str_len);
 					ptr_buf += str_len;
 				}
 				if (enabled_features & (1 << 12)) {
@@ -694,11 +696,6 @@ int main(int argc, char *argv[]) {
 		dev_t dev;
 		mode_t mode = 0666;
 		FILE *f_path;
-
-		if (strcmp(argv[2], "0") && strcmp(argv[2], "1") && strcmp(argv[2], "2")) {
-			print_help();
-			return error;
-		}
 
 		if (!strcmp(argv[2], "1")) {
 			info.mode = SUS_SU_WITH_OVERLAY;
@@ -744,6 +741,17 @@ int main(int argc, char *argv[]) {
 			} else {
 				log("[+] '%s' is removed\n", info.drv_path);
 			}
+		} else if (!strcmp(argv[2], "show_working_mode")) {
+			int sus_su_working_mode = 0;
+			prctl(KERNEL_SU_OPTION, CMD_SUSFS_SHOW_SUS_SU_WORKING_MODE, &sus_su_working_mode, NULL, &error);
+			PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SHOW_SUS_SU_WORKING_MODE);
+			if (sus_su_working_mode < 0 || sus_su_working_mode > 2) {
+				log("[-] failed to get sus_su working mode\n");
+				return 1;
+			}
+			printf("%d\n", sus_su_working_mode);
+		} else {
+			print_help();
 		}
 		return error;
 	} else {
