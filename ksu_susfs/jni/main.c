@@ -745,6 +745,7 @@ int main(int argc, char *argv[]) {
 			int sus_su_working_mode = 0;
 			prctl(KERNEL_SU_OPTION, CMD_SUSFS_SHOW_SUS_SU_WORKING_MODE, &sus_su_working_mode, NULL, &error);
 			PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SHOW_SUS_SU_WORKING_MODE);
+			if (error == -1) return error;
 			if (sus_su_working_mode < 0 || sus_su_working_mode > 2) {
 				log("[-] failed to get sus_su working mode\n");
 				return 1;
