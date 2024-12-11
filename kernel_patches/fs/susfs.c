@@ -14,9 +14,6 @@
 #include <linux/fdtable.h>
 #include <linux/statfs.h>
 #include <linux/susfs.h>
-#ifdef CONFIG_KSU_SUSFS_SUS_SU
-#include <linux/sus_su.h>
-#endif
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5,15,0)
 #include "pnode.h"
 #endif
@@ -760,47 +757,48 @@ int susfs_get_sus_su_working_mode(void) {
 
 int susfs_sus_su(struct st_sus_su* __user user_info) {
 	struct st_sus_su info;
+	int last_working_mode = susfs_sus_su_working_mode;
 
 	if (copy_from_user(&info, user_info, sizeof(struct st_sus_su))) {
 		SUSFS_LOGE("failed copying from userspace\n");
 		return 1;
 	}
 
-	if (info.mode == SUS_SU_WITH_OVERLAY) {
-		sus_su_fifo_init(&info.maj_dev_num, info.drv_path);
-		ksu_susfs_enable_sus_su();
-		susfs_sus_su_working_mode = SUS_SU_WITH_OVERLAY;
-		if (info.maj_dev_num < 0) {
-			SUSFS_LOGI("failed to get proper info.maj_dev_num: %d\n", info.maj_dev_num);
+	if (info.mode == SUS_SU_WITH_HOOKS) {
+		if (last_working_mode == SUS_SU_WITH_HOOKS) {
+			SUSFS_LOGE("current sus_su mode is already %d\n", SUS_SU_WITH_HOOKS);
 			return 1;
 		}
-		SUSFS_LOGI("core kprobe hooks for ksu are disabled!\n");
-		SUSFS_LOGI("sus_su driver '%s' is enabled!\n", info.drv_path);
-		SUSFS_LOGI("sus_su mode: SUS_SU_WITH_OVERLAY\n");
-		if (copy_to_user(user_info, &info, sizeof(info)))
-			SUSFS_LOGE("copy_to_user() failed\n");
-		return 0;
-	} else if (info.mode == SUS_SU_WITH_HOOKS) {
+		if (last_working_mode != SUS_SU_DISABLED) {
+			SUSFS_LOGE("please make sure the current sus_su mode is %d first\n", SUS_SU_DISABLED);
+			return 2;
+		}
 		ksu_susfs_enable_sus_su();
 		susfs_sus_su_working_mode = SUS_SU_WITH_HOOKS;
 		susfs_is_sus_su_hooks_enabled = true;
 		SUSFS_LOGI("core kprobe hooks for ksu are disabled!\n");
 		SUSFS_LOGI("non-kprobe hook sus_su is enabled!\n");
-		SUSFS_LOGI("sus_su mode: SUS_SU_WITH_HOOKS\n");
+		SUSFS_LOGI("sus_su mode: %d\n", SUS_SU_WITH_HOOKS);
 		return 0;
-	} else if (info.mode == 0) {
-		susfs_is_sus_su_hooks_enabled = false;
-		ksu_susfs_disable_sus_su();
-		susfs_sus_su_working_mode = 0;
-		sus_su_fifo_exit(&info.maj_dev_num, info.drv_path);
-		if (info.maj_dev_num != -1) {
-			SUSFS_LOGI("failed to set proper info.maj_dev_num to '-1'\n");
+	} else if (info.mode == SUS_SU_DISABLED) {
+		if (last_working_mode == SUS_SU_DISABLED) {
+			SUSFS_LOGE("current sus_su mode is already %d\n", SUS_SU_DISABLED);
 			return 1;
 		}
-		SUSFS_LOGI("core kprobe hooks for ksu are enabled! sus_su driver '%s' is disabled!\n", info.drv_path);
+		susfs_is_sus_su_hooks_enabled = false;
+		ksu_susfs_disable_sus_su();
+		susfs_sus_su_working_mode = SUS_SU_DISABLED;
+		if (last_working_mode == SUS_SU_WITH_HOOKS) {
+			SUSFS_LOGI("core kprobe hooks for ksu are enabled!\n");
+			goto out;
+		}
+out:
 		if (copy_to_user(user_info, &info, sizeof(info)))
 			SUSFS_LOGE("copy_to_user() failed\n");
 		return 0;
+	} else if (info.mode == SUS_SU_WITH_OVERLAY) {
+		SUSFS_LOGE("sus_su mode %d is deprecated\n", SUS_SU_WITH_OVERLAY);
+		return 1;
 	}
 	return 1;
 }

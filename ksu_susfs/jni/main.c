@@ -35,6 +35,7 @@
 #define CMD_SUSFS_SHOW_ENABLED_FEATURES 0x555e2
 #define CMD_SUSFS_SHOW_VARIANT 0x555e3
 #define CMD_SUSFS_SHOW_SUS_SU_WORKING_MODE 0x555e4
+#define CMD_SUSFS_IS_SUS_SU_READY 0x555f0
 #define CMD_SUSFS_SUS_SU 0x60000
 
 #define SUSFS_MAX_LEN_PATHNAME 256
@@ -46,7 +47,8 @@
 
 #define SUS_SU_BIN_PATH "/data/adb/ksu/bin/sus_su"
 #define SUS_SU_CONF_FILE_PATH "/data/adb/ksu/bin/sus_su_drv_path"
-#define SUS_SU_WITH_OVERLAY 1
+#define SUS_SU_DISABLED 0
+#define SUS_SU_WITH_OVERLAY 1 /* deprecated */
 #define SUS_SU_WITH_HOOKS 2
 
 /* VM flags from linux kernel */
@@ -116,8 +118,6 @@ struct st_susfs_open_redirect {
 
 struct st_sus_su {
 	int                     mode;
-	char                    drv_path[256];
-	int                     maj_dev_num;
 };
 
 /**********************
@@ -168,6 +168,40 @@ void copy_stat_to_sus_kstat(struct st_susfs_sus_kstat* info, struct stat* sb) {
 	info->spoofed_ctime_tv_nsec = sb->st_ctime_nsec;
 	info->spoofed_blksize = sb->st_blksize;
 	info->spoofed_blocks = sb->st_blocks;
+}
+
+int enable_sus_su(int last_working_mode, int target_working_mode) {
+	struct st_sus_su info;
+	int error = -1;
+
+	if (target_working_mode == SUS_SU_WITH_HOOKS) {
+		info.mode = SUS_SU_WITH_HOOKS;
+		prctl(KERNEL_SU_OPTION, CMD_SUSFS_SUS_SU, &info, NULL, &error);
+		PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SUS_SU);
+		if (error) {
+			if (error == 1) {
+				log("[-] current sus_su mode is already %d\n", SUS_SU_WITH_HOOKS);
+			} else if (error == 2) {
+				log("[-] please make sure the current sus_su mode is %d first\n", SUS_SU_DISABLED);
+			}
+			return error;
+		}
+		log("[+] sus_su mode 2 is enabled\n");
+	} else if (target_working_mode == SUS_SU_DISABLED) {
+		info.mode = SUS_SU_DISABLED;
+		prctl(KERNEL_SU_OPTION, CMD_SUSFS_SUS_SU, &info, NULL, &error);
+		PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SUS_SU);
+		if (error) {
+			if (error == 1) {
+				log("[-] current sus_su mode is already %d\n", SUS_SU_DISABLED);
+			}
+			return error;
+		}
+		log("[+] sus_su mode 0 is enabled\n");
+	} else {
+		return 1;
+	}
+	return 0;
 }
 
 static void print_help(void) {
@@ -236,7 +270,7 @@ static void print_help(void) {
 	log("\n");
 	log("        sus_su <0|1|2|show_working_mode>\n");
 	log("         |--> NOTE-1:\n");
-	log("              - For mode 1: It disables kprobe hooks made by ksu, and instead,\n");
+	log("              - For mode 1: (deprecated) It disables kprobe hooks made by ksu, and instead,\n");
 	log("                a sus_su character device driver with random name will be created, and user\n");
 	log("                need to use a tool named 'sus_su' together with a path file in same current directory\n");
 	log("                named '" SUS_SU_CONF_FILE_PATH "' to get a root shell from the sus_su driver.'\n");
@@ -247,7 +281,7 @@ static void print_help(void) {
 	log("         |--> NOTE-2:\n");
 	log("                Please see the service.sh template from ksu_module_susfs for the usage\n");
 	log("         |--> 0: enable core ksu kprobe hooks and disable sus_su driver\n");
-	log("         |--> 1: disable the core ksu kprobe hooks and enable sus_su fifo driver\n");
+	log("         |--> 1: (deprecated), disable the core ksu kprobe hooks and enable sus_su fifo driver\n");
 	log("         |--> 2: disable the core ksu kprobe hooks and enable sus_su just with non-kprobe hooks\n");
 	log("         |--> show_working_mode: show the current sus_su working mode, [0,1,2]\n");
 	log("\n");
@@ -692,67 +726,55 @@ int main(int argc, char *argv[]) {
 		return error;
 	// sus_su
 	} else if (argc == 3 && !strcmp(argv[1], "sus_su")) {
-		struct st_sus_su info;
-		dev_t dev;
-		mode_t mode = 0666;
-		FILE *f_path;
+		int last_working_mode = 0;
+		int target_working_mode;
+		char* endptr;
 
-		if (!strcmp(argv[2], "1")) {
-			info.mode = SUS_SU_WITH_OVERLAY;
-			info.maj_dev_num = -1;
-			prctl(KERNEL_SU_OPTION, CMD_SUSFS_SUS_SU, &info, NULL, &error);
-			PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SUS_SU);
+		prctl(KERNEL_SU_OPTION, CMD_SUSFS_SHOW_SUS_SU_WORKING_MODE, &last_working_mode, NULL, &error);
+		PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SHOW_SUS_SU_WORKING_MODE);
+		if (error)
+			return error;
+		if (!strcmp(argv[2], "show_working_mode")) {
+			printf("%d\n", last_working_mode);
+			return 0;
+		}
+		target_working_mode = strtol(argv[2], &endptr, 10);
+		if (*endptr != '\0') {
+			print_help();
+			return 1;
+		}
+		if (target_working_mode == SUS_SU_WITH_HOOKS) {
+			bool is_sus_su_ready;
+			prctl(KERNEL_SU_OPTION, CMD_SUSFS_IS_SUS_SU_READY, &is_sus_su_ready, NULL, &error);
+			PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_IS_SUS_SU_READY);
 			if (error)
 				return error;
-			dev = makedev(info.maj_dev_num, 0);
-			if (mknod(info.drv_path, S_IFCHR | mode, dev) < 0) {
-				log("failed to mknod '%s'\n", info.drv_path);
+			if (!is_sus_su_ready) {
+				log("[-] sus_su mode %d has to be run during or after service stage\n", SUS_SU_WITH_HOOKS);
 				return 1;
 			}
-			log("[+] device node created at '%s'\n", info.drv_path);
-
-			f_path = fopen(SUS_SU_CONF_FILE_PATH, "w");
-			if (!f_path) {
-				log("failed to fopen '%s'\n", info.drv_path);
+			if (last_working_mode == SUS_SU_DISABLED) {
+				error = enable_sus_su(last_working_mode, SUS_SU_WITH_HOOKS);
+			} else if (last_working_mode == SUS_SU_WITH_HOOKS) {
+				log("[-] sus_su is already in mode %d\n", last_working_mode);
 				return 1;
-			}
-			
-			fputs(info.drv_path, f_path);
-			fclose(f_path);
-
-			if (system("export DRV_PATH=`cat " SUS_SU_CONF_FILE_PATH "`; chmod 666 ${DRV_PATH} && chcon u:object_r:null_device:s0 ${DRV_PATH}")) {
-				log("[-] failed to change permission for '%s'\n", info.drv_path);
-				return 1;
-			}
-		} else if (!strcmp(argv[2], "2")) {
-			info.mode = SUS_SU_WITH_HOOKS;
-			info.maj_dev_num = -1;
-			prctl(KERNEL_SU_OPTION, CMD_SUSFS_SUS_SU, &info, NULL, &error);
-			PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SUS_SU);
-		} else if (!strcmp(argv[2], "0")) {
-			info.mode = 0;
-			prctl(KERNEL_SU_OPTION, CMD_SUSFS_SUS_SU, &info, NULL, &error);
-			PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SUS_SU);
-			if (error)
-				return error;
-			if (system("export DRV_PATH=`cat " SUS_SU_CONF_FILE_PATH "`; rm -f ${DRV_PATH}")) {
-				log("[-] failed to remove '%s'\n", info.drv_path);
-				return error;
 			} else {
-				log("[+] '%s' is removed\n", info.drv_path);
+				error = enable_sus_su(last_working_mode, SUS_SU_DISABLED);
+				if (!error)
+					error = enable_sus_su(last_working_mode, SUS_SU_WITH_HOOKS);
 			}
-		} else if (!strcmp(argv[2], "show_working_mode")) {
-			int sus_su_working_mode = 0;
-			prctl(KERNEL_SU_OPTION, CMD_SUSFS_SHOW_SUS_SU_WORKING_MODE, &sus_su_working_mode, NULL, &error);
-			PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SHOW_SUS_SU_WORKING_MODE);
-			if (error == -1) return error;
-			if (sus_su_working_mode < 0 || sus_su_working_mode > 2) {
-				log("[-] failed to get sus_su working mode\n");
+		} else if (target_working_mode == SUS_SU_DISABLED) {
+			if (last_working_mode == SUS_SU_DISABLED) {
+				log("[-] sus_su is already in mode %d\n", last_working_mode);
 				return 1;
 			}
-			printf("%d\n", sus_su_working_mode);
+			error = enable_sus_su(last_working_mode, SUS_SU_DISABLED);
+		} else if (target_working_mode == SUS_SU_WITH_OVERLAY) {
+				log("[-] sus_su mode %d is deprecated\n", SUS_SU_WITH_OVERLAY);
+				return 1;
 		} else {
 			print_help();
+			return 1;
 		}
 		return error;
 	} else {
@@ -761,3 +783,4 @@ int main(int argc, char *argv[]) {
 out:
 	return 0;
 }
+

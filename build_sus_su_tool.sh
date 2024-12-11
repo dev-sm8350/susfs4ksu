@@ -1,5 +1,6 @@
 #!/bin/bash
 
+cat <<EOF >/dev/null
 OLD_CWD=$(pwd)
 
 if ! ndk-build -s -v &>/dev/null; then
@@ -17,4 +18,4 @@ cp libs/armeabi-v7a/sus_su ../ksu_module_susfs/tools/sus_su_arm
 cd ${OLD_CWD}
 
 
-
+EOF
