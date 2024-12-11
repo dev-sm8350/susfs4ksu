@@ -126,8 +126,8 @@ int sus_su_fifo_init(int *maj_dev_num, char *drv_path) {
 
 int sus_su_fifo_exit(int *maj_dev_num, char *drv_path) {
     if (cur_maj_dev_num < 0) {
-        SUSFS_LOGE("'%s' is already unregistered\n", rand_drv_path);
-        return -1;
+        SUSFS_LOGE("'%s' was already unregistered before\n", rand_drv_path);
+        return 0;
     }
 
     cdev_del(&sus_su_cdev);
