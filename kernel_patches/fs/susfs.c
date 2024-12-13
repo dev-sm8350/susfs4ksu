@@ -18,26 +18,26 @@
 #include "pnode.h"
 #endif
 
-spinlock_t susfs_spin_lock;
+static spinlock_t susfs_spin_lock;
 
 extern bool susfs_is_current_ksu_domain(void);
 
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
-bool is_log_enable __read_mostly = true;
-#define SUSFS_LOGI(fmt, ...) if (is_log_enable) pr_info("susfs:[%u][%d][%s] " fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
-#define SUSFS_LOGE(fmt, ...) if (is_log_enable) pr_err("susfs:[%u][%d][%s]" fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
+bool susfs_is_log_enabled __read_mostly = true;
+#define SUSFS_LOGI(fmt, ...) if (susfs_is_log_enabled) pr_info("susfs:[%u][%d][%s] " fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
+#define SUSFS_LOGE(fmt, ...) if (susfs_is_log_enabled) pr_err("susfs:[%u][%d][%s]" fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
 #else
 #define SUSFS_LOGI(fmt, ...) 
 #define SUSFS_LOGE(fmt, ...) 
 #endif
 
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-extern void try_umount(const char *mnt, bool check_mnt, int flags);
+extern void ksu_try_umount(const char *mnt, bool check_mnt, int flags);
 #endif
 
 /* sus_path */
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
-DEFINE_HASHTABLE(SUS_PATH_HLIST, 10);
+static DEFINE_HASHTABLE(SUS_PATH_HLIST, 10);
 static int susfs_update_sus_path_inode(char *target_pathname) {
 	struct path p;
 	struct inode *inode = NULL;
@@ -131,7 +131,7 @@ int susfs_sus_ino_for_filldir64(unsigned long ino) {
 
 /* sus_mount */
 #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-LIST_HEAD(LH_SUS_MOUNT);
+static LIST_HEAD(LH_SUS_MOUNT);
 static void susfs_update_sus_mount_inode(char *target_pathname) {
 	struct path p;
 	struct inode *inode = NULL;
@@ -259,7 +259,7 @@ set_inode_sus_mount:
 
 /* sus_kstat */
 #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
-DEFINE_HASHTABLE(SUS_KSTAT_HLIST, 10);
+static DEFINE_HASHTABLE(SUS_KSTAT_HLIST, 10);
 static int susfs_update_sus_kstat_inode(char *target_pathname) {
 	struct path p;
 	struct inode *inode = NULL;
@@ -458,7 +458,7 @@ void susfs_sus_ino_for_show_map_vma(unsigned long ino, dev_t *out_dev, unsigned 
 
 /* try_umount */
 #ifdef CONFIG_KSU_SUSFS_TRY_UMOUNT
-LIST_HEAD(LH_TRY_UMOUNT_PATH);
+static LIST_HEAD(LH_TRY_UMOUNT_PATH);
 int susfs_add_try_umount(struct st_susfs_try_umount* __user user_info) {
 	struct st_susfs_try_umount_list *cursor = NULL, *temp = NULL;
 	struct st_susfs_try_umount_list *new_list = NULL;
@@ -498,9 +498,9 @@ void susfs_try_umount(uid_t target_uid) {
 	list_for_each_entry_safe(cursor, temp, &LH_TRY_UMOUNT_PATH, list) {
 		SUSFS_LOGI("umounting '%s' for uid: %d\n", cursor->info.target_pathname, target_uid);
 		if (cursor->info.mnt_mode == TRY_UMOUNT_DEFAULT) {
-			try_umount(cursor->info.target_pathname, false, 0);
+			ksu_try_umount(cursor->info.target_pathname, false, 0);
 		} else if (cursor->info.mnt_mode == TRY_UMOUNT_DETACH) {
-			try_umount(cursor->info.target_pathname, false, MNT_DETACH);
+			ksu_try_umount(cursor->info.target_pathname, false, MNT_DETACH);
 		} else {
 			SUSFS_LOGE("failed umounting '%s' for uid: %d, mnt_mode '%d' not supported\n",
 							cursor->info.target_pathname, target_uid, cursor->info.mnt_mode);
@@ -555,8 +555,8 @@ out_free_pathname:
 
 /* spoof_uname */
 #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
-spinlock_t susfs_uname_spin_lock;
-struct st_susfs_uname my_uname;
+static spinlock_t susfs_uname_spin_lock;
+static struct st_susfs_uname my_uname;
 static void susfs_my_uname_init(void) {
 	memset(&my_uname, 0, sizeof(my_uname));
 }
@@ -603,9 +603,9 @@ int susfs_spoof_uname(struct new_utsname* tmp) {
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
 void susfs_set_log(bool enabled) {
 	spin_lock(&susfs_spin_lock);
-	is_log_enable = enabled;
+	susfs_is_log_enabled = enabled;
 	spin_unlock(&susfs_spin_lock);
-	if (is_log_enable) {
+	if (susfs_is_log_enabled) {
 		pr_info("susfs: enable logging to kernel");
 	} else {
 		pr_info("susfs: disable logging to kernel");
@@ -615,7 +615,7 @@ void susfs_set_log(bool enabled) {
 
 /* spoof_proc_cmdline */
 #ifdef CONFIG_KSU_SUSFS_SPOOF_PROC_CMDLINE
-char *fake_proc_cmdline = NULL;
+static char *fake_proc_cmdline = NULL;
 int susfs_set_proc_cmdline(char* __user user_fake_proc_cmdline) {
 	int res;
 
@@ -652,7 +652,7 @@ int susfs_spoof_proc_cmdline(struct seq_file *m) {
 
 /* open_redirect */
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
-DEFINE_HASHTABLE(OPEN_REDIRECT_HLIST, 10);
+static DEFINE_HASHTABLE(OPEN_REDIRECT_HLIST, 10);
 static int susfs_update_open_redirect_inode(struct st_susfs_open_redirect_hlist *new_entry) {
 	struct path path_target;
 	struct inode *inode_target;

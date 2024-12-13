@@ -8,9 +8,9 @@
 #include <linux/sus_su.h>
 
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
-extern bool is_log_enable __read_mostly;
-#define SUSFS_LOGI(fmt, ...) if (is_log_enable) pr_info("susfs_sus_su:[%u][%u][%s] " fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
-#define SUSFS_LOGE(fmt, ...) if (is_log_enable) pr_err("susfs_sus_su:[%u][%u][%s]" fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
+extern bool susfs_is_log_enabled __read_mostly;
+#define SUSFS_LOGI(fmt, ...) if (susfs_is_log_enabled) pr_info("susfs_sus_su:[%u][%u][%s] " fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
+#define SUSFS_LOGE(fmt, ...) if (susfs_is_log_enabled) pr_err("susfs_sus_su:[%u][%u][%s]" fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
 #else
 #define SUSFS_LOGI(fmt, ...)
 #define SUSFS_LOGE(fmt, ...)
@@ -27,7 +27,7 @@ static char rand_drv_path[MAX_DRV_NAME+1] = "/dev/";
 static bool is_sus_su_enabled_before = false;
 
 extern bool susfs_is_allow_su(void);
-extern void escape_to_root(void);
+extern void ksu_escape_to_root(void);
 
 static void gen_rand_drv_name(char *buffer, size_t min_length, size_t max_length) {
     const char *symbols = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-+@#:=";
@@ -73,7 +73,7 @@ static ssize_t fifo_write(struct file *file, const char __user *buf, size_t len,
 
     if (!memcmp(fifo_buffer, sus_su_token, sus_su_token_len+1)) {
         SUSFS_LOGI("granting root access for uid: '%d', pid: '%d'\n", current_uid().val, current->pid);
-        escape_to_root();
+        ksu_escape_to_root();
     } else {
         SUSFS_LOGI("wrong token! deny root access for uid: '%d', pid: '%d'\n", current_uid().val, current->pid);
     }
