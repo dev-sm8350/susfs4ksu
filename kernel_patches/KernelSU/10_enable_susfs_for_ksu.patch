@@ -339,7 +339,7 @@ index bed501c4..e02aa514 100644
  
  #endif
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 009216ef..288f9cc7 100644
+index 009216ef..da4fc14c 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -33,6 +33,10 @@
@@ -841,7 +841,8 @@ index 009216ef..288f9cc7 100644
  	// check old process's selinux context, if it is not zygote, ignore it!
  	// because some su apps may setuid to untrusted_app but they are in global mount namespace
  	// when we umount for such process, that is a disaster!
- 	bool is_zygote_child = is_zygote(old->security);
+-	bool is_zygote_child = is_zygote(old->security);
++	bool is_zygote_child = ksu_is_zygote(old->security);
 +#endif
  	if (!is_zygote_child) {
  		pr_info("handle umount ignore non zygote child: %d\n",
