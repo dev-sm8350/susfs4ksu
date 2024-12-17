@@ -847,39 +847,50 @@ index f4a77817ad74c..feaaff3a14a45 100644
  	}
  
 diff --git a/fs/proc_namespace.c b/fs/proc_namespace.c
-index 6863773aff252..da05b528e6c4f 100644
+index 6863773aff252..101f5cf807e81 100644
 --- a/fs/proc_namespace.c
 +++ b/fs/proc_namespace.c
-@@ -99,6 +99,11 @@ static int show_vfsmnt(struct seq_file *m, struct vfsmount *mnt)
+@@ -15,6 +15,10 @@
+ #include "pnode.h"
+ #include "internal.h"
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
++extern bool susfs_is_current_ksu_domain(void);
++#endif
++
+ static unsigned mounts_poll(struct file *file, poll_table *wait)
+ {
+ 	struct seq_file *m = file->private_data;
+@@ -99,6 +103,11 @@ static int show_vfsmnt(struct seq_file *m, struct vfsmount *mnt)
  	struct super_block *sb = mnt_path.dentry->d_sb;
  	int err;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+	if (unlikely(r->mnt.mnt_root->d_inode->i_state & 33554432))
++	if (unlikely((r->mnt.mnt_root->d_inode->i_state & 33554432) && !susfs_is_current_ksu_domain()))
 +		return 0;
 +#endif
 +
  	if (sb->s_op->show_devname) {
  		err = sb->s_op->show_devname(m, mnt_path.dentry);
  		if (err)
-@@ -135,6 +140,11 @@ static int show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
+@@ -135,6 +144,11 @@ static int show_mountinfo(struct seq_file *m, struct vfsmount *mnt)
  	struct path mnt_path = { .dentry = mnt->mnt_root, .mnt = mnt };
  	int err;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+	if (unlikely(r->mnt.mnt_root->d_inode->i_state & 33554432))
++	if (unlikely((r->mnt.mnt_root->d_inode->i_state & 33554432) && !susfs_is_current_ksu_domain()))
 +		return 0;
 +#endif
 +
  	seq_printf(m, "%i %i %u:%u ", r->mnt_id, r->mnt_parent->mnt_id,
  		   MAJOR(sb->s_dev), MINOR(sb->s_dev));
  	if (sb->s_op->show_path) {
-@@ -199,6 +209,11 @@ static int show_vfsstat(struct seq_file *m, struct vfsmount *mnt)
+@@ -199,6 +213,11 @@ static int show_vfsstat(struct seq_file *m, struct vfsmount *mnt)
  	struct super_block *sb = mnt_path.dentry->d_sb;
  	int err;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
-+	if (unlikely(r->mnt.mnt_root->d_inode->i_state & 33554432))
++	if (unlikely((r->mnt.mnt_root->d_inode->i_state & 33554432) && !susfs_is_current_ksu_domain()))
 +		return 0;
 +#endif
 +
