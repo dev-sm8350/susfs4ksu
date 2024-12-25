@@ -104,14 +104,27 @@ susfs_clone_perm '/data/local/tmp/my_hosts' '/system/etc/hosts'
 ${SUSFS_BIN} add_path_redirect '/system/etc/hosts' '/data/local/tmp/my_hosts'
 EOF
 
-#### Spoof /proc/cmdline ####
+#### Spoof /proc/cmdline or /proc/bootconfig ####
 # No root process detects it for now, and this spoofing won't help much actually #
+# /proc/bootconfig #
+cat <<EOF >/dev/null
+FAKE_BOOTCONFIG=${MODDIR}/fake_bootconfig.txt
+cat /proc/bootconfig > ./fake_bootconfig.txt
+sed -i 's/^androidboot.bootreason.*$/androidboot.bootreason = "reboot"/g' ${FAKE_BOOTCONFIG}
+sed -i 's/^androidboot.vbmeta.device_state.*$/androidboot.vbmeta.device_state = "locked"/g' ${FAKE_BOOTCONFIG}
+sed -i 's/^androidboot.verifiedbootstate.*$/androidboot.verifiedbootstate = "green"/g' ${FAKE_BOOTCONFIG}
+sed -i '/androidboot.verifiedbooterror/d' ${FAKE_BOOTCONFIG}
+sed -i '/androidboot.verifyerrorpart/d' ${FAKE_BOOTCONFIG}
+${SUSFS_BIN} set_cmdline_or_bootconfig /data/adb/modules/susfs4ksu/fake_bootconfig.txt
+EOF
+
+# /proc/cmdline #
 cat <<EOF >/dev/null
 FAKE_PROC_CMDLINE_FILE=${MODDIR}/fake_proc_cmdline.txt
 cat /proc/cmdline > ${FAKE_PROC_CMDLINE_FILE}
 sed -i 's/androidboot.verifiedbootstate=orange/androidboot.verifiedbootstate=green/g' ${FAKE_PROC_CMDLINE_FILE}
 sed -i 's/androidboot.vbmeta.device_state=unlocked/androidboot.vbmeta.device_state=locked/g' ${FAKE_PROC_CMDLINE_FILE}
-${SUSFS_BIN} set_proc_cmdline ${FAKE_PROC_CMDLINE_FILE}
+${SUSFS_BIN} set_cmdline_or_bootconfig ${FAKE_PROC_CMDLINE_FILE}
 EOF
 
 #### Enable sus_su (Deprecated, do NOT use it) ####

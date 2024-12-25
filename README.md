@@ -19,8 +19,9 @@
 7. Run `cd $KERNEL_ROOT` and then `patch -p1 < 50_add_susfs_in_kernel.patch`, **if there are failed patches, you may try to patch them manually by yourself.**
 8. Make sure again to have `CONFIG_KSU` and `CONFIG_KSU_SUSFS` enabled before building the kernel, some other SUSFS feature may be disabled by default, you may enable/disable them via `menuconfig`, `kernel defconfig`, or change the `default [y|n]` option under each `config KSU_SUSFS_` option in `$KernelSU_repo/kernel/Kconfig` if you build with a new defconfig every time.
 9. If your kernel already has the **KSU non-kprobe hook patches** applied, then you have to **`DISABLE`** the `CONFIG_KSU_SUSFS_SUS_SU` option.
-10. For some compilor error, please refer to the section **[Known Compilor Issues]** below.
-11. For other building tips, please refer to the section **[Other Building Tips]** below.
+10. If your KernelSU repo is a fork by 5ec1cff, then you should enable **`KSU_SUSFS_HAS_MAGIC_MOUNT`** option.
+11. For some compilor error, please refer to the section **[Known Compilor Issues]** below.
+12. For other building tips, please refer to the section **[Other Building Tips]** below.
 
 ## Build ksu_susfs userspace tool ##
 1. Run `./build_ksu_susfs_tool.sh` to build the userspace tool `ksu_susfs`, and the arm64 and arm binary will be copied to `ksu_module_susfs/tools/` as well.
@@ -81,6 +82,7 @@
 
 ## Credits ##
 - KernelSU: https://github.com/tiann/KernelSU
+- KernelSU fork: https://github.com/5ec1cff/KernelSU
 - @Kartatz: for ideas and original commit from https://github.com/Dominium-Apum/kernel_xiaomi_chime/pull/1/commits/74f8d4ecacd343432bb8137b7e7fbe3fd9fef189
 
 ## Telegram ##

@@ -28,7 +28,7 @@
 #define CMD_SUSFS_ADD_TRY_UMOUNT 0x55580
 #define CMD_SUSFS_SET_UNAME 0x55590
 #define CMD_SUSFS_ENABLE_LOG 0x555a0
-#define CMD_SUSFS_SET_PROC_CMDLINE 0x555b0
+#define CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG 0x555b0
 #define CMD_SUSFS_ADD_OPEN_REDIRECT 0x555c0
 #define CMD_SUSFS_RUN_UMOUNT_FOR_CURRENT_MNT_NS 0x555d0
 #define CMD_SUSFS_SHOW_VERSION 0x555e1
@@ -257,8 +257,8 @@ static void print_help(void) {
 	log("        enable_log <0|1>\n");
 	log("         |--> 0: disable susfs log in kernel, 1: enable susfs log in kernel\n");
 	log("\n");
-	log("        set_proc_cmdline </path/to/fake_proc_cmdline_file>\n");
-	log("         |--> Spoof the output of /proc/proc_cmdline from a text file\n");
+	log("        set_cmdline_or_bootconfig </path/to/fake_cmdline_file/or/fake_bootconfig_file>\n");
+	log("         |--> Spoof the output of /proc/cmdline (non-gki) or /proc/bootconfig (gki) from a text file\n");
 	log("\n");
 	log("        add_open_redirect </target/path> </redirected/path>\n");
 	log("         |--> Redirect the target path to be opened with user defined path\n");
@@ -556,8 +556,8 @@ int main(int argc, char *argv[]) {
 		prctl(KERNEL_SU_OPTION, CMD_SUSFS_ENABLE_LOG, atoi(argv[2]), NULL, &error);
 		PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_ENABLE_LOG);
 		return error;
-	// set_proc_cmdline
-	} else if (argc == 3 && !strcmp(argv[1], "set_proc_cmdline")) {
+	// set_cmdline_or_bootconfig
+	} else if (argc == 3 && !strcmp(argv[1], "set_cmdline_or_bootconfig")) {
 		char abs_path[PATH_MAX], *p_abs_path, *buffer;
 		FILE *file;
 		long file_size;
@@ -591,9 +591,9 @@ int main(int argc, char *argv[]) {
 		}
 		buffer[file_size] = '\0';
 		fclose(file);
-		prctl(KERNEL_SU_OPTION, CMD_SUSFS_SET_PROC_CMDLINE, buffer, NULL, &error);
+		prctl(KERNEL_SU_OPTION, CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG, buffer, NULL, &error);
 		free(buffer);
-		PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SET_PROC_CMDLINE);
+		PRT_MSG_IF_OPERATION_NOT_SUPPORTED(error, CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG);
 		return error;
 	// add_open_redirect
 	} else if (argc == 4 && !strcmp(argv[1], "add_open_redirect")) {
@@ -699,8 +699,8 @@ int main(int argc, char *argv[]) {
 					ptr_buf += str_len;
 				}
 				if (enabled_features & (1 << 11)) {
-					str_len = strlen("CONFIG_KSU_SUSFS_SPOOF_PROC_CMDLINE\n");
-					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_SPOOF_PROC_CMDLINE\n", str_len);
+					str_len = strlen("CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG\n", str_len);
 					ptr_buf += str_len;
 				}
 				if (enabled_features & (1 << 12)) {
@@ -711,6 +711,11 @@ int main(int argc, char *argv[]) {
 				if (enabled_features & (1 << 13)) {
 					str_len = strlen("CONFIG_KSU_SUSFS_SUS_SU\n");
 					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_SUS_SU\n", str_len);
+					ptr_buf += str_len;
+				}
+				if (enabled_features & (1 << 14)) {
+					str_len = strlen("CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT\n");
+					strncpy(ptr_buf, "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT\n", str_len);
 					ptr_buf += str_len;
 				}
 				printf("%s", enabled_features_buf);

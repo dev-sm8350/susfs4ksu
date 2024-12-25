@@ -42,21 +42,33 @@ index 3934c29049c07..b3b755329a230 100644
  		if (dentry->d_parent != parent)
  			goto next;
 diff --git a/fs/devpts/inode.c b/fs/devpts/inode.c
-index df5350ef95ae3..54c657b9dced8 100644
+index df5350ef95ae3..7dee3e04b0715 100644
 --- a/fs/devpts/inode.c
 +++ b/fs/devpts/inode.c
-@@ -579,6 +579,11 @@ void *devpts_get_priv(struct dentry *dentry)
- 	return dentry->d_fsdata;
- }
+@@ -38,6 +38,10 @@
+ #define DEVPTS_DEFAULT_PTMX_MODE 0000
+ #define PTMX_MINOR	2
  
-+#ifdef CONFIG_KSU_SUSFS_SUS_SU
++#if defined(CONFIG_KSU_SUSFS_SUS_SU) && !defined(CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT)
 +extern bool ksu_devpts_hook;
 +extern int ksu_handle_devpts(struct inode*);
 +#endif
+ /*
+  * sysctl support for setting limits on the number of Unix98 ptys allocated.
+  * Otherwise one can eat up all kernel memory by opening /dev/ptmx repeatedly.
+@@ -574,6 +578,12 @@ void *devpts_get_priv(struct dentry *dentry)
+ #ifdef CONFIG_KSU
+     ksu_handle_devpts(dentry->d_inode);
+ #endif
 +
- /**
-  * devpts_pty_kill -- remove inode form /dev/pts/
-  * @inode: inode of the slave to be removed
++#if defined(CONFIG_KSU_SUSFS_SUS_SU) && !defined(CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT)
++	if (ksu_devpts_hook) {
++		ksu_handle_devpts(dentry->d_inode);
++	}
++#endif
+ 	if (dentry->d_sb->s_magic != DEVPTS_SUPER_MAGIC)
+ 		return NULL;
+ 	return dentry->d_fsdata;
 diff --git a/fs/exec.c b/fs/exec.c
 index 9fcbbbca8cae8..1143bf97e6631 100644
 --- a/fs/exec.c
@@ -791,21 +803,21 @@ index ae1b42489ddd1..fccaace89860e 100644
  
  	err = vfs_statfs(&path, buf);
 diff --git a/fs/proc/cmdline.c b/fs/proc/cmdline.c
-index cbd82dff7e81a..6517eefb76d7a 100644
+index cbd82dff7e81a..b37b8d70ede58 100644
 --- a/fs/proc/cmdline.c
 +++ b/fs/proc/cmdline.c
 @@ -3,8 +3,18 @@
  #include <linux/proc_fs.h>
  #include <linux/seq_file.h>
  
-+#ifdef CONFIG_KSU_SUSFS_SPOOF_PROC_CMDLINE
-+extern int susfs_spoof_proc_cmdline(struct seq_file *m);
++#ifdef KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
++extern int susfs_spoof_cmdline_or_bootconfig(struct seq_file *m);
 +#endif
 +
  static int cmdline_proc_show(struct seq_file *m, void *v)
  {
-+#ifdef CONFIG_KSU_SUSFS_SPOOF_PROC_CMDLINE
-+	if (!susfs_spoof_proc_cmdline(m)) {
++#ifdef KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
++	if (!susfs_spoof_cmdline_or_bootconfig(m)) {
 +		seq_putc(m, '\n');
 +		return 0;
 +	}
