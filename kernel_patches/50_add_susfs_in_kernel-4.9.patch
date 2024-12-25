@@ -41,14 +41,14 @@ index 3934c29049c07..b3b755329a230 100644
  		if (dentry->d_parent != parent)
  			goto next;
 diff --git a/fs/devpts/inode.c b/fs/devpts/inode.c
-index df5350ef95ae3..7dee3e04b0715 100644
+index df5350ef95ae3..94c9bf4aab565 100644
 --- a/fs/devpts/inode.c
 +++ b/fs/devpts/inode.c
 @@ -38,6 +38,10 @@
  #define DEVPTS_DEFAULT_PTMX_MODE 0000
  #define PTMX_MINOR	2
  
-+#if defined(CONFIG_KSU_SUSFS_SUS_SU) && !defined(CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT)
++#if defined(CONFIG_KSU_SUSFS_SUS_SU)
 +extern bool ksu_devpts_hook;
 +extern int ksu_handle_devpts(struct inode*);
 +#endif
@@ -60,7 +60,7 @@ index df5350ef95ae3..7dee3e04b0715 100644
      ksu_handle_devpts(dentry->d_inode);
  #endif
 +
-+#if defined(CONFIG_KSU_SUSFS_SUS_SU) && !defined(CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT)
++#if defined(CONFIG_KSU_SUSFS_SUS_SU)
 +	if (ksu_devpts_hook) {
 +		ksu_handle_devpts(dentry->d_inode);
 +	}
