@@ -1,5 +1,5 @@
 diff --git a/kernel/Kconfig b/kernel/Kconfig
-index 67f177f4..9f7a5878 100644
+index 67f177f4..8628befd 100644
 --- a/kernel/Kconfig
 +++ b/kernel/Kconfig
 @@ -16,4 +16,147 @@ config KSU_DEBUG
@@ -17,7 +17,7 @@ index 67f177f4..9f7a5878 100644
 +config KSU_SUSFS_HAS_MAGIC_MOUNT
 +    bool "Say yes if the current KernelSU repo has magic mount implemented (default n)"
 +    depends on KSU
-+    default n
++    default y
 +    help
 +      - Enable to indicate the current KernelSU repo is forked by 5ec1cff
 +      - Every mounts from /debug_ramdisk/workdir will be treated as magic mount and processed differently by susfs
