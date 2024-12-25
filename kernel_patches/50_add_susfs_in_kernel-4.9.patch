@@ -1,13 +1,12 @@
 diff --git a/fs/Makefile b/fs/Makefile
-index 0e97f4b85bee4..610ba6cf0e49c 100644
+index 0e97f4b85bee4..5ef37c17ee915 100644
 --- a/fs/Makefile
 +++ b/fs/Makefile
-@@ -13,6 +13,9 @@ obj-y :=	open.o read_write.o file_table.o super.o \
+@@ -13,6 +13,8 @@ obj-y :=	open.o read_write.o file_table.o super.o \
  		pnode.o splice.o sync.o utimes.o \
  		stack.o fs_struct.o statfs.o fs_pin.o nsfs.o
  
 +obj-$(CONFIG_KSU_SUSFS) += susfs.o
-+obj-$(CONFIG_KSU_SUSFS_SUS_SU) += sus_su.o
 +
  ifeq ($(CONFIG_BLOCK),y)
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
