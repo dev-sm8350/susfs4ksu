@@ -1,4 +1,5 @@
 #!/system/bin/sh
+PATH=/data/adb/ksu/bin:$PATH
 
 MODDIR=/data/adb/modules/susfs4ksu
 
@@ -65,8 +66,14 @@ ${SUSFS_BIN} add_try_umount /apex/com.android.art/bin/dex2oat64 1
 EOF
 
 #### Spoof the stat of file/directory dynamically ####
+## Important Note: 
+##  - All paths set with sus_kstat and bind mounted will not be added to try_umount list
+##  - It is stronly suggested to use dynamically if the target path will be mounted
 cat <<EOF >/dev/null
-# First, before bind mount your file/directory, use 'add_sus_kstat' to add the path #
+# First, clone the permission before adding to sus_kstat
+susfs_clone_perm "$MODDIR/hosts" /system/etc/hosts
+
+# Second, before bind mount your file/directory, use 'add_sus_kstat' to add the path #
 ${SUSFS_BIN} add_sus_kstat '/system/etc/hosts'
 
 # Now bind mount or overlay your path #
@@ -76,11 +83,13 @@ mount -o bind "$MODDIR/hosts" /system/etc/hosts
 # update_sus_kstat updates ino, but blocks and size are remained the same as current stat #
 ${SUSFS_BIN} update_sus_kstat '/system/etc/hosts'
 
-# if you want to fully clone the stat value from the original stat, use update_sus_kstat_full_clone instead #
-${SUSFS_BIN} update_sus_kstat_full_clone '/system/etc/hosts'
+# Or if you want to fully clone the stat value from the original stat, use update_sus_kstat_full_clone instead #
+#${SUSFS_BIN} update_sus_kstat_full_clone '/system/etc/hosts'
 EOF
 
 #### Spoof the stat of file/directory statically ####
+## Important Note:
+##  - It is suggested to use statically if you don't need to mount anything but simply change the stat of a target path
 cat <<EOF >/dev/null
 Usage: ksu_susfs add_sus_kstat_statically </path/of/file_or_directory> \
                         <ino> <dev> <nlink> <size> <atime> <atime_nsec> <mtime> <mtime_nsec> <ctime> <ctime_nsec> \

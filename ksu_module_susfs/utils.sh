@@ -1,4 +1,5 @@
 #!/system/bin/sh
+PATH=/data/adb/ksu/bin:$PATH
 
 ## susfs_clone_perm <file/or/dir/perm/to/be/changed> <file/or/dir/to/clone/from>
 susfs_clone_perm() {
@@ -7,11 +8,12 @@ susfs_clone_perm() {
 	if [ -z "${TO}" -o -z "${FROM}" ]; then
 		return
 	fi
-	CLONED_PERM_STRING=$(stat -c "%a %U %G %C" ${FROM})
+	## stat https://github.com/backslashxx/bindhosts/commit/427f18fe0b212ef2754e79c8aaaa72cb59ad253d#diff-8cb0da3b1680ce3a9f3263622042aa6f0250431fa5069513664650a17c48fdabR15
+	CLONED_PERM_STRING=$(stat -c "%a %U %G" ${FROM})
 	set ${CLONED_PERM_STRING}
 	chmod $1 ${TO}
 	chown $2:$3 ${TO}
-	chcon $4 ${TO}
+	busybox chcon --reference=${FROM} ${TO}
 }
 
 # USAGE: susfs_hexpatch_prop_name <prop name> <search value> <replace value>

@@ -1,4 +1,6 @@
 #!/system/bin/sh
+PATH=/data/adb/ksu/bin:$PATH
+
 MODDIR=/data/adb/modules/susfs4ksu
 
 SUSFS_BIN=/data/adb/ksu/bin/ksu_susfs
