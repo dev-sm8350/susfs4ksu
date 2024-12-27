@@ -1,5 +1,5 @@
 diff --git a/kernel/Kconfig b/kernel/Kconfig
-index 67f177f4..8628befd 100644
+index 67f177f4..d260c65a 100644
 --- a/kernel/Kconfig
 +++ b/kernel/Kconfig
 @@ -16,4 +16,147 @@ config KSU_DEBUG
@@ -19,7 +19,7 @@ index 67f177f4..8628befd 100644
 +    depends on KSU
 +    default y
 +    help
-+      - Enable to indicate the current KernelSU repo is forked by 5ec1cff
++      - Enable to indicate that the current SUSFS kernel supports the auto hide features for 5ec1cff's Magic Mount KernelSU
 +      - Every mounts from /debug_ramdisk/workdir will be treated as magic mount and processed differently by susfs
 +
 +config KSU_SUSFS_SUS_PATH
