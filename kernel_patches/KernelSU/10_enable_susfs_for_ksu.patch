@@ -328,7 +328,7 @@ index bed501c4..e02aa514 100644
  
  #endif
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 009216ef..c812d2bc 100644
+index 009216ef..8d0d502b 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -33,6 +33,10 @@
@@ -342,7 +342,7 @@ index 009216ef..c812d2bc 100644
  #include "allowlist.h"
  #include "arch.h"
  #include "core_hook.h"
-@@ -45,13 +49,30 @@
+@@ -45,13 +49,31 @@
  #include "throne_tracker.h"
  #include "kernel_compat.h"
  
@@ -361,6 +361,7 @@ index 009216ef..c812d2bc 100644
 +#ifdef CONFIG_KSU_SUSFS_SUS_SU
 +extern bool susfs_is_sus_su_ready;
 +#endif // #ifdef CONFIG_KSU_SUSFS_SUS_SU
++extern bool susfs_is_mnt_devname_ksu(struct path *path);
 +#endif // #ifdef CONFIG_KSU_SUSFS
 +
  static bool ksu_module_mounted = false;
@@ -375,7 +376,7 @@ index 009216ef..c812d2bc 100644
  		// we are manager, allow!
  		return true;
  	}
-@@ -110,7 +131,7 @@ static void setup_groups(struct root_profile *profile, struct cred *cred)
+@@ -110,7 +132,7 @@ static void setup_groups(struct root_profile *profile, struct cred *cred)
  	set_groups(cred, group_info);
  }
  
@@ -384,7 +385,7 @@ index 009216ef..c812d2bc 100644
  {
  	struct cred *cred;
  
-@@ -167,7 +188,7 @@ void escape_to_root(void)
+@@ -167,7 +189,7 @@ void escape_to_root(void)
  
  	setup_groups(profile, cred);
  
@@ -393,7 +394,7 @@ index 009216ef..c812d2bc 100644
  }
  
  int ksu_handle_rename(struct dentry *old_dentry, struct dentry *new_dentry)
-@@ -204,7 +225,7 @@ int ksu_handle_rename(struct dentry *old_dentry, struct dentry *new_dentry)
+@@ -204,7 +226,7 @@ int ksu_handle_rename(struct dentry *old_dentry, struct dentry *new_dentry)
  	pr_info("renameat: %s -> %s, new path: %s\n", old_dentry->d_iname,
  		new_dentry->d_iname, buf);
  
@@ -402,7 +403,7 @@ index 009216ef..c812d2bc 100644
  
  	return 0;
  }
-@@ -229,7 +250,7 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -229,7 +251,7 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  	}
  
  	bool from_root = 0 == current_uid().val;
@@ -411,7 +412,7 @@ index 009216ef..c812d2bc 100644
  
  	if (!from_root && !from_manager) {
  		// only root or manager can access this interface
-@@ -253,7 +274,7 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -253,7 +275,7 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  	if (arg2 == CMD_GRANT_ROOT) {
  		if (is_allow_su()) {
  			pr_info("allow root for: %d\n", current_uid().val);
@@ -420,7 +421,7 @@ index 009216ef..c812d2bc 100644
  			if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
  				pr_err("grant_root: prctl reply error\n");
  			}
-@@ -288,7 +309,7 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -288,7 +310,7 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  			if (!post_fs_data_lock) {
  				post_fs_data_lock = true;
  				pr_info("post-fs-data triggered\n");
@@ -429,7 +430,7 @@ index 009216ef..c812d2bc 100644
  			}
  			break;
  		}
-@@ -315,7 +336,7 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -315,7 +337,7 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		if (!from_root) {
  			return 0;
  		}
@@ -438,7 +439,7 @@ index 009216ef..c812d2bc 100644
  			if (copy_to_user(result, &reply_ok, sizeof(reply_ok))) {
  				pr_err("sepolicy: prctl reply error\n");
  			}
-@@ -376,6 +397,338 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
+@@ -376,6 +398,338 @@ int ksu_handle_prctl(int option, unsigned long arg2, unsigned long arg3,
  		return 0;
  	}
  
@@ -777,7 +778,23 @@ index 009216ef..c812d2bc 100644
  	// all other cmds are for 'root manager'
  	if (!from_manager) {
  		return 0;
-@@ -460,7 +813,11 @@ static int ksu_umount_mnt(struct path *path, int flags)
+@@ -443,11 +797,15 @@ static bool should_umount(struct path *path)
+ 		return false;
+ 	}
+ 
++#ifdef CONFIG_KSU_SUSFS
++	return susfs_is_mnt_devname_ksu(path);
++#else
+ 	if (path->mnt && path->mnt->mnt_sb && path->mnt->mnt_sb->s_type) {
+ 		const char *fstype = path->mnt->mnt_sb->s_type->name;
+ 		return strcmp(fstype, "overlay") == 0;
+ 	}
+ 	return false;
++#endif
+ }
+ 
+ static int ksu_umount_mnt(struct path *path, int flags)
+@@ -460,7 +818,11 @@ static int ksu_umount_mnt(struct path *path, int flags)
  #endif
  }
  
@@ -789,7 +806,7 @@ index 009216ef..c812d2bc 100644
  {
  	struct path path;
  	int err = kern_path(mnt, 0, &path);
-@@ -484,6 +841,19 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
+@@ -484,6 +846,19 @@ static void try_umount(const char *mnt, bool check_mnt, int flags)
  	}
  }
  
@@ -801,15 +818,15 @@ index 009216ef..c812d2bc 100644
 +	ksu_try_umount("/vendor", true, 0);
 +	ksu_try_umount("/product", true, 0);
 +	ksu_try_umount("/odm", true, 0);
-+	ksu_try_umount("/data/adb/modules", false, MNT_DETACH);
-+	ksu_try_umount("/debug_ramdisk", false, MNT_DETACH);
++	ksu_try_umount("/data/adb/modules", true, MNT_DETACH);
++	ksu_try_umount("/debug_ramdisk", true, MNT_DETACH);
 +}
 +#endif
 +
  int ksu_handle_setuid(struct cred *new, const struct cred *old)
  {
  	// this hook is used for umounting overlayfs for some uid, if there isn't any module mounted, just ignore it!
-@@ -503,6 +873,17 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -503,6 +878,17 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		return 0;
  	}
  
@@ -827,7 +844,7 @@ index 009216ef..c812d2bc 100644
  	if (!is_appuid(new_uid) || is_unsupported_uid(new_uid.val)) {
  		// pr_info("handle setuid ignore non application or isolated uid: %d\n", new_uid.val);
  		return 0;
-@@ -512,7 +893,16 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -512,7 +898,16 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		// pr_info("handle setuid ignore allowed application: %d\n", new_uid.val);
  		return 0;
  	}
@@ -844,7 +861,7 @@ index 009216ef..c812d2bc 100644
  	if (!ksu_uid_should_umount(new_uid.val)) {
  		return 0;
  	} else {
-@@ -521,31 +911,39 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -521,31 +916,39 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  #endif
  	}
  
