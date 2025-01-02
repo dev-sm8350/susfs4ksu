@@ -12,27 +12,37 @@ index 0e97f4b85bee4..5ef37c17ee915 100644
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
  else
 diff --git a/fs/dcache.c b/fs/dcache.c
-index 3934c29049c07..b3b755329a230 100644
+index 3934c29049c07..7ebc502fdd9b7 100644
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
-@@ -2218,6 +2218,11 @@ struct dentry *__d_lookup_rcu(const struct dentry *parent,
+@@ -41,6 +41,9 @@
+ #include <linux/list_lru.h>
+ #include <linux/kasan.h>
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++#include <linux/susfs_def.h>
++#endif
+ #include "internal.h"
+ #include "mount.h"
+ 
+@@ -2218,6 +2221,11 @@ struct dentry *__d_lookup_rcu(const struct dentry *parent,
  				continue;
  			if (dentry_cmp(dentry, str, hashlen_len(hashlen)) != 0)
  				continue;
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+			if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++			if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +				continue;
 +			}
 +#endif
  		}
  		*seqp = seq;
  		return dentry;
-@@ -2301,6 +2306,12 @@ struct dentry *__d_lookup(const struct dentry *parent, const struct qstr *name)
+@@ -2301,6 +2309,12 @@ struct dentry *__d_lookup(const struct dentry *parent, const struct qstr *name)
  		if (dentry->d_name.hash != hash)
  			continue;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+		if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++		if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +			continue;
 +		}
 +#endif
@@ -152,15 +162,25 @@ index 7f37f0d469a25..9d41e22f32046 100644
  		return;
  
 diff --git a/fs/namei.c b/fs/namei.c
-index 0cbf8f5a92f44..d2be5833b8b68 100644
+index 0cbf8f5a92f44..80a2fa0d93afc 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -931,6 +931,12 @@ static inline int may_follow_link(struct nameidata *nd)
+@@ -39,6 +39,9 @@
+ #include <linux/init_task.h>
+ #include <asm/uaccess.h>
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++#include <linux/susfs_def.h>
++#endif
+ #include "internal.h"
+ #include "mount.h"
+ 
+@@ -931,6 +934,12 @@ static inline int may_follow_link(struct nameidata *nd)
  	const struct inode *parent;
  	kuid_t puid;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (nd->inode && unlikely(nd->inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (nd->inode && unlikely(nd->inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		return -ENOENT;
 +	}
 +#endif
@@ -168,12 +188,12 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  	if (!sysctl_protected_symlinks)
  		return 0;
  
-@@ -1007,6 +1013,12 @@ static int may_linkat(struct path *link)
+@@ -1007,6 +1016,12 @@ static int may_linkat(struct path *link)
  {
  	struct inode *inode;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (link->dentry->d_inode && unlikely(link->dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (link->dentry->d_inode && unlikely(link->dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		return -ENOENT;
 +	}
 +#endif
@@ -181,12 +201,12 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  	if (!sysctl_protected_hardlinks)
  		return 0;
  
-@@ -1046,6 +1058,12 @@ static int may_linkat(struct path *link)
+@@ -1046,6 +1061,12 @@ static int may_linkat(struct path *link)
  static int may_create_in_sticky(umode_t dir_mode, kuid_t dir_uid,
  				struct inode * const inode)
  {
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (unlikely(inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (unlikely(inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		return -ENOENT;
 +	}
 +#endif
@@ -194,7 +214,7 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  	if ((!sysctl_protected_fifos && S_ISFIFO(inode->i_mode)) ||
  	    (!sysctl_protected_regular && S_ISREG(inode->i_mode)) ||
  	    likely(!(dir_mode & S_ISVTX)) ||
-@@ -1554,6 +1572,9 @@ static struct dentry *lookup_real(struct inode *dir, struct dentry *dentry,
+@@ -1554,6 +1575,9 @@ static struct dentry *lookup_real(struct inode *dir, struct dentry *dentry,
  				  unsigned int flags)
  {
  	struct dentry *old;
@@ -204,12 +224,12 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  
  	/* Don't create child dentry for a dead directory. */
  	if (unlikely(IS_DEADDIR(dir))) {
-@@ -1566,6 +1587,19 @@ static struct dentry *lookup_real(struct inode *dir, struct dentry *dentry,
+@@ -1566,6 +1590,19 @@ static struct dentry *lookup_real(struct inode *dir, struct dentry *dentry,
  		dput(dentry);
  		dentry = old;
  	}
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		if ((flags & (LOOKUP_CREATE | LOOKUP_EXCL))) {
 +			error = inode_permission(dir, MAY_WRITE | MAY_EXEC);
 +			if (error) {
@@ -224,12 +244,12 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  	return dentry;
  }
  
-@@ -1714,6 +1748,12 @@ static struct dentry *lookup_slow(const struct qstr *name,
+@@ -1714,6 +1751,12 @@ static struct dentry *lookup_slow(const struct qstr *name,
  			dentry = old;
  		}
  	}
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		dput(dentry);
 +		return ERR_PTR(-ENOENT);
 +	}
@@ -237,25 +257,25 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  out:
  	inode_unlock_shared(inode);
  	return dentry;
-@@ -2186,6 +2226,12 @@ static int link_path_walk(const char *name, struct nameidata *nd)
+@@ -2186,6 +2229,12 @@ static int link_path_walk(const char *name, struct nameidata *nd)
  			}
  			return -ENOTDIR;
  		}
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +		// we deal with sus sub path here
-+		if (nd->inode && unlikely(nd->inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++		if (nd->inode && unlikely(nd->inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +			return 0;
 +		}
 +#endif
  	}
  }
  
-@@ -2365,6 +2411,12 @@ static int filename_lookup(int dfd, struct filename *name, unsigned flags,
+@@ -2365,6 +2414,12 @@ static int filename_lookup(int dfd, struct filename *name, unsigned flags,
  	if (likely(!retval))
  		audit_inode(name, path->dentry, flags & LOOKUP_PARENT);
  	restore_nameidata();
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (!retval && path->dentry->d_inode && unlikely(path->dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (!retval && path->dentry->d_inode && unlikely(path->dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		putname(name);
 +		return -ENOENT;
 +	}
@@ -263,12 +283,12 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  	putname(name);
  	return retval;
  }
-@@ -2847,6 +2899,12 @@ static int may_delete(struct vfsmount *mnt, struct inode *dir, struct dentry *vi
+@@ -2847,6 +2902,12 @@ static int may_delete(struct vfsmount *mnt, struct inode *dir, struct dentry *vi
  	if (IS_APPEND(dir))
  		return -EPERM;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (unlikely(inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (unlikely(inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		return -ENOENT;
 +	}
 +#endif
@@ -276,7 +296,7 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  	if (check_sticky(dir, inode) || IS_APPEND(inode) ||
  	    IS_IMMUTABLE(inode) || IS_SWAPFILE(inode) || HAS_UNMAPPED_ID(inode))
  		return -EPERM;
-@@ -2875,8 +2933,20 @@ static int may_delete(struct vfsmount *mnt, struct inode *dir, struct dentry *vi
+@@ -2875,8 +2936,20 @@ static int may_delete(struct vfsmount *mnt, struct inode *dir, struct dentry *vi
   */
  static inline int may_create(struct vfsmount *mnt, struct inode *dir, struct dentry *child)
  {
@@ -286,7 +306,7 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  	struct user_namespace *s_user_ns;
  	audit_inode_child(dir, child, AUDIT_TYPE_CHILD_CREATE);
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (child->d_inode && unlikely(child->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (child->d_inode && unlikely(child->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		error = inode_permission2(mnt, dir, MAY_WRITE | MAY_EXEC);
 +		if (error) {
 +			return error;
@@ -297,12 +317,12 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  	if (child->d_inode)
  		return -EEXIST;
  	if (IS_DEADDIR(dir))
-@@ -2981,6 +3051,12 @@ static int may_open(struct path *path, int acc_mode, int flag)
+@@ -2981,6 +3054,12 @@ static int may_open(struct path *path, int acc_mode, int flag)
  	if (!inode)
  		return -ENOENT;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (unlikely(inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (unlikely(inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		return -ENOENT;
 +	}
 +#endif
@@ -310,14 +330,14 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  	switch (inode->i_mode & S_IFMT) {
  	case S_IFLNK:
  		return -ELOOP;
-@@ -3052,7 +3128,20 @@ static inline int open_to_namei_flags(int flag)
+@@ -3052,7 +3131,20 @@ static inline int open_to_namei_flags(int flag)
  static int may_o_create(const struct path *dir, struct dentry *dentry, umode_t mode)
  {
  	struct user_namespace *s_user_ns;
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +	int error;
 +
-+	if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		error = inode_permission2(dir->mnt, dir->dentry->d_inode, MAY_WRITE | MAY_EXEC);
 +		if (error) {
 +			return error;
@@ -331,12 +351,12 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  	if (error)
  		return error;
  
-@@ -3199,6 +3288,12 @@ static int lookup_open(struct nameidata *nd, struct path *path,
+@@ -3199,6 +3291,12 @@ static int lookup_open(struct nameidata *nd, struct path *path,
  	}
  	if (dentry->d_inode) {
  		/* Cached positive dentry: will open in f_op->open */
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+		if (unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++		if (unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +			dput(dentry);
 +			return -ENOENT;
 +		}
@@ -344,12 +364,12 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  		goto out_no_open;
  	}
  
-@@ -3242,6 +3337,16 @@ static int lookup_open(struct nameidata *nd, struct path *path,
+@@ -3242,6 +3340,16 @@ static int lookup_open(struct nameidata *nd, struct path *path,
  				    mode, opened);
  		if (unlikely(error == -ENOENT) && create_error)
  			error = create_error;
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+		if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++		if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +			if (create_error) {
 +				dput(dentry);
 +				return create_error;
@@ -361,12 +381,12 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  		return error;
  	}
  
-@@ -3257,6 +3362,12 @@ static int lookup_open(struct nameidata *nd, struct path *path,
+@@ -3257,6 +3365,12 @@ static int lookup_open(struct nameidata *nd, struct path *path,
  			}
  			dput(dentry);
  			dentry = res;
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+			if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++			if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +				dput(dentry);
 +				return -ENOENT;
 +			}
@@ -374,7 +394,7 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  		}
  	}
  
-@@ -3612,12 +3723,19 @@ static struct file *path_openat(struct nameidata *nd,
+@@ -3612,12 +3726,19 @@ static struct file *path_openat(struct nameidata *nd,
  	return file;
  }
  
@@ -394,7 +414,7 @@ index 0cbf8f5a92f44..d2be5833b8b68 100644
  
  	set_nameidata(&nd, dfd, pathname);
  	filp = path_openat(&nd, op, flags | LOOKUP_RCU);
-@@ -3625,6 +3743,25 @@ struct file *do_filp_open(int dfd, struct filename *pathname,
+@@ -3625,6 +3746,25 @@ struct file *do_filp_open(int dfd, struct filename *pathname,
  		filp = path_openat(&nd, op, flags);
  	if (unlikely(filp == ERR_PTR(-ESTALE)))
  		filp = path_openat(&nd, op, flags | LOOKUP_REVAL);
@@ -922,26 +942,44 @@ index 6863773aff252..101f5cf807e81 100644
  	if (sb->s_op->show_devname) {
  		seq_puts(m, "device ");
 diff --git a/fs/readdir.c b/fs/readdir.c
-index 1059f2a9be0b2..cb5c2e317e232 100644
+index 1059f2a9be0b2..17f50d9426dc0 100644
 --- a/fs/readdir.c
 +++ b/fs/readdir.c
-@@ -286,6 +286,10 @@ struct getdents_callback64 {
- 	int error;
- };
+@@ -18,9 +18,16 @@
+ #include <linux/security.h>
+ #include <linux/syscalls.h>
+ #include <linux/unistd.h>
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++#include <linux/susfs_def.h>
++#endif
+ 
+ #include <asm/uaccess.h>
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +extern int susfs_sus_ino_for_filldir64(unsigned long ino);
 +#endif
 +
- static int filldir64(struct dir_context *ctx, const char *name, int namlen,
- 		     loff_t offset, u64 ino, unsigned int d_type)
+ int iterate_dir(struct file *file, struct dir_context *ctx)
  {
-@@ -295,6 +299,11 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
+ 	struct inode *inode = file_inode(file);
+@@ -206,6 +213,11 @@ static int filldir(struct dir_context *ctx, const char *name, int namlen,
+ 	int reclen = ALIGN(offsetof(struct linux_dirent, d_name) + namlen + 2,
+ 		sizeof(long));
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino)) {
++		return 0;
++	}
++#endif
+ 	buf->error = verify_dirent_name(name, namlen);
+ 	if (unlikely(buf->error))
+ 		return buf->error;
+@@ -295,6 +307,11 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
  	int reclen = ALIGN(offsetof(struct linux_dirent64, d_name) + namlen + 1,
  		sizeof(u64));
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (likely(current_cred()->user->android_kabi_reserved2 & 16777216) && susfs_sus_ino_for_filldir64(ino)) {
++	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino)) {
 +		return 0;
 +	}
 +#endif
@@ -1030,32 +1068,20 @@ index 5615a9eb59db4..3f2624d9d69a4 100644
  
  struct file; /* forward dec */
 diff --git a/include/linux/sched.h b/include/linux/sched.h
-index 45a72ce822454..8d900d3a27e41 100644
+index 45a72ce822454..4d0944e77eb28 100644
 --- a/include/linux/sched.h
 +++ b/include/linux/sched.h
-@@ -968,6 +968,10 @@ struct user_struct {
- #if defined(CONFIG_PERF_EVENTS) || defined(CONFIG_BPF_SYSCALL)
- 	atomic_long_t locked_vm;
- #endif
-+
-+#ifdef CONFIG_KSU_SUSFS
-+	u64 android_kabi_reserved2;
-+#endif
- };
- 
- extern int uids_sysfs_init(void);
-@@ -2203,6 +2207,11 @@ struct task_struct {
- 	/* A live task holds one reference. */
+@@ -2204,6 +2204,10 @@ struct task_struct {
  	atomic_t stack_refcount;
  #endif
-+
+ /* CPU-specific state of this task */
 +#ifdef CONFIG_KSU_SUSFS
++	u64 susfs_task_state;
 +	u64 android_kabi_reserved8;
 +#endif
-+
- /* CPU-specific state of this task */
  	struct thread_struct thread;
  /*
+  * WARNING: on x86, 'thread_struct' contains a variable-sized
 diff --git a/kernel/kallsyms.c b/kernel/kallsyms.c
 index a0c3365c884b6..0284103451dd2 100644
 --- a/kernel/kallsyms.c
