@@ -12,27 +12,37 @@ index 3d717a67d435..1e1a4980a2f4 100644
  obj-y +=	buffer.o block_dev.o direct-io.o mpage.o
  else
 diff --git a/fs/dcache.c b/fs/dcache.c
-index 78081bdc4931..7965ba9867ec 100644
+index 78081bdc4931..affc214f9637 100644
 --- a/fs/dcache.c
 +++ b/fs/dcache.c
-@@ -2295,6 +2295,11 @@ struct dentry *__d_lookup_rcu(const struct dentry *parent,
+@@ -32,6 +32,9 @@
+ #include <linux/bit_spinlock.h>
+ #include <linux/rculist_bl.h>
+ #include <linux/list_lru.h>
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++#include <linux/susfs_def.h>
++#endif
+ #include "internal.h"
+ #include "mount.h"
+ 
+@@ -2295,6 +2298,11 @@ struct dentry *__d_lookup_rcu(const struct dentry *parent,
  				continue;
  			if (dentry_cmp(dentry, str, hashlen_len(hashlen)) != 0)
  				continue;
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+			if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++			if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +				continue;
 +			}
 +#endif
  		}
  		*seqp = seq;
  		return dentry;
-@@ -2378,6 +2383,12 @@ struct dentry *__d_lookup(const struct dentry *parent, const struct qstr *name)
+@@ -2378,6 +2386,12 @@ struct dentry *__d_lookup(const struct dentry *parent, const struct qstr *name)
  		if (dentry->d_name.hash != hash)
  			continue;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+		if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++		if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +			continue;
 +		}
 +#endif
@@ -149,15 +159,26 @@ index 8b3ff3bfd662..d59ce6a8971b 100644
  		return;
  
 diff --git a/fs/namei.c b/fs/namei.c
-index 48c57bf25591..5b4c441c4e2b 100644
+index 48c57bf25591..73f959d633e6 100644
 --- a/fs/namei.c
 +++ b/fs/namei.c
-@@ -987,6 +987,12 @@ static inline int may_follow_link(struct nameidata *nd)
+@@ -39,7 +39,9 @@
+ #include <linux/bitops.h>
+ #include <linux/init_task.h>
+ #include <linux/uaccess.h>
+-
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++#include <linux/susfs_def.h>
++#endif
+ #include "internal.h"
+ #include "mount.h"
+ 
+@@ -987,6 +989,12 @@ static inline int may_follow_link(struct nameidata *nd)
  	const struct inode *parent;
  	kuid_t puid;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (nd->inode && unlikely(nd->inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (nd->inode && unlikely(nd->inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		return -ENOENT;
 +	}
 +#endif
@@ -165,12 +186,12 @@ index 48c57bf25591..5b4c441c4e2b 100644
  	if (!sysctl_protected_symlinks)
  		return 0;
  
-@@ -1064,6 +1070,12 @@ static int may_linkat(struct path *link)
+@@ -1064,6 +1072,12 @@ static int may_linkat(struct path *link)
  {
  	struct inode *inode = link->dentry->d_inode;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (inode && unlikely(inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (inode && unlikely(inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		return -ENOENT;
 +	}
 +#endif
@@ -178,12 +199,12 @@ index 48c57bf25591..5b4c441c4e2b 100644
  	/* Inode writeback is not safe when the uid or gid are invalid. */
  	if (!uid_valid(inode->i_uid) || !gid_valid(inode->i_gid))
  		return -EOVERFLOW;
-@@ -1105,6 +1117,12 @@ static int may_linkat(struct path *link)
+@@ -1105,6 +1119,12 @@ static int may_linkat(struct path *link)
  static int may_create_in_sticky(umode_t dir_mode, kuid_t dir_uid,
  				struct inode * const inode)
  {
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (unlikely(inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (unlikely(inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		return -ENOENT;
 +	}
 +#endif
@@ -191,7 +212,7 @@ index 48c57bf25591..5b4c441c4e2b 100644
  	if ((!sysctl_protected_fifos && S_ISFIFO(inode->i_mode)) ||
  	    (!sysctl_protected_regular && S_ISREG(inode->i_mode)) ||
  	    likely(!(dir_mode & S_ISVTX)) ||
-@@ -1608,6 +1626,9 @@ static struct dentry *__lookup_hash(const struct qstr *name,
+@@ -1608,6 +1628,9 @@ static struct dentry *__lookup_hash(const struct qstr *name,
  	struct dentry *dentry = lookup_dcache(name, base, flags);
  	struct dentry *old;
  	struct inode *dir = base->d_inode;
@@ -201,20 +222,18 @@ index 48c57bf25591..5b4c441c4e2b 100644
  
  	if (dentry)
  		return dentry;
-@@ -1625,6 +1646,21 @@ static struct dentry *__lookup_hash(const struct qstr *name,
+@@ -1625,6 +1648,19 @@ static struct dentry *__lookup_hash(const struct qstr *name,
  		dput(dentry);
  		dentry = old;
  	}
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		if ((flags & (LOOKUP_CREATE | LOOKUP_EXCL))) {
 +			error = inode_permission(dir, MAY_WRITE | MAY_EXEC);
 +			if (error) {
 +				dput(dentry);
 +				return ERR_PTR(error);
 +			}
-+			dput(dentry);
-+			return ERR_PTR(-ENOENT);
 +		}
 +		dput(dentry);
 +		return ERR_PTR(-ENOENT);
@@ -228,7 +247,7 @@ index 48c57bf25591..5b4c441c4e2b 100644
  		}
  	}
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		dput(dentry);
 +		return ERR_PTR(-ENOENT);
 +	}
@@ -242,7 +261,7 @@ index 48c57bf25591..5b4c441c4e2b 100644
  		}
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +		// we deal with sus sub path here
-+		if (nd->inode && unlikely(nd->inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++		if (nd->inode && unlikely(nd->inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +			return 0;
 +		}
 +#endif
@@ -254,7 +273,7 @@ index 48c57bf25591..5b4c441c4e2b 100644
  		audit_inode(name, path->dentry, 0);
  	restore_nameidata();
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (!retval && path->dentry->d_inode && unlikely(path->dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (!retval && path->dentry->d_inode && unlikely(path->dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		putname(name);
 +		return -ENOENT;
 +	}
@@ -267,7 +286,7 @@ index 48c57bf25591..5b4c441c4e2b 100644
  		return -EPERM;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (unlikely(inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (unlikely(inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		return -ENOENT;
 +	}
 +#endif
@@ -285,7 +304,7 @@ index 48c57bf25591..5b4c441c4e2b 100644
  	struct user_namespace *s_user_ns;
  	audit_inode_child(dir, child, AUDIT_TYPE_CHILD_CREATE);
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (child->d_inode && unlikely(child->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (child->d_inode && unlikely(child->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		error = inode_permission(dir, MAY_WRITE | MAY_EXEC);
 +		if (error) {
 +			return error;
@@ -301,7 +320,7 @@ index 48c57bf25591..5b4c441c4e2b 100644
  		return -ENOENT;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (unlikely(inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (unlikely(inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		return -ENOENT;
 +	}
 +#endif
@@ -316,7 +335,7 @@ index 48c57bf25591..5b4c441c4e2b 100644
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +	int error;
 +
-+	if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++	if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +		error = inode_permission(dir->dentry->d_inode, MAY_WRITE | MAY_EXEC);
 +		if (error) {
 +			return error;
@@ -335,7 +354,7 @@ index 48c57bf25591..5b4c441c4e2b 100644
  	if (dentry->d_inode) {
  		/* Cached positive dentry: will open in f_op->open */
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+		if (unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++		if (unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +			dput(dentry);
 +			return -ENOENT;
 +		}
@@ -348,7 +367,7 @@ index 48c57bf25591..5b4c441c4e2b 100644
  		if (unlikely(error == -ENOENT) && create_error)
  			error = create_error;
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+		if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++		if (!IS_ERR(dentry) && dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +			if (create_error) {
 +				dput(dentry);
 +				return create_error;
@@ -365,7 +384,7 @@ index 48c57bf25591..5b4c441c4e2b 100644
  			dput(dentry);
  			dentry = res;
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+			if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current_cred()->user->android_kabi_reserved2 & 16777216)) {
++			if (dentry->d_inode && unlikely(dentry->d_inode->i_state & 16777216) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
 +				dput(dentry);
 +				return -ENOENT;
 +			}
@@ -420,7 +439,7 @@ index 48c57bf25591..5b4c441c4e2b 100644
  	return filp;
  }
 diff --git a/fs/namespace.c b/fs/namespace.c
-index 5782cd55dfdb..15cd0404e0f7 100644
+index 5782cd55dfdb..75fa86bb91bf 100644
 --- a/fs/namespace.c
 +++ b/fs/namespace.c
 @@ -34,6 +34,23 @@
@@ -517,7 +536,7 @@ index 5782cd55dfdb..15cd0404e0f7 100644
  	lock_mount_hash();
  	list_add_tail(&mnt->mnt_instance, &sb->s_mounts);
  	unlock_mount_hash();
-@@ -1973,6 +2059,17 @@ static int invent_group_ids(struct mount *mnt, bool recurse)
+@@ -1973,6 +2029,17 @@ static int invent_group_ids(struct mount *mnt, bool recurse)
  {
  	struct mount *p;
  
@@ -535,7 +554,7 @@ index 5782cd55dfdb..15cd0404e0f7 100644
  	for (p = mnt; p; p = recurse ? next_mnt(p, mnt) : NULL) {
  		if (!p->mnt_group_id && !IS_MNT_SHARED(p)) {
  			int err = mnt_alloc_group_id(p);
-@@ -2331,6 +2428,24 @@ static int do_loopback(struct path *path, const char *old_name,
+@@ -2331,6 +2398,24 @@ static int do_loopback(struct path *path, const char *old_name,
  		umount_tree(mnt, UMOUNT_SYNC);
  		unlock_mount_hash();
  	}
@@ -560,7 +579,7 @@ index 5782cd55dfdb..15cd0404e0f7 100644
  out2:
  	unlock_mount(mp);
  out:
-@@ -3163,6 +3278,12 @@ long do_mount(const char *dev_name, const char __user *dir_name,
+@@ -3163,6 +3248,12 @@ long do_mount(const char *dev_name, const char __user *dir_name,
  		retval = do_new_mount(&path, type_page, sb_flags, mnt_flags,
  				      dev_name, data_page);
  dput_out:
@@ -573,7 +592,7 @@ index 5782cd55dfdb..15cd0404e0f7 100644
  	path_put(&path);
  	return retval;
  }
-@@ -3239,6 +3360,10 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
+@@ -3239,6 +3330,10 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
  	struct mount *old;
  	struct mount *new;
  	int copy_flags;
@@ -584,7 +603,7 @@ index 5782cd55dfdb..15cd0404e0f7 100644
  
  	BUG_ON(!ns);
  
-@@ -3258,6 +3383,13 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
+@@ -3258,6 +3353,13 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
  	copy_flags = CL_COPY_UNBINDABLE | CL_EXPIRE;
  	if (user_ns != ns->user_ns)
  		copy_flags |= CL_SHARED_TO_SLAVE;
@@ -598,7 +617,7 @@ index 5782cd55dfdb..15cd0404e0f7 100644
  	new = copy_tree(old, old->mnt.mnt_root, copy_flags);
  	if (IS_ERR(new)) {
  		namespace_unlock();
-@@ -3299,6 +3431,29 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
+@@ -3299,6 +3401,29 @@ struct mnt_namespace *copy_mnt_ns(unsigned long flags, struct mnt_namespace *ns,
  		while (p->mnt.mnt_root != q->mnt.mnt_root)
  			p = next_mnt(p, old);
  	}
@@ -628,7 +647,7 @@ index 5782cd55dfdb..15cd0404e0f7 100644
  	namespace_unlock();
  
  	if (rootmnt)
-@@ -3581,6 +3736,12 @@ SYSCALL_DEFINE5(move_mount,
+@@ -3581,6 +3706,12 @@ SYSCALL_DEFINE5(move_mount,
  	path_put(&to_path);
  out_from:
  	path_put(&from_path);
@@ -641,7 +660,7 @@ index 5782cd55dfdb..15cd0404e0f7 100644
  	return ret;
  }
  
-@@ -4037,3 +4198,37 @@ const struct proc_ns_operations mntns_operations = {
+@@ -4037,3 +4168,37 @@ const struct proc_ns_operations mntns_operations = {
  	.install	= mntns_install,
  	.owner		= mntns_owner,
  };
@@ -887,26 +906,49 @@ index 273ee82d8aa9..8bd9cebd69c4 100644
  	if (sb->s_op->show_devname) {
  		seq_puts(m, "device ");
 diff --git a/fs/readdir.c b/fs/readdir.c
-index 07a3b5baa404..b8cf4c936fa8 100644
+index 07a3b5baa404..655e76c28b7a 100644
 --- a/fs/readdir.c
 +++ b/fs/readdir.c
-@@ -309,6 +309,10 @@ struct getdents_callback64 {
- 	int error;
- };
+@@ -21,7 +21,9 @@
+ #include <linux/unistd.h>
+ #include <linux/compat.h>
+ #include <linux/uaccess.h>
+-
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++#include <linux/susfs_def.h>
++#endif
+ #include <asm/unaligned.h>
  
+ /*
+@@ -36,7 +38,9 @@
+ 	unsafe_copy_to_user(dst, src, len, label);		\
+ } while (0)
+ 
+-
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +extern int susfs_sus_ino_for_filldir64(unsigned long ino);
 +#endif
-+
- static int filldir64(struct dir_context *ctx, const char *name, int namlen,
- 		     loff_t offset, u64 ino, unsigned int d_type)
+ int iterate_dir(struct file *file, struct dir_context *ctx)
  {
-@@ -319,6 +323,11 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
+ 	struct inode *inode = file_inode(file);
+@@ -229,6 +233,11 @@ static int filldir(struct dir_context *ctx, const char *name, int namlen,
+ 		sizeof(long));
+ 	int prev_reclen;
+ 
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino)) {
++		return 0;
++	}
++#endif
+ 	buf->error = verify_dirent_name(name, namlen);
+ 	if (unlikely(buf->error))
+ 		return buf->error;
+@@ -319,6 +328,11 @@ static int filldir64(struct dir_context *ctx, const char *name, int namlen,
  		sizeof(u64));
  	int prev_reclen;
  
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
-+	if (likely(current_cred()->user->android_kabi_reserved2 & 16777216) && susfs_sus_ino_for_filldir64(ino)) {
++	if (likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC) && susfs_sus_ino_for_filldir64(ino)) {
 +		return 0;
 +	}
 +#endif
@@ -1011,6 +1053,22 @@ index 4960c69cc47c..8a8c715b9a84 100644
  	return error;
  }
  
+diff --git a/include/linux/sched.h b/include/linux/sched.h
+index 3b6cd312986b..b9b46abc837b 100644
+--- a/include/linux/sched.h
++++ b/include/linux/sched.h
+@@ -1307,7 +1307,11 @@ struct task_struct {
+ 	ANDROID_KABI_RESERVE(4);
+ 	ANDROID_KABI_RESERVE(5);
+ 	ANDROID_KABI_RESERVE(6);
++#ifdef CONFIG_KSU_SUSFS_SUS_PATH
++	ANDROID_KABI_USE(7, u64 susfs_task_state);
++#else
+ 	ANDROID_KABI_RESERVE(7);
++#endif
+ 	ANDROID_KABI_RESERVE(8);
+ 
+ 	/*
 diff --git a/kernel/kallsyms.c b/kernel/kallsyms.c
 index 14de0c7bf756..a4c563980af4 100644
 --- a/kernel/kallsyms.c

@@ -13,8 +13,8 @@
 1. Make sure you follow the offical KSU guild here to clone and build the kernel with KSU: `https://kernelsu.org/guide/how-to-build.html`, the kernel root directory should be `$KERNEL_REPO/common`, you should run script to clone KSU in `$KERNEL_REPO`
 2. Run `cp ./kernel_patches/KernelSU/10_enable_susfs_for_ksu.patch $KERNEL_REPO/KernelSU/`
 3. Run `cp ./kernel_patches/50_add_susfs_in_kernel-<kernel_version>.patch $KERNEL_REPO/common/`
-4. Run `cp ./kernel_patches/fs/susfs.c $KERNEL_REPO/common/fs/`
-5. Run `cp ./kernel_patches/include/linux/susfs.h $KERNEL_REPO/common/include/linux/`
+4. Run `cp ./kernel_patches/fs/* $KERNEL_REPO/common/fs/`
+5. Run `cp ./kernel_patches/include/linux/* $KERNEL_REPO/common/include/linux/`
 6. Run `cd $KERNEL_REPO/KernelSU` and then `patch -p1 < 10_enable_susfs_for_ksu.patch`
 7. Run `cd $KERNEL_REPO/common` and then `patch -p1 < 50_add_susfs_in_kernel.patch`, **if there are failed patches, you may try to patch them manually by yourself.**
 8. Make sure again to have `CONFIG_KSU` and `CONFIG_KSU_SUSFS` enabled before building the kernel, some other SUSFS feature may be disabled by default, you may enable/disable them via `menuconfig`, `kernel defconfig`, or change the `default [y|n]` option under each `config KSU_SUSFS_` option in `$KernelSU_repo/kernel/Kconfig` if you build with a new defconfig every time.

@@ -328,7 +328,7 @@ index bed501c4..e02aa514 100644
  
  #endif
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 009216ef..8d0d502b 100644
+index 009216ef..23c96053 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -33,6 +33,10 @@
@@ -844,14 +844,15 @@ index 009216ef..8d0d502b 100644
  	if (!is_appuid(new_uid) || is_unsupported_uid(new_uid.val)) {
  		// pr_info("handle setuid ignore non application or isolated uid: %d\n", new_uid.val);
  		return 0;
-@@ -512,7 +898,16 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -512,7 +898,17 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		// pr_info("handle setuid ignore allowed application: %d\n", new_uid.val);
  		return 0;
  	}
 +#ifdef CONFIG_KSU_SUSFS_SUS_PATH
 +	else {
-+		// if new uid is not root granted, then drop a payload to inidicate that sus_path will be effective on this uid
-+		new->user->android_kabi_reserved2 |= USER_STRUCT_KABI2_NON_ROOT_USER_APP_PROFILE;
++		task_lock(current);
++		current->susfs_task_state |= TASK_STRUCT_NON_ROOT_USER_APP_PROC;
++		task_unlock(current);
 +	}
 +#endif
  
@@ -861,7 +862,7 @@ index 009216ef..8d0d502b 100644
  	if (!ksu_uid_should_umount(new_uid.val)) {
  		return 0;
  	} else {
-@@ -521,31 +916,39 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -521,31 +917,39 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  #endif
  	}
  
