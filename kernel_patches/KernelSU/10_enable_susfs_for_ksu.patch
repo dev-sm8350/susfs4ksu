@@ -329,7 +329,7 @@ index bed501c4..e02aa514 100644
  
  #endif
 diff --git a/kernel/core_hook.c b/kernel/core_hook.c
-index 009216ef..23c96053 100644
+index 009216ef..9698406b 100644
 --- a/kernel/core_hook.c
 +++ b/kernel/core_hook.c
 @@ -33,6 +33,10 @@
@@ -827,7 +827,7 @@ index 009216ef..23c96053 100644
  int ksu_handle_setuid(struct cred *new, const struct cred *old)
  {
  	// this hook is used for umounting overlayfs for some uid, if there isn't any module mounted, just ignore it!
-@@ -503,6 +878,17 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -503,6 +878,22 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		return 0;
  	}
  
@@ -837,7 +837,12 @@ index 009216ef..23c96053 100644
 +	if (likely(is_zygote_child)) {
 +		// if spawned process is non user app process, run ksu_try_umount()
 +		if (unlikely(new_uid.val < 10000 && new_uid.val >= 1000)) {
-+			goto out_ksu_try_umount;
++			struct path path;
++			// umount for the system process if path "/data/adb/susfs_umount_for_zygote_system_process" exists
++			if (!kern_path("/data/adb/susfs_umount_for_zygote_system_process", 0, &path)) {
++				path_put(&path);
++				goto out_ksu_try_umount;
++			}
 +		}
 +	}
 +#endif
@@ -845,7 +850,7 @@ index 009216ef..23c96053 100644
  	if (!is_appuid(new_uid) || is_unsupported_uid(new_uid.val)) {
  		// pr_info("handle setuid ignore non application or isolated uid: %d\n", new_uid.val);
  		return 0;
-@@ -512,7 +898,17 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -512,7 +903,17 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  		// pr_info("handle setuid ignore allowed application: %d\n", new_uid.val);
  		return 0;
  	}
@@ -863,7 +868,7 @@ index 009216ef..23c96053 100644
  	if (!ksu_uid_should_umount(new_uid.val)) {
  		return 0;
  	} else {
-@@ -521,31 +917,39 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
+@@ -521,31 +922,39 @@ int ksu_handle_setuid(struct cred *new, const struct cred *old)
  #endif
  	}
  
