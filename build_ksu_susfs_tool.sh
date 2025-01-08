@@ -13,7 +13,6 @@ cd ./ksu_susfs
 rm -rf libs obj 2>/dev/null
 ndk-build
 cp libs/arm64-v8a/ksu_susfs ../ksu_module_susfs/tools/ksu_susfs_arm64
-cp libs/armeabi-v7a/ksu_susfs ../ksu_module_susfs/tools/ksu_susfs_arm
 cd ${OLD_CWD}
 
 
