@@ -3,3 +3,4 @@ ksu_susfs/libs
 sus_su/obj
 sus_su/libs
 *.zip
+*.patch
