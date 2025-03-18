@@ -9,7 +9,7 @@ edition = "2021"
 anyhow = "1.0"
 clap = { version = "4.5", features = ["derive"] }
 const_format = "0.2"
-zip = { version = "2.2", default-features = false }
+zip = { version = "2.4", default-features = false }
 zip-extensions = { version = "0.8", features = [
     "deflate",
     "deflate64",
@@ -29,9 +29,9 @@ libc = "0.2"
 extattr = "1.0"
 jwalk = "0.8"
 is_executable = "1.0"
-nom = "7.1"
+nom = "8.0"
 derive-new = "0.7"
-rust-embed = { version = "8.5", features = [
+rust-embed = { version = "8.6", features = [
     "debug-embed",
     "compression", # must clean build after updating binaries
 ] }
@@ -39,7 +39,7 @@ which = "7.0"
 getopts = "0.2"
 sha256 = "1"
 sha1 = "0.10"
-tempfile = "3.14"
+tempfile = "3.17"
 chrono = "0.4"
 hole-punch = { git = "https://github.com/tiann/hole-punch" }
 regex-lite = "0.1"
@@ -54,7 +54,7 @@ procfs = "0.17"
 loopdev = { git = "https://github.com/Kernel-SU/loopdev" }
 
 [target.'cfg(target_os = "android")'.dependencies]
-android_logger = { version = "0.14", default-features = false }
+android_logger = { version = "0.15", default-features = false }
 
 [profile.release]
 strip = true
